@@ -76,47 +76,48 @@ app.get("/", (req, res) => {
 app.get("/api/trending", async (req, res) => {
   const page = parseInt(req.query.page) || 0;
   try {
-    // 確実に結果が出る幅広いキーワード群
-    const baseTopics = [
-      "音楽", "ニュース", "ゲーム実況", "エンタメ", 
-      "Vlog", "料理", "スポーツ", "アニメ", "バラエティ"
+    // 1. 本物のトレンドを抽出するためのシードキーワード群
+    // 単なる「急上昇」という言葉ではなく、YouTubeで常にトラフィックが高い「動詞」や「属性」を組み合わせる
+    const trendingSeeds = [
+      "人気急上昇", "最新 ニュース", "Music Video Official", 
+      "ゲーム実況 人気", "話題の動画", "トレンド", 
+      "Breaking News Japan", "Top Hits", "いま話題"
     ];
 
-    // キーワードをシャッフルして、毎回違うジャンルが混ざるようにする
-    const shuffledTopics = shuffleArray([...baseTopics]);
-    const seed1 = shuffledTopics[0];
-    const seed2 = shuffledTopics[1];
+    // ページ数に応じてシードを切り替え、常に新鮮なデータを確保
+    const seed1 = trendingSeeds[(page * 2) % trendingSeeds.length];
+    const seed2 = trendingSeeds[(page * 2 + 1) % trendingSeeds.length];
 
-    // 並列で取得して効率化
+    // 2. 複数の角度から検索を並列実行
     const [res1, res2] = await Promise.all([
-      yts.GetListByKeyword(seed1, false, 40),
-      yts.GetListByKeyword(seed2, false, 40)
+      yts.GetListByKeyword(seed1, false, 25),
+      yts.GetListByKeyword(seed2, false, 25)
     ]);
 
     let combined = [...(res1.items || []), ...(res2.items || [])];
-    const uniqueItemsMap = new Map();
+    const finalItems = [];
+    const seenIdsServer = new Set();
 
     for (const item of combined) {
-      if (item.type !== 'video') continue;
-
-      const titleLower = item.title.toLowerCase();
-      // ★絶対ショート動画を読み込まないフィルター
-      if (titleLower.includes('shorts') || titleLower.includes('#shorts') || titleLower.includes('ショート')) continue;
-      
-      const thumbUrl = item.thumbnail?.thumbnails?.[0]?.url || "";
-      if (thumbUrl.includes('shorts')) continue;
-
-      // 重複排除してマップに格納
-      if (!uniqueItemsMap.has(item.id)) {
-        uniqueItemsMap.set(item.id, item);
+      // 厳格なフィルタリング
+      // (1) 動画のみ (2) Shorts除外 (3) 重複除外 (4) チャンネルやプレイリストを除外
+      if (item.type === 'video' && 
+          !item.title.toLowerCase().includes('#shorts') && 
+          !item.title.toLowerCase().includes('shorts') &&
+          !seenIdsServer.has(item.id)) {
+        
+        // 人気動画らしい「指標（視聴回数テキスト）」があるかチェック（任意）
+        // 視聴回数が入っていないものは「急上昇」とは言えないため
+        if (item.viewCountText) {
+          seenIdsServer.add(item.id);
+          finalItems.push(item);
+        }
       }
     }
 
-    // 全体をシャッフルして、特定のジャンルが固まらないようにする
-    let finalItems = Array.from(uniqueItemsMap.values());
-    finalItems = shuffleArray(finalItems).slice(0, 30);
-
-    res.json({ items: finalItems });
+    // 3. 多様性を出すための加重シャッフル
+    const result = finalItems.sort(() => 0.5 - Math.random());
+    res.json({ items: result });
     
   } catch (err) {
     console.error("Trending API Error:", err);

@@ -77,10 +77,10 @@
   <div class="chips-bar">
     <div class="chip active" data-q="trending">すべて</div>
     <div class="chip" data-q="Official Music Video">音楽</div>
-    <div class="chip" data-q="ゲーム実況 配信">ゲーム</div>
+    <div class="chip" data-q="ゲーム実況 人気">ゲーム</div>
     <div class="chip" data-q="最新ニュース ライブ">ニュース</div>
     <div class="chip" data-q="バラエティ 公式">エンタメ</div>
-    <div class="chip" data-q="ガジェット レビュー">テック</div>
+    <div class="chip" data-q="最新ガジェット">テック</div>
   </div>
 
   <div class="container">
@@ -99,7 +99,6 @@
     let currentPage = 0;
     let currentQuery = '';
 
-    // 本当に人気のある動画を読み込む
     async function loadContent(query = '', page = 0) {
       if (isFetching) return;
       isFetching = true;
@@ -110,7 +109,6 @@
         videoGrid.innerHTML = '';
       }
 
-      // 'trending' の場合は専用APIを叩く
       const isDefault = !query || query === 'trending';
       const endpoint = isDefault 
         ? `/api/trending?page=${page}`
@@ -144,8 +142,7 @@
           videoGrid.appendChild(card);
         });
 
-        // 厳しいフィルタリングによってデータが少なくなった場合、自動で次ページを取得
-        if (items.length < 6 && page < 5) {
+        if (items.length < 8 && page < 5) {
           isFetching = false;
           loadContent(query, page + 1);
         }
@@ -158,17 +155,13 @@
       }
     }
 
-    // イベント設定
     searchForm.onsubmit = (e) => {
       e.preventDefault();
       const q = searchInput.value.trim();
       if (!q) return;
       currentQuery = q;
       currentPage = 0;
-      
-      // チップスのアクティブ状態を外す
       document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-      
       history.pushState(null, '', `/search?q=${encodeURIComponent(q)}`);
       loadContent(q, 0);
     };
@@ -188,15 +181,11 @@
         e.target.classList.add('active');
         currentQuery = e.target.dataset.q;
         currentPage = 0;
-        
-        // 検索バーの中身を空にする（チップス検索であることを明確にするため）
         searchInput.value = '';
-        
         loadContent(currentQuery, 0);
       }
     };
 
-    // 初期化
     window.onload = () => {
       const params = new URLSearchParams(window.location.search);
       const q = params.get('q');

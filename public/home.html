@@ -10,8 +10,6 @@
       --text: #ffffff;
       --text-muted: #aaaaaa;
       --accent: #ff0000;
-      --hover: #272727;
-      --search-bg: #121212;
       --border: #303030;
     }
     * { box-sizing: border-box; }
@@ -20,180 +18,44 @@
       background: var(--bg);
       color: var(--text);
       font-family: "Roboto", Arial, sans-serif;
-      overflow-y: scroll;
     }
 
     /* Header */
     header {
-      position: fixed;
-      top: 0;
-      width: 100%;
-      height: 56px;
-      background: var(--bg);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 16px;
-      z-index: 1000;
+      position: fixed; top: 0; width: 100%; height: 56px;
+      background: var(--bg); display: flex; align-items: center;
+      justify-content: space-between; padding: 0 16px; z-index: 1000;
     }
-    .logo {
-      font-size: 20px;
-      font-weight: bold;
-      text-decoration: none;
-      color: white;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
+    .logo { font-size: 20px; font-weight: bold; text-decoration: none; color: white; }
     .logo span { color: var(--accent); }
 
-    .search-area {
-      flex: 0 1 720px;
-      display: flex;
-      align-items: center;
-      position: relative;
-    }
-    .search-form {
-      display: flex;
-      width: 100%;
-      background: var(--search-bg);
-      border: 1px solid var(--border);
-      border-radius: 40px;
-      padding-left: 16px;
-      overflow: hidden;
-    }
-    .search-form input {
-      flex: 1;
-      background: transparent;
-      border: none;
-      color: white;
-      height: 40px;
-      font-size: 16px;
-      outline: none;
-    }
-    .search-form button {
-      background: #222;
-      border: none;
-      border-left: 1px solid var(--border);
-      color: white;
-      padding: 0 20px;
-      cursor: pointer;
-    }
-    .search-form button:hover { background: #333; }
+    .search-area { flex: 0 1 720px; display: flex; position: relative; }
+    .search-form { display: flex; width: 100%; background: #121212; border: 1px solid var(--border); border-radius: 40px; overflow: hidden; }
+    .search-form input { flex: 1; background: transparent; border: none; color: white; height: 40px; padding: 0 16px; outline: none; }
+    .search-form button { background: #222; border: none; border-left: 1px solid var(--border); color: white; padding: 0 20px; cursor: pointer; }
 
-    /* Category Chips */
+    /* Chips */
     .chips-bar {
-      position: fixed;
-      top: 56px;
-      width: 100%;
-      background: var(--bg);
-      padding: 12px 16px;
-      display: flex;
-      gap: 12px;
-      z-index: 999;
-      overflow-x: auto;
+      position: fixed; top: 56px; width: 100%; background: var(--bg);
+      padding: 12px 16px; display: flex; gap: 12px; overflow-x: auto; z-index: 999;
       scrollbar-width: none;
     }
-    .chip {
-      background: rgba(255,255,255,0.1);
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-size: 14px;
-      white-space: nowrap;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .chip:hover { background: rgba(255,255,255,0.2); }
+    .chip { background: rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 8px; font-size: 14px; white-space: nowrap; cursor: pointer; }
     .chip.active { background: white; color: black; }
 
-    /* Main Grid */
-    .container {
-      margin-top: 120px;
-      padding: 0 16px 40px 16px;
-    }
-    .video-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 16px;
-      row-gap: 32px;
-    }
+    /* Grid */
+    .container { margin-top: 120px; padding: 16px; }
+    .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; row-gap: 32px; }
 
-    .video-card {
-      cursor: pointer;
-      text-decoration: none;
-      color: inherit;
-    }
-    .thumbnail-wrap {
-      position: relative;
-      width: 100%;
-      aspect-ratio: 16/9;
-      background: #222;
-      border-radius: 12px;
-      overflow: hidden;
-      margin-bottom: 12px;
-    }
-    .thumbnail-wrap img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transition: transform 0.3s;
-    }
+    .video-card { cursor: pointer; text-decoration: none; color: inherit; }
+    .thumb { width: 100%; aspect-ratio: 16/9; background: #222; border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; transition: 0.3s; }
     .video-card:hover img { transform: scale(1.05); }
 
-    .video-info { display: flex; gap: 12px; }
-    .channel-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: #333;
-      flex-shrink: 0;
-    }
-    .meta h3 {
-      margin: 0;
-      font-size: 16px;
-      line-height: 1.4;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      margin-bottom: 4px;
-    }
-    .meta p {
-      margin: 0;
-      font-size: 14px;
-      color: var(--text-muted);
-    }
+    .meta h3 { margin: 0; font-size: 16px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .meta p { margin: 4px 0 0; font-size: 14px; color: var(--text-muted); }
 
-    /* Loading */
-    #loading {
-      text-align: center;
-      padding: 40px;
-      color: var(--text-muted);
-      font-size: 18px;
-    }
-
-    /* Autocomplete */
-    .suggestions {
-      position: absolute;
-      top: 45px;
-      left: 0;
-      right: 0;
-      background: #222;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-      z-index: 2000;
-      overflow: hidden;
-    }
-    .suggestion-item {
-      padding: 8px 16px;
-      cursor: pointer;
-    }
-    .suggestion-item:hover { background: #333; }
-
-    @media (max-width: 600px) {
-      .video-grid { grid-template-columns: 1fr; }
-      .search-area { flex: 1; }
-    }
+    #loading { text-align: center; padding: 20px; color: var(--text-muted); }
   </style>
 </head>
 <body>
@@ -201,10 +63,9 @@
     <a href="/" class="logo"><span>●</span>YouTube Pro</a>
     <div class="search-area">
       <form id="searchForm" class="search-form">
-        <input id="searchInput" type="text" placeholder="検索" autocomplete="off">
+        <input id="searchInput" type="text" placeholder="検索">
         <button type="submit">🔍</button>
       </form>
-      <div id="suggestions" class="suggestions" style="display:none;"></div>
     </div>
     <div style="width:40px;"></div>
   </header>
@@ -213,10 +74,8 @@
     <div class="chip active" data-q="trending">すべて</div>
     <div class="chip" data-q="音楽">音楽</div>
     <div class="chip" data-q="ゲーム">ゲーム</div>
-    <div class="chip" data-q="アニメ">アニメ</div>
-    <div class="chip" data-q="料理">料理</div>
     <div class="chip" data-q="ニュース">ニュース</div>
-    <div class="chip" data-q="テック">テック</div>
+    <div class="chip" data-q="お笑い">お笑い</div>
   </div>
 
   <div class="container">
@@ -228,63 +87,70 @@
     const videoGrid = document.getElementById('videoGrid');
     const searchForm = document.getElementById('searchForm');
     const searchInput = document.getElementById('searchInput');
-    const suggestionsBox = document.getElementById('suggestions');
     const loading = document.getElementById('loading');
 
+    // ★ 重複排除のためのセット
+    let displayedIds = new Set();
     let isFetching = false;
     let currentPage = 0;
     let currentQuery = '';
-
-    // --- Core Logic ---
 
     async function loadContent(query = '', page = 0) {
       if (isFetching) return;
       isFetching = true;
       loading.style.display = 'block';
 
-      const isSearch = query && query !== 'trending';
-      const endpoint = isSearch 
+      // 最初から読み込む場合はIDリストをリセット
+      if (page === 0) {
+        displayedIds.clear();
+        videoGrid.innerHTML = '';
+      }
+
+      const endpoint = (query && query !== 'trending')
         ? `/api/search?q=${encodeURIComponent(query)}&page=${page}`
-        : `/api/trending`;
+        : `/api/trending?page=${page}`;
 
       try {
         const res = await fetch(endpoint);
         const data = await res.json();
         const items = data.items || [];
 
-        if (page === 0) videoGrid.innerHTML = '';
-        
         items.forEach(item => {
-          if (item.type !== 'video') return;
+          // ★ 既に表示されているIDなら無視して次の動画へ
+          if (displayedIds.has(item.id)) return;
+          
+          displayedIds.add(item.id);
+
           const card = document.createElement('a');
           card.className = 'video-card';
           card.href = `/video/${item.id}`;
           card.innerHTML = `
-            <div class="thumbnail-wrap">
-              <img src="https://i3.ytimg.com/vi/${item.id}/mqdefault.jpg" loading="lazy">
-            </div>
-            <div class="video-info">
-              <div class="channel-icon"></div>
-              <div class="meta">
-                <h3>${item.title}</h3>
-                <p>${item.channelTitle || 'YouTube Pro User'}</p>
-                <p>${item.viewCountText || ''} ${item.publishedTimeText || ''}</p>
-              </div>
+            <div class="thumb"><img src="https://i3.ytimg.com/vi/${item.id}/mqdefault.jpg" loading="lazy"></div>
+            <div class="meta">
+              <h3>${item.title}</h3>
+              <p>${item.channelTitle || 'YouTube Pro User'}</p>
             </div>
           `;
           videoGrid.appendChild(card);
         });
+
+        // もし読み込んだ結果が少なすぎたら、自動的に次のページを試す（多様性確保）
+        if (items.length < 5 && page < 5) {
+          isFetching = false;
+          loadContent(query, page + 1);
+          return;
+        }
+
       } catch (err) {
-        console.error("Load error:", err);
+        console.error("Fetch Error:", err);
       } finally {
         isFetching = false;
         loading.style.display = 'none';
       }
     }
 
-    // --- Search & Direct Link Handling ---
-
-    function handleInitialLoad() {
+    // 初期化とイベント
+    function init() {
       const params = new URLSearchParams(window.location.search);
       const q = params.get('q');
       if (q) {
@@ -301,55 +167,32 @@
       const q = searchInput.value.trim();
       if (!q) return;
       currentQuery = q;
-      suggestionsBox.style.display = 'none';
       history.pushState(null, '', `/search?q=${encodeURIComponent(q)}`);
       loadContent(q, 0);
     };
 
-    // --- UX Enhancements ---
-
-    // Autocomplete
-    searchInput.oninput = async () => {
-      const q = searchInput.value.trim();
-      if (q.length < 2) { suggestionsBox.style.display = 'none'; return; }
-      const res = await fetch(`/api/autocomplete?q=${encodeURIComponent(q)}`);
-      const data = await res.json();
-      if (data.suggestions.length > 0) {
-        suggestionsBox.innerHTML = data.suggestions.map(s => `<div class="suggestion-item">${s}</div>`).join('');
-        suggestionsBox.style.display = 'block';
-      }
-    };
-
-    suggestionsBox.onclick = (e) => {
-      if (e.target.classList.contains('suggestion-item')) {
-        searchInput.value = e.target.innerText;
-        searchForm.onsubmit(new Event('submit'));
-      }
-    };
-
-    // Chips
-    document.querySelector('.chips-bar').onclick = (e) => {
-      if (e.target.classList.contains('chip')) {
-        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-        e.target.classList.add('active');
-        const q = e.target.dataset.q;
-        currentQuery = q === 'trending' ? '' : q;
-        loadContent(q, 0);
-      }
-    };
-
-    // Infinite Scroll
+    // 無限スクロール
     window.onscroll = () => {
-      if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
-        if (!isFetching && currentQuery) {
+      if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 800) {
+        if (!isFetching) {
           currentPage++;
-          loadContent(currentQuery, currentPage);
+          loadContent(currentQuery || 'trending', currentPage);
         }
       }
     };
 
-    window.onload = handleInitialLoad;
-    window.onpopstate = handleInitialLoad;
+    // チップス選択
+    document.querySelector('.chips-bar').onclick = (e) => {
+      if (e.target.classList.contains('chip')) {
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        e.target.classList.add('active');
+        currentPage = 0;
+        currentQuery = e.target.dataset.q;
+        loadContent(currentQuery, 0);
+      }
+    };
+
+    window.onload = init;
   </script>
 </body>
 </html>

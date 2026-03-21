@@ -1,662 +1,355 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>YouTube-Pro</title>
-  <meta name="description" content="YouTube-Pro - Red & Black themed video search and trending viewer" />
   <style>
-    /* Reset */
-    :root{
-      --bg:#0f0f0f;
-      --panel:#111111;
-      --muted:#bdbdbd;
-      --accent:#ff0000; /* YouTube red */
-      --card:#1a1a1a;
-      --glass: rgba(255,255,255,0.03);
-      --radius:10px;
-      --max-width:1200px;
-      --gap:16px;
-      --transition:200ms ease;
+    :root {
+      --bg: #0f0f0f;
+      --text: #ffffff;
+      --text-muted: #aaaaaa;
+      --accent: #ff0000;
+      --hover: #272727;
+      --search-bg: #121212;
+      --border: #303030;
     }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;
-      font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", sans-serif;
-      background:linear-gradient(180deg,var(--bg),#070707);
-      color:#fff;
-      -webkit-font-smoothing:antialiased;
-      -moz-osx-font-smoothing:grayscale;
-      line-height:1.4;
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Roboto", Arial, sans-serif;
+      overflow-y: scroll;
     }
 
     /* Header */
-    header.site-header{
-      position:sticky;
-      top:0;
-      z-index:1000;
-      display:flex;
-      align-items:center;
-      gap:12px;
-      padding:10px 18px;
-      background:linear-gradient(90deg, rgba(0,0,0,0.6), rgba(0,0,0,0.4));
-      border-bottom:1px solid rgba(255,255,255,0.03);
-      backdrop-filter: blur(6px);
+    header {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      height: 56px;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 1000;
     }
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      text-decoration:none;
-      color:inherit;
+    .logo {
+      font-size: 20px;
+      font-weight: bold;
+      text-decoration: none;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
-    .logo{
-      width:44px;
-      height:28px;
-      background:var(--accent);
-      border-radius:6px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-weight:700;
-      color:#fff;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.6);
-      flex-shrink:0;
+    .logo span { color: var(--accent); }
+
+    .search-area {
+      flex: 0 1 720px;
+      display: flex;
+      align-items: center;
+      position: relative;
     }
-    .brand h1{
-      font-size:18px;
-      margin:0;
-      letter-spacing:0.2px;
+    .search-form {
+      display: flex;
+      width: 100%;
+      background: var(--search-bg);
+      border: 1px solid var(--border);
+      border-radius: 40px;
+      padding-left: 16px;
+      overflow: hidden;
+    }
+    .search-form input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: white;
+      height: 40px;
+      font-size: 16px;
+      outline: none;
+    }
+    .search-form button {
+      background: #222;
+      border: none;
+      border-left: 1px solid var(--border);
+      color: white;
+      padding: 0 20px;
+      cursor: pointer;
+    }
+    .search-form button:hover { background: #333; }
+
+    /* Category Chips */
+    .chips-bar {
+      position: fixed;
+      top: 56px;
+      width: 100%;
+      background: var(--bg);
+      padding: 12px 16px;
+      display: flex;
+      gap: 12px;
+      z-index: 999;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .chip {
+      background: rgba(255,255,255,0.1);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .chip:hover { background: rgba(255,255,255,0.2); }
+    .chip.active { background: white; color: black; }
+
+    /* Main Grid */
+    .container {
+      margin-top: 120px;
+      padding: 0 16px 40px 16px;
+    }
+    .video-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+      row-gap: 32px;
     }
 
-    /* Search */
-    .search-wrap{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      margin-left:12px;
-      flex:1;
-      max-width:720px;
+    .video-card {
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
     }
-    .search-box{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      background:var(--panel);
-      padding:8px;
-      border-radius:8px;
-      width:100%;
-      border:1px solid rgba(255,255,255,0.03);
+    .thumbnail-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: #222;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 12px;
     }
-    .search-box input[type="search"]{
-      background:transparent;
-      border:0;
-      outline:0;
-      color: #fff;
-      font-size:15px;
-      width:100%;
+    .thumbnail-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.3s;
     }
-    .search-btn{
-      background:var(--accent);
-      border:0;
-      color:#fff;
-      padding:8px 12px;
-      border-radius:6px;
-      cursor:pointer;
-      font-weight:600;
+    .video-card:hover img { transform: scale(1.05); }
+
+    .video-info { display: flex; gap: 12px; }
+    .channel-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #333;
+      flex-shrink: 0;
+    }
+    .meta h3 {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 4px;
+    }
+    .meta p {
+      margin: 0;
+      font-size: 14px;
+      color: var(--text-muted);
     }
 
-    /* Main layout */
-    .container{
-      max-width:var(--max-width);
-      margin:20px auto;
-      padding:0 16px;
-    }
-    .layout{
-      display:grid;
-      grid-template-columns: 240px 1fr;
-      gap:var(--gap);
-      align-items:start;
-    }
-
-    /* Left nav */
-    nav.side-nav{
-      background:var(--card);
-      border-radius:var(--radius);
-      padding:12px;
-      border:1px solid rgba(255,255,255,0.03);
-      height:fit-content;
-    }
-    .nav-item{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px;
-      border-radius:8px;
-      color:var(--muted);
-      cursor:pointer;
-      text-decoration:none;
-      margin-bottom:6px;
-    }
-    .nav-item:hover{ background:rgba(255,255,255,0.02); color:#fff; }
-    .nav-item.active{ background:rgba(255,0,0,0.12); color:#fff; border-left:4px solid var(--accent); padding-left:8px; }
-
-    /* Content area */
-    main.content{
-      min-height:60vh;
-    }
-
-    /* Trending header */
-    .section-header{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:12px;
-    }
-    .section-title{
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-    .section-title h2{
-      margin:0;
-      font-size:20px;
-    }
-    .chip{
-      background:rgba(255,255,255,0.03);
-      padding:6px 10px;
-      border-radius:999px;
-      color:var(--muted);
-      font-size:13px;
-    }
-
-    /* Video grid - expanded cards that can span width */
-    .videos-grid{
-      display:grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap:16px;
-    }
-    .video-card{
-      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-      border-radius:12px;
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,0.03);
-      transition: transform var(--transition), box-shadow var(--transition);
-      display:flex;
-      flex-direction:column;
-    }
-    .video-card:hover{
-      transform: translateY(-6px);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-    }
-    .thumb{
-      width:100%;
-      aspect-ratio:16/9;
-      background:#222;
-      display:block;
-      object-fit:cover;
-    }
-    .video-body{
-      padding:12px;
-      display:flex;
-      gap:12px;
-    }
-    .video-meta{
-      flex:1;
-      min-width:0;
-    }
-    .video-meta h3{
-      margin:0 0 6px 0;
-      font-size:16px;
-      color:#fff;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      display:-webkit-box;
-      -webkit-line-clamp:2;
-      -webkit-box-orient:vertical;
-    }
-    .video-meta .channel{
-      color:var(--muted);
-      font-size:13px;
-      margin-bottom:6px;
-    }
-    .video-stats{
-      color:var(--muted);
-      font-size:13px;
-    }
-
-    /* Loading overlays */
-    #loading{
-      position:fixed;
-      inset:0;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      background:linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.6));
-      z-index:2000;
-    }
-    .loader{
-      display:flex;
-      gap:12px;
-      align-items:center;
-      background:var(--panel);
-      padding:14px 18px;
-      border-radius:12px;
-      border:1px solid rgba(255,255,255,0.04);
-    }
-    .spinner{
-      width:28px;
-      height:28px;
-      border-radius:50%;
-      border:4px solid rgba(255,255,255,0.08);
-      border-top-color:var(--accent);
-      animation:spin 1s linear infinite;
-    }
-    @keyframes spin{to{transform:rotate(360deg)}}
-
-    /* Inline loading */
-    #inlineLoading{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      justify-content:center;
-      padding:12px;
-      color:var(--muted);
+    /* Loading */
+    #loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-muted);
+      font-size: 18px;
     }
 
     /* Autocomplete */
-    .autocomplete-suggestions{
-      position:absolute;
-      background:var(--panel);
-      border-radius:8px;
-      margin-top:6px;
-      width:100%;
-      max-height:260px;
-      overflow:auto;
-      border:1px solid rgba(255,255,255,0.03);
-      z-index:1500;
+    .suggestions {
+      position: absolute;
+      top: 45px;
+      left: 0;
+      right: 0;
+      background: #222;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      z-index: 2000;
+      overflow: hidden;
     }
-    .autocomplete-item{
-      padding:8px 10px;
-      cursor:pointer;
-      color:var(--muted);
+    .suggestion-item {
+      padding: 8px 16px;
+      cursor: pointer;
     }
-    .autocomplete-item:hover{ background:rgba(255,255,255,0.02); color:#fff; }
+    .suggestion-item:hover { background: #333; }
 
-    /* Responsive */
-    @media (max-width:900px){
-      .layout{ grid-template-columns: 1fr; }
-      nav.side-nav{ display:flex; gap:8px; overflow:auto; }
-      .search-wrap{ max-width:unset; }
+    @media (max-width: 600px) {
+      .video-grid { grid-template-columns: 1fr; }
+      .search-area { flex: 1; }
     }
   </style>
 </head>
 <body>
-  <header class="site-header" role="banner">
-    <a class="brand" href="/" aria-label="YouTube-Pro ホーム">
-      <div class="logo" aria-hidden="true">YT‑P</div>
-      <h1>YouTube‑Pro</h1>
-    </a>
-
-    <div class="search-wrap" style="position:relative;">
-      <form id="searchForm" class="search-box" role="search" aria-label="動画検索">
-        <input id="searchQueryInput" type="search" placeholder="動画、チャンネル、キーワードを検索" aria-label="検索キーワード" />
-        <button class="search-btn" type="submit" aria-label="検索">検索</button>
+  <header>
+    <a href="/" class="logo"><span>●</span>YouTube Pro</a>
+    <div class="search-area">
+      <form id="searchForm" class="search-form">
+        <input id="searchInput" type="text" placeholder="検索" autocomplete="off">
+        <button type="submit">🔍</button>
       </form>
-      <div id="autocompleteContainer" style="position:absolute; left:0; right:0; top:56px;"></div>
+      <div id="suggestions" class="suggestions" style="display:none;"></div>
     </div>
-
-    <div style="margin-left:12px; display:flex; gap:10px; align-items:center;">
-      <button id="uploadBtn" class="search-btn" style="background:transparent; border:1px solid rgba(255,255,255,0.04); color:var(--muted);">アップロード</button>
-      <div style="width:36px; height:36px; border-radius:50%; background:linear-gradient(180deg,#222,#111); display:flex; align-items:center; justify-content:center; color:var(--muted);">A</div>
-    </div>
+    <div style="width:40px;"></div>
   </header>
 
-  <div class="container">
-    <div class="layout">
-      <nav class="side-nav" aria-label="メインナビゲーション">
-        <a class="nav-item active" href="#" data-section="home">ホーム</a>
-        <a class="nav-item" href="#" data-section="trending">急上昇</a>
-        <a class="nav-item" href="#" data-section="subscriptions">登録チャンネル</a>
-        <a class="nav-item" href="#" data-section="library">ライブラリ</a>
-      </nav>
-
-      <main class="content" id="mainContent" role="main">
-        <section id="trendingSection" aria-labelledby="trendingTitle">
-          <div class="section-header">
-            <div class="section-title">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M3 12h4l3-8 4 16 3-8h4" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <h2 id="trendingTitle">急上昇</h2>
-              <span class="chip">今話題</span>
-            </div>
-            <div class="section-actions">
-              <button id="refreshTrending" class="search-btn" style="background:transparent; border:1px solid rgba(255,255,255,0.04); color:var(--muted);">更新</button>
-            </div>
-          </div>
-
-          <div id="results" class="videos-grid" aria-live="polite" aria-busy="false"></div>
-          <div id="inlineLoadingContainer"></div>
-        </section>
-      </main>
-    </div>
+  <div class="chips-bar">
+    <div class="chip active" data-q="trending">すべて</div>
+    <div class="chip" data-q="音楽">音楽</div>
+    <div class="chip" data-q="ゲーム">ゲーム</div>
+    <div class="chip" data-q="アニメ">アニメ</div>
+    <div class="chip" data-q="料理">料理</div>
+    <div class="chip" data-q="ニュース">ニュース</div>
+    <div class="chip" data-q="テック">テック</div>
   </div>
 
-  <!-- Loading overlay -->
-  <div id="loading" role="status" aria-hidden="true">
-    <div class="loader" role="presentation">
-      <div class="spinner" aria-hidden="true"></div>
-      <div style="color:#fff">読み込み中…</div>
-    </div>
+  <div class="container">
+    <div id="videoGrid" class="video-grid"></div>
+    <div id="loading" style="display:none;">読み込み中...</div>
   </div>
 
   <script>
-    // --- Utility helpers ---
-    const resultsDiv = document.getElementById('results');
+    const videoGrid = document.getElementById('videoGrid');
     const searchForm = document.getElementById('searchForm');
-    const searchQueryInput = document.getElementById('searchQueryInput');
-    const autocompleteContainer = document.getElementById('autocompleteContainer');
-    const loadingOverlay = document.getElementById('loading');
-    const inlineLoadingContainer = document.getElementById('inlineLoadingContainer');
+    const searchInput = document.getElementById('searchInput');
+    const suggestionsBox = document.getElementById('suggestions');
+    const loading = document.getElementById('loading');
 
-    let currentPage = 0;
     let isFetching = false;
-    let lastQuery = '';
-    let autocompleteTimer = null;
-    let fetchAbortController = null;
+    let currentPage = 0;
+    let currentQuery = '';
 
-    function showLoading(){ loadingOverlay.style.display = 'flex'; loadingOverlay.setAttribute('aria-hidden','false'); }
-    function hideLoading(){ loadingOverlay.style.display = 'none'; loadingOverlay.setAttribute('aria-hidden','true'); }
+    // --- Core Logic ---
 
-    function showInlineLoading(){
-      if (document.getElementById('inlineLoading')) return;
-      const inline = document.createElement('div');
-      inline.id = 'inlineLoading';
-      inline.innerHTML = '<div class="spinner" aria-hidden="true" style="width:20px;height:20px;border-width:3px;border-top-color:var(--accent)"></div><div style="color:var(--muted)">読み込み中…</div>';
-      inline.style.opacity = 0;
-      inlineLoadingContainer.appendChild(inline);
-      setTimeout(()=> inline.style.opacity = 1, 10);
-    }
-    function hideInlineLoading(){
-      const inline = document.getElementById('inlineLoading');
-      if (inline){
-        inline.style.opacity = 0;
-        setTimeout(()=> inline.remove(), 250);
-      }
-    }
-
-    // Safe element creation for video card (avoid innerHTML with untrusted content)
-    function createVideoCard(item){
-      const card = document.createElement('article');
-      card.className = 'video-card';
-      card.setAttribute('data-item-id', item.id || '');
-
-      // Thumbnail
-      const img = document.createElement('img');
-      img.className = 'thumb';
-      // Build thumbnail URL safely
-      const videoId = String(item.id || '');
-      img.src = videoId ? `https://i3.ytimg.com/vi/${encodeURIComponent(videoId)}/sddefault.jpg` : '';
-      img.alt = item.title ? `${item.title} のサムネイル` : '動画サムネイル';
-      img.loading = 'lazy';
-      card.appendChild(img);
-
-      // Body
-      const body = document.createElement('div');
-      body.className = 'video-body';
-
-      const meta = document.createElement('div');
-      meta.className = 'video-meta';
-
-      const h3 = document.createElement('h3');
-      h3.textContent = item.title || 'タイトルなし';
-      meta.appendChild(h3);
-
-      const channel = document.createElement('div');
-      channel.className = 'channel';
-      // Prefer channelTitle or shortBylineText
-      const channelName = item.channelTitle || (item.shortBylineText && item.shortBylineText.runs && item.shortBylineText.runs[0] && item.shortBylineText.runs[0].text) || '';
-      channel.textContent = channelName;
-      meta.appendChild(channel);
-
-      const stats = document.createElement('div');
-      stats.className = 'video-stats';
-      const views = item.viewCountText ? item.viewCountText.simpleText || item.viewCountText : '';
-      const published = item.publishedTimeText ? (item.publishedTimeText.simpleText || item.publishedTimeText) : '';
-      stats.textContent = [views, published].filter(Boolean).join(' • ');
-      meta.appendChild(stats);
-
-      body.appendChild(meta);
-
-      // Optional right-side (duration)
-      if (item.lengthText && item.lengthText.simpleText){
-        const duration = document.createElement('div');
-        duration.style.color = '#fff';
-        duration.style.fontSize = '13px';
-        duration.style.alignSelf = 'flex-start';
-        duration.textContent = item.lengthText.simpleText;
-        body.appendChild(duration);
-      }
-
-      card.appendChild(body);
-
-      // Click behavior
-      card.addEventListener('click', () => {
-        if (videoId) {
-          window.location.href = `/video/${encodeURIComponent(videoId)}`;
-        }
-      });
-
-      return card;
-    }
-
-    // --- Search / Trending fetch ---
-    async function performSearch(query, page = 0){
-      if (!query) return;
-      // Abort previous fetch if any for fresh queries
-      if (fetchAbortController) {
-        try { fetchAbortController.abort(); } catch(e){}
-      }
-      fetchAbortController = new AbortController();
-      const signal = fetchAbortController.signal;
-
-      if (page === 0) {
-        showLoading();
-        resultsDiv.innerHTML = '';
-      } else {
-        showInlineLoading();
-      }
-
-      try {
-        isFetching = true;
-        const url = `/api/search?q=${encodeURIComponent(query)}&page=${encodeURIComponent(page)}`;
-        const res = await fetch(url, { signal });
-        if (!res.ok) {
-          console.error('search failed', res.status);
-          if (page === 0) resultsDiv.innerHTML = '<p style="color:var(--muted)">検索中にエラーが発生しました。</p>';
-          return;
-        }
-        const data = await res.json();
-        const items = data.items || [];
-        if (items.length === 0 && page === 0) {
-          resultsDiv.innerHTML = '<p style="color:var(--muted)">検索結果がありません。</p>';
-        } else {
-          items.forEach(item => {
-            // Avoid duplicates
-            if (!document.querySelector(`[data-item-id="${CSS.escape(String(item.id || ''))}"]`)) {
-              const card = createVideoCard(item);
-              resultsDiv.appendChild(card);
-            }
-          });
-        }
-      } catch (err) {
-        if (err.name === 'AbortError') {
-          // aborted - ignore
-        } else {
-          console.error('performSearch error', err);
-          if (page === 0) resultsDiv.innerHTML = '<p style="color:var(--muted)">エラーが発生しました。</p>';
-        }
-      } finally {
-        isFetching = false;
-        if (page === 0) hideLoading();
-        else hideInlineLoading();
-      }
-    }
-
-    // --- Autocomplete with debounce ---
-    function debounce(fn, wait){
-      let t;
-      return function(...args){
-        clearTimeout(t);
-        t = setTimeout(()=> fn.apply(this, args), wait);
-      };
-    }
-
-    async function fetchAutocomplete(query){
-      if (!query) {
-        autocompleteContainer.innerHTML = '';
-        return;
-      }
-      try {
-        const res = await fetch('/api/autocomplete?q=' + encodeURIComponent(query));
-        if (!res.ok) return;
-        const data = await res.json();
-        const suggestions = data.suggestions || [];
-        renderAutocomplete(suggestions);
-      } catch (err) {
-        console.error('autocomplete error', err);
-      }
-    }
-
-    function renderAutocomplete(suggestions){
-      autocompleteContainer.innerHTML = '';
-      if (!suggestions || suggestions.length === 0) return;
-      const box = document.createElement('div');
-      box.className = 'autocomplete-suggestions';
-      suggestions.forEach(s => {
-        const item = document.createElement('div');
-        item.className = 'autocomplete-item';
-        item.tabIndex = 0;
-        item.textContent = s;
-        item.addEventListener('click', () => {
-          searchQueryInput.value = s;
-          autocompleteContainer.innerHTML = '';
-          triggerSearchFromInput();
-        });
-        item.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            searchQueryInput.value = s;
-            autocompleteContainer.innerHTML = '';
-            triggerSearchFromInput();
-          }
-        });
-        box.appendChild(item);
-      });
-      autocompleteContainer.appendChild(box);
-    }
-
-    const debouncedAutocomplete = debounce((q) => fetchAutocomplete(q), 250);
-
-    searchQueryInput.addEventListener('input', (e) => {
-      const q = e.target.value.trim();
-      debouncedAutocomplete(q);
-    });
-
-    // --- Form submit handlers ---
-    function triggerSearchFromInput(){
-      const q = searchQueryInput.value.trim();
-      if (!q) {
-        alert('キーワードを入力してください。');
-        return;
-      }
-      lastQuery = q;
-      currentPage = 0;
-      performSearch(q, currentPage);
-      currentPage++;
-      history.pushState({}, '', '/search?q=' + encodeURIComponent(q));
-    }
-
-    searchForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      triggerSearchFromInput();
-    });
-
-    // --- Infinite scroll (with guard) ---
-    window.addEventListener('scroll', async () => {
+    async function loadContent(query = '', page = 0) {
       if (isFetching) return;
-      if ((window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 120)) {
-        const q = lastQuery || searchQueryInput.value.trim();
-        if (!q) return;
-        isFetching = true;
-        await performSearch(q, currentPage);
-        currentPage++;
-        isFetching = false;
-      }
-    });
+      isFetching = true;
+      loading.style.display = 'block';
 
-    // --- Initial trending load ---
-    async function loadTrending(){
-      // For trending, call /api/trending or fallback to /api/search?q=trending
-      const endpoint = '/api/trending';
+      const isSearch = query && query !== 'trending';
+      const endpoint = isSearch 
+        ? `/api/search?q=${encodeURIComponent(query)}&page=${page}`
+        : `/api/trending`;
+
       try {
-        showLoading();
         const res = await fetch(endpoint);
-        if (!res.ok) {
-          // fallback
-          await performSearch('trending', 0);
-          return;
-        }
         const data = await res.json();
         const items = data.items || [];
-        resultsDiv.innerHTML = '';
+
+        if (page === 0) videoGrid.innerHTML = '';
+        
         items.forEach(item => {
-          const card = createVideoCard(item);
-          resultsDiv.appendChild(card);
+          if (item.type !== 'video') return;
+          const card = document.createElement('a');
+          card.className = 'video-card';
+          card.href = `/video/${item.id}`;
+          card.innerHTML = `
+            <div class="thumbnail-wrap">
+              <img src="https://i3.ytimg.com/vi/${item.id}/mqdefault.jpg" loading="lazy">
+            </div>
+            <div class="video-info">
+              <div class="channel-icon"></div>
+              <div class="meta">
+                <h3>${item.title}</h3>
+                <p>${item.channelTitle || 'YouTube Pro User'}</p>
+                <p>${item.viewCountText || ''} ${item.publishedTimeText || ''}</p>
+              </div>
+            </div>
+          `;
+          videoGrid.appendChild(card);
         });
       } catch (err) {
-        console.error('loadTrending error', err);
-        // fallback
-        await performSearch('trending', 0);
+        console.error("Load error:", err);
       } finally {
-        hideLoading();
+        isFetching = false;
+        loading.style.display = 'none';
       }
     }
 
-    document.getElementById('refreshTrending').addEventListener('click', () => {
-      loadTrending();
-    });
+    // --- Search & Direct Link Handling ---
 
-    // --- Keyboard accessibility: Escape to close autocomplete ---
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        autocompleteContainer.innerHTML = '';
+    function handleInitialLoad() {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get('q');
+      if (q) {
+        currentQuery = q;
+        searchInput.value = q;
+        loadContent(q, 0);
+      } else {
+        loadContent('trending', 0);
       }
-    });
-
-    // --- On load: show trending ---
-    window.addEventListener('load', () => {
-      loadTrending();
-    });
-
-    // --- Message listener for navigation (keeps previous behavior) ---
-    window.addEventListener('message', function(event){
-      if (event.data && event.data.videoId) {
-        window.location.href = '/video/' + encodeURIComponent(event.data.videoId);
-      }
-    });
-
-    // --- Small polyfill for CSS.escape in older browsers ---
-    if (typeof CSS === 'undefined' || typeof CSS.escape !== 'function') {
-      (function(global){
-        var CSS = global.CSS = global.CSS || {};
-        CSS.escape = function(value){
-          return String(value).replace(/([^\w-])/g, function(ch){ return '\\' + ch; });
-        };
-      })(window);
     }
+
+    searchForm.onsubmit = (e) => {
+      e.preventDefault();
+      const q = searchInput.value.trim();
+      if (!q) return;
+      currentQuery = q;
+      suggestionsBox.style.display = 'none';
+      history.pushState(null, '', `/search?q=${encodeURIComponent(q)}`);
+      loadContent(q, 0);
+    };
+
+    // --- UX Enhancements ---
+
+    // Autocomplete
+    searchInput.oninput = async () => {
+      const q = searchInput.value.trim();
+      if (q.length < 2) { suggestionsBox.style.display = 'none'; return; }
+      const res = await fetch(`/api/autocomplete?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (data.suggestions.length > 0) {
+        suggestionsBox.innerHTML = data.suggestions.map(s => `<div class="suggestion-item">${s}</div>`).join('');
+        suggestionsBox.style.display = 'block';
+      }
+    };
+
+    suggestionsBox.onclick = (e) => {
+      if (e.target.classList.contains('suggestion-item')) {
+        searchInput.value = e.target.innerText;
+        searchForm.onsubmit(new Event('submit'));
+      }
+    };
+
+    // Chips
+    document.querySelector('.chips-bar').onclick = (e) => {
+      if (e.target.classList.contains('chip')) {
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        e.target.classList.add('active');
+        const q = e.target.dataset.q;
+        currentQuery = q === 'trending' ? '' : q;
+        loadContent(q, 0);
+      }
+    };
+
+    // Infinite Scroll
+    window.onscroll = () => {
+      if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
+        if (!isFetching && currentQuery) {
+          currentPage++;
+          loadContent(currentQuery, currentPage);
+        }
+      }
+    };
+
+    window.onload = handleInitialLoad;
+    window.onpopstate = handleInitialLoad;
   </script>
 </body>
 </html>

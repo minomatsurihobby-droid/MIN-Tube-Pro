@@ -297,20 +297,37 @@ app.get("/video/:id", async (req, res, next) => {
 <title>${videoData.videoTitle || "Youtube-Pro"}</title>
 
 <style>
+:root{
+  --bg-main:#0f0f0f;
+  --bg-elevated:#181818;
+  --bg-elevated-2:#202020;
+  --border-subtle:#303030;
+  --text-main:#f1f1f1;
+  --text-sub:#aaaaaa;
+  --accent:#3ea6ff;
+  --accent-danger:#cc0000;
+  --chip-bg:#272727;
+}
+
+*{
+  box-sizing:border-box;
+}
+
 body{
   margin:0;
-  font-family: "Roboto","Noto Sans JP",Arial,sans-serif;
-  background:#0f0f0f;
-  color:#fff;
+  font-family:"Roboto","Noto Sans JP",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:var(--bg-main);
+  color:var(--text-main);
 }
 
 /* ヘッダー */
 .header{
   position:fixed;
   top:0;
-  width:100%;
+  left:0;
+  right:0;
   height:56px;
-  background:#0f0f0f;
+  background:rgba(15,15,15,0.98);
   display:flex;
   align-items:center;
   padding:0 16px;
@@ -318,33 +335,147 @@ body{
   z-index:999;
 }
 
+.header-left{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.burger{
+  width:24px;
+  height:24px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+}
+
+.burger:hover{
+  background:#272727;
+}
+
+.burger span{
+  display:block;
+  width:14px;
+  height:2px;
+  background:#fff;
+  position:relative;
+}
+
+.burger span::before,
+.burger span::after{
+  content:"";
+  position:absolute;
+  left:0;
+  width:14px;
+  height:2px;
+  background:#fff;
+}
+
+.burger span::before{
+  top:-4px;
+}
+.burger span::after{
+  top:4px;
+}
+
 .logo{
-  color:#ff0000;
+  display:flex;
+  align-items:center;
+  gap:4px;
+  cursor:pointer;
+}
+
+.logo-icon{
+  width:24px;
+  height:24px;
+  background:#ff0000;
+  border-radius:6px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#fff;
+  font-size:14px;
+  font-weight:700;
+}
+
+.logo-text{
   font-weight:700;
   font-size:18px;
-  margin-right:20px;
+}
+
+/* 検索 */
+.header-center{
+  flex:1;
+  display:flex;
+  justify-content:center;
 }
 
 .search{
+  display:flex;
+  width:100%;
+  max-width:600px;
+}
+
+.search-input-wrap{
   flex:1;
   display:flex;
-  max-width:600px;
 }
 
 .search input{
   flex:1;
-  padding:10px;
+  padding:9px 12px;
   background:#121212;
   border:1px solid #303030;
+  border-right:none;
   color:white;
+  border-radius:40px 0 0 40px;
+  font-size:14px;
 }
 
 .search button{
   background:#222;
   border:1px solid #303030;
+  border-radius:0 40px 40px 0;
   color:white;
-  padding:10px 16px;
+  padding:0 18px;
   cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:16px;
+}
+
+.search button:hover{
+  background:#303030;
+}
+
+.header-right{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.header-icon{
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+}
+
+.header-icon:hover{
+  background:#272727;
+}
+
+.header-avatar{
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  background:#444;
 }
 
 /* レイアウト */
@@ -355,35 +486,54 @@ body{
 }
 
 .main{
-  width:1200px;
+  width:100%;
+  max-width:1280px;
   display:flex;
-  gap:20px;
-  padding:20px;
+  gap:24px;
+  padding:24px 16px 40px;
 }
 
-/* 動画 */
+/* 左側: 動画 */
 .video-wrap{
   flex:3;
+  min-width:0;
+}
+
+.video-player{
+  width:100%;
+  background:black;
+  border-radius:12px;
+  overflow:hidden;
 }
 
 .video-player iframe,
 .video-player video{
   width:100%;
   height:520px;
-  background:black;
+  display:block;
 }
 
 /* タイトル */
 .title{
   font-size:18px;
-  margin:12px 0;
+  font-weight:500;
+  margin:14px 0 8px;
+}
+
+/* メタ情報 */
+.meta-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
 }
 
 /* チャンネル */
 .channel{
   display:flex;
-  justify-content:space-between;
   align-items:center;
+  gap:12px;
 }
 
 .channel-left{
@@ -394,23 +544,48 @@ body{
 
 .channel-left img{
   width:40px;
+  height:40px;
   border-radius:50%;
+  object-fit:cover;
+  background:#333;
+}
+
+.channel-info-main{
+  font-size:14px;
+  font-weight:500;
+}
+
+.channel-info-sub{
+  font-size:12px;
+  color:var(--text-sub);
+}
+
+.channel-subscribe-wrap{
+  display:flex;
+  align-items:center;
+  gap:8px;
 }
 
 .subscribe{
-  background:#cc0000;
+  background:var(--accent-danger);
   color:white;
   border:none;
-  padding:10px 16px;
+  padding:9px 16px;
   cursor:pointer;
   border-radius:20px;
+  font-size:14px;
+  font-weight:500;
+}
+
+.subscribe:hover{
+  background:#e60000;
 }
 
 /* アクション */
 .actions{
   display:flex;
-  gap:10px;
-  margin:10px 0;
+  gap:8px;
+  flex-wrap:wrap;
 }
 
 .action{
@@ -418,19 +593,64 @@ body{
   padding:8px 14px;
   border-radius:20px;
   cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:14px;
+}
+
+.action:hover{
+  background:#3a3a3a;
 }
 
 /* 説明 */
 .desc{
-  background:#1f1f1f;
-  padding:12px;
-  border-radius:10px;
+  background:var(--bg-elevated);
+  padding:12px 14px;
+  border-radius:12px;
   font-size:14px;
+  margin-top:12px;
+  line-height:1.6;
+}
+
+.desc-views-date{
+  font-weight:500;
+  margin-bottom:6px;
+}
+
+.desc-text{
+  white-space:pre-wrap;
+}
+
+/* チップ（カテゴリなど） */
+.chips-row{
+  margin:16px 0 8px;
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.chip{
+  background:var(--chip-bg);
+  padding:6px 12px;
+  border-radius:16px;
+  font-size:12px;
+  cursor:pointer;
+}
+
+.chip.active{
+  background:#fff;
+  color:#000;
 }
 
 /* コメント */
 .comments{
   margin-top:20px;
+}
+
+.comments h3{
+  font-size:16px;
+  margin-bottom:12px;
 }
 
 .comment{
@@ -441,37 +661,126 @@ body{
 
 .comment img{
   width:36px;
+  height:36px;
   border-radius:50%;
+  object-fit:cover;
+  background:#333;
 }
 
-/* 右側おすすめ */
+.comment-body{
+  font-size:14px;
+}
+
+.comment-author{
+  font-weight:500;
+  margin-bottom:2px;
+}
+
+.comment-text{
+  color:#e0e0e0;
+}
+
+/* 右側: おすすめ */
+.recommend-wrap{
+  flex:1.4;
+  min-width:260px;
+}
+
+.recommend-header{
+  font-size:14px;
+  color:var(--text-sub);
+  margin-bottom:8px;
+}
+
 .recommend{
-  flex:1.5;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
 }
 
 .rec-item{
   display:flex;
-  gap:10px;
-  margin-bottom:12px;
+  gap:8px;
   cursor:pointer;
+}
+
+.rec-thumb-wrap{
+  position:relative;
+  flex-shrink:0;
 }
 
 .rec-item img{
   width:168px;
+  height:94px;
+  border-radius:8px;
+  object-fit:cover;
+  background:#333;
+}
+
+.rec-duration{
+  position:absolute;
+  right:4px;
+  bottom:4px;
+  background:rgba(0,0,0,0.8);
+  color:#fff;
+  font-size:11px;
+  padding:2px 4px;
+  border-radius:3px;
+}
+
+.rec-texts{
+  flex:1;
+  min-width:0;
 }
 
 .rec-title{
   font-size:14px;
+  font-weight:500;
+  margin-bottom:4px;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
 }
 
 .rec-channel{
   font-size:12px;
-  color:#aaa;
+  color:var(--text-sub);
+}
+
+.rec-meta{
+  font-size:12px;
+  color:var(--text-sub);
 }
 
 /* レスポンシブ */
-@media(max-width:1000px){
-  .main{flex-direction:column;}
+@media(max-width:1100px){
+  .main{
+    flex-direction:column;
+  }
+  .recommend-wrap{
+    order:-1;
+  }
+}
+
+@media(max-width:768px){
+  .header-center{
+    display:none;
+  }
+  .main{
+    padding:16px 8px 32px;
+  }
+  .video-player iframe,
+  .video-player video{
+    height:220px;
+  }
+}
+
+@media(max-width:480px){
+  .rec-item img{
+    width:140px;
+    height:78px;
+  }
 }
 </style>
 </head>
@@ -479,97 +788,265 @@ body{
 <body>
 
 <div class="header">
-  <div class="logo">Youtube-Pro</div>
+  <div class="header-left">
+    <div class="burger"><span></span></div>
+    <div class="logo" onclick="location.href='/'">
+      <div class="logo-icon">▶</div>
+      <div class="logo-text">Youtube-Pro</div>
+    </div>
+  </div>
 
-  <form class="search" id="searchForm">
-    <input id="q" placeholder="検索">
-    <button>🔍</button>
-  </form>
+  <div class="header-center">
+    <form class="search" id="searchForm">
+      <div class="search-input-wrap">
+        <input id="q" placeholder="検索" value="">
+      </div>
+      <button type="submit">🔍</button>
+    </form>
+  </div>
+
+  <div class="header-right">
+    <div class="header-icon">⬤</div>
+    <div class="header-icon">⋯</div>
+    <div class="header-avatar"></div>
+  </div>
 </div>
 
 <div class="layout">
+  <div class="main">
 
-<div class="main">
+    <!-- 左: 動画 -->
+    <div class="video-wrap">
 
-<div class="video-wrap">
+      <div class="video-player" id="player"></div>
 
-  <div class="video-player" id="player"></div>
+      <div class="title">${videoData.videoTitle || ""}</div>
 
-  <div class="title">${videoData.videoTitle || ""}</div>
+      <div class="meta-row">
+        <div class="channel">
+          <div class="channel-left">
+            <img src="${videoData.channelImage || ""}" onerror="this.src='/fallback-avatar.png'">
+            <div>
+              <div class="channel-info-main">${videoData.channelName || ""}</div>
+              <div class="channel-info-sub">
+                登録者数 ${videoData.subscriberText || "非表示"}
+              </div>
+            </div>
+          </div>
+        </div>
 
-  <div class="channel">
-    <div class="channel-left">
-      <img src="${videoData.channelImage || ""}">
-      <div>
-        <div>${videoData.channelName || ""}</div>
-        <div style="font-size:12px;color:#aaa;">登録者数非表示</div>
+        <div class="channel-subscribe-wrap">
+          <button class="subscribe">登録</button>
+        </div>
+
+        <div class="actions">
+          <div class="action">
+            <span>👍</span>
+            <span>${videoData.likeCount || 0}</span>
+          </div>
+          <div class="action">
+            <span>🔁</span><span>共有</span>
+          </div>
+          <div class="action">
+            <span>💾</span><span>保存</span>
+          </div>
+        </div>
       </div>
+
+      <div class="chips-row" id="chipsRow">
+        <!-- 動的にタグを表示 -->
+      </div>
+
+      <div class="desc">
+        <div class="desc-views-date">
+          ${videoData.videoViews || 0} 回視聴
+          ${videoData.publishedText ? "・" + videoData.publishedText : ""}
+        </div>
+        <div class="desc-text">
+          ${videoData.videoDes || ""}
+        </div>
+      </div>
+
+      <div class="comments">
+        <h3>コメント ${commentsData.commentCount || 0}</h3>
+        ${commentsHTML}
+      </div>
+
     </div>
 
-    <button class="subscribe">登録</button>
+    <!-- 右: おすすめ -->
+    <div class="recommend-wrap">
+      <div class="recommend-header">おすすめ</div>
+      <div class="recommend" id="rec"></div>
+    </div>
+
   </div>
-
-  <div class="actions">
-    <div class="action">👍 ${videoData.likeCount || 0}</div>
-    <div class="action">共有</div>
-    <div class="action">保存</div>
-  </div>
-
-  <div class="desc">
-    ${videoData.videoViews || 0} 回視聴<br>
-    ${videoData.videoDes || ""}
-  </div>
-
-  <div class="comments">
-    <h3>コメント ${commentsData.commentCount}</h3>
-    ${commentsHTML}
-  </div>
-
-</div>
-
-<!-- 右おすすめ -->
-<div class="recommend" id="rec"></div>
-
-</div>
 </div>
 
 <script>
-
 const stream = \`${streamEmbedHTML.replace(/`/g,"\\`")}\`;
 const yt = \`${youtubeEmbedHTML.replace(/`/g,"\\`")}\`;
+
+const player = document.getElementById('player');
+const rec = document.getElementById('rec');
+const chipsRow = document.getElementById('chipsRow');
+const searchForm = document.getElementById('searchForm');
+const q = document.getElementById('q');
 
 player.innerHTML = stream;
 
 /* 検索 */
-searchForm.onsubmit=e=>{
+searchForm.onsubmit = e => {
   e.preventDefault();
-  location.href="/nothing/search?q="+encodeURIComponent(q.value);
+  const keyword = q.value.trim();
+  if(!keyword) return;
+  location.href = "/nothing/search?q=" + encodeURIComponent(keyword);
 };
 
-/* おすすめ */
-fetch('/api/playlist?channelName=${videoData.channelName}')
-.then(r=>r.json())
-.then(d=>{
-  let html="";
-  d.playlist.forEach(v=>{
-    html+=\`
-      <div class="rec-item" onclick="location.href='/video/\${v.id}'">
-        <img src="https://i3.ytimg.com/vi/\${v.id}/mqdefault.jpg">
-        <div>
-          <div class="rec-title">\${v.title}</div>
-          <div class="rec-channel">${videoData.channelName}</div>
-        </div>
-      </div>
-    \`;
+/* タグチップ */
+(function renderTags(){
+  const tags = (videoData.tags && Array.isArray(videoData.tags))
+    ? videoData.tags.slice(0,8)
+    : [];
+  if(!tags.length) return;
+  tags.forEach((tag,i)=>{
+    const div = document.createElement('div');
+    div.className = 'chip' + (i===0 ? ' active' : '');
+    div.textContent = "#" + tag;
+    div.onclick = () => {
+      location.href = "/nothing/search?q=" + encodeURIComponent(tag);
+    };
+    chipsRow.appendChild(div);
   });
-  rec.innerHTML=html;
-});
+})();
 
-/* 切替 */
-player.ondblclick=()=>{
-  player.innerHTML=yt;
+/* プレイヤー切替（ダブルクリックでYouTube埋め込みに） */
+player.ondblclick = () => {
+  player.innerHTML = yt;
 };
 
+/* 完璧寄りのおすすめアルゴリズム（フロント側スコアリング） */
+(async function loadRecommendations(){
+  try{
+    // 現在の動画情報
+    const current = {
+      id: "${videoData.videoId}",
+      channelId: "${videoData.channelId || ""}",
+      channelName: "${videoData.channelName || ""}",
+      title: ${JSON.stringify(videoData.videoTitle || "")},
+      tags: ${JSON.stringify(videoData.tags || [])},
+      views: Number(${JSON.stringify(videoData.videoViews || 0)}) || 0
+    };
+
+    // サーバー側で候補を返すAPI（後述のNodeコード）
+    const res = await fetch(
+      "/api/recommend?videoId=" + encodeURIComponent(current.id) +
+      "&channelId=" + encodeURIComponent(current.channelId || "") +
+      "&title=" + encodeURIComponent(current.title)
+    );
+    const data = await res.json();
+    const candidates = Array.isArray(data.videos) ? data.videos : [];
+
+    // スコアリング
+    const currentWords = tokenize(current.title).concat(current.tags || []);
+    const scored = candidates
+      .filter(v => v.id !== current.id)
+      .map(v => {
+        const score = calcScore(current, currentWords, v);
+        return { ...v, _score: score };
+      })
+      .sort((a,b)=>b._score - a._score)
+      .slice(0,20);
+
+    let html = "";
+    scored.forEach(v=>{
+      const duration = v.durationText || "";
+      const viewsText = v.viewCountText || "";
+      html += `
+        <div class="rec-item" onclick="location.href='/video/${v.id}'">
+          <div class="rec-thumb-wrap">
+            <img src="https://i3.ytimg.com/vi/${v.id}/mqdefault.jpg"
+                 onerror="this.src='/fallback-thumb.png'">
+            ${duration ? `<div class="rec-duration">${duration}</div>` : ""}
+          </div>
+          <div class="rec-texts">
+            <div class="rec-title">${escapeHtml(v.title || "")}</div>
+            <div class="rec-channel">${escapeHtml(v.channelName || "")}</div>
+            <div class="rec-meta">
+              ${viewsText ? viewsText + "・" : ""}${v.publishedText || ""}
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    rec.innerHTML = html || "<div style='color:#777;font-size:13px;'>おすすめを取得できませんでした。</div>";
+  }catch(e){
+    console.error(e);
+    rec.innerHTML = "<div style='color:#777;font-size:13px;'>おすすめを取得できませんでした。</div>";
+  }
+})();
+
+/* タイトル類似度＋チャンネル＋タグ＋再生数近さでスコア */
+function calcScore(current, currentWords, v){
+  let score = 0;
+
+  // 同一チャンネルを強く優遇
+  if(current.channelId && v.channelId && current.channelId === v.channelId){
+    score += 40;
+  }else if(current.channelName && v.channelName && current.channelName === v.channelName){
+    score += 25;
+  }
+
+  // タイトル・タグの単語一致
+  const wordsV = tokenize(v.title || "").concat(v.tags || []);
+  const overlap = intersect(currentWords, wordsV).length;
+  score += overlap * 4;
+
+  // 再生数が近いほど加点（桁が近い）
+  const vViews = Number(v.viewCount || 0) || 0;
+  if(current.views && vViews){
+    const diffRatio = Math.abs(Math.log10(current.views+1) - Math.log10(vViews+1));
+    const viewScore = Math.max(0, 20 - diffRatio*10);
+    score += viewScore;
+  }
+
+  // 新しめの動画を少し優遇（publishedTimeTextをざっくり判定）
+  if(typeof v.publishedTimeText === "string"){
+    if(/時間前|日前/.test(v.publishedTimeText)) score += 8;
+    else if(/週間前/.test(v.publishedTimeText)) score += 5;
+    else if(/か月前/.test(v.publishedTimeText)) score += 3;
+  }
+
+  return score;
+}
+
+function tokenize(text){
+  if(!text) return [];
+  // シンプルに空白・記号で分割
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu," ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function intersect(a,b){
+  const setB = new Set(b);
+  const res = [];
+  a.forEach(x=>{
+    if(setB.has(x)) res.push(x);
+  });
+  return res;
+}
+
+function escapeHtml(str){
+  return String(str)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#39;");
+}
 </script>
 
 </body>
@@ -635,6 +1112,41 @@ app.get("/i-img", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "txt/img.html"));
 });
 
+app.get('/api/recommend', async (req,res)=>{
+  const { videoId, channelId, title } = req.query;
+
+  try{
+    // 1. タイトルキーワードで検索
+    const keyword = title || '';
+    const searchResult = await yts.GetListByKeyword(keyword, false, 30, [{type:"video"}]);
+
+    // 2. 同一チャンネルの人気動画も取得（channelId があれば）
+    let channelVideos = { items: [] };
+    if(channelId){
+      channelVideos = await yts.GetListByChannel(channelId, 30, "newest").catch(()=>({items:[]}));
+    }
+
+    // 3. 重複を除きつつ統合
+    const map = new Map();
+    const pushItems = (items, weightSource) => {
+      (items || []).forEach(it=>{
+        if(!it || !it.id) return;
+        if(map.has(it.id)) return;
+        map.set(it.id, {
+          id: it.id,
+          title: it.title,
+          channelName: it.channelTitle || it.channelName || "",
+          channelId: it.channelId || "",
+          durationText: it.lengthText || it.duration || "",
+          viewCount: it.viewCount || it.viewCountText || 0,
+          viewCountText: it.viewCountText || "",
+          publishedText: it.publishedTimeText || "",
+          tags: it.keywords || [],
+          _source: weightSource
+        });
+      });
+    };
+    
 app.get("/bbs", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "chat/chat.html"));
 });

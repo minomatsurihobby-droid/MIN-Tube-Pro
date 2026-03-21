@@ -73,31 +73,35 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "home.html"));
 });
 
+// 進化した急上昇/ホームアルゴリズム
 app.get("/api/trending", async (req, res) => {
+  const page = parseInt(req.query.page) || 0;
   try {
-    const categories = ["ニュース", "音楽", "ゲーム", "エンタメ"];
-    const randomCategory = categories[Math.floor(Math.random() * categories.length)];
-    
-    // 複数のソースから混合して多様性を出す
+    // ページごとに取得するカテゴリを変えて、重複を物理的に減らす
+    const categoryPool = ["急上昇", "音楽 人気", "ゲーム 実況", "ニュース 最新", "エンタメ", "料理 レシピ", "テクノロジー", "アニメ"];
+    const cat1 = categoryPool[page % categoryPool.length];
+    const cat2 = categoryPool[(page + 1) % categoryPool.length];
+
     const [res1, res2] = await Promise.all([
-      yts.GetListByKeyword(randomCategory, false, 15),
-      yts.GetListByKeyword("急上昇", false, 15)
+      yts.GetListByKeyword(cat1, false, 20),
+      yts.GetListByKeyword(cat2, false, 20)
     ]);
 
     let combined = [...(res1.items || []), ...(res2.items || [])];
-    const seenIds = new Set();
     const finalItems = [];
+    const seenIdsServer = new Set();
 
     for (const item of combined) {
-      // 動画のみ、Shorts除外、重複除外
+      // 動画タイプのみ、Shorts除外、サーバー内での重複除外
       if (item.type === 'video' && 
-          !item.title.includes('#shorts') && 
-          !seenIds.has(item.id)) {
-        seenIds.add(item.id);
+          !item.title.toLowerCase().includes('#shorts') && 
+          !item.title.toLowerCase().includes('shorts') &&
+          !seenIdsServer.has(item.id)) {
+        seenIdsServer.add(item.id);
         finalItems.push(item);
       }
-      if (finalItems.length >= 30) break;
     }
+    // 多様性を出すために少しシャッフル
     res.json({ items: finalItems.sort(() => 0.5 - Math.random()) });
   } catch (err) {
     res.json({ items: [] });

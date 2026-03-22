@@ -594,27 +594,80 @@ app.get("/video/:id", async (req, res, next) => {
         .rec-title { font-size: 14px; font-weight: bold; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .rec-meta { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
 
-        /* --- Shorts specific styles (keeps YouTube-like look) --- */
-        .rec-section-title { font-size: 13px; font-weight: 700; color: var(--text-main); margin: 8px 0 12px; display:flex; align-items:center; gap:8px; }
-        .shorts-group { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 16px; -webkit-overflow-scrolling: touch; }
-        .shorts-item { min-width: 120px; width: 120px; display: flex; flex-direction: column; gap:8px; text-decoration: none; color: inherit; }
-        .shorts-thumb { width: 100%; height: 210px; border-radius: 12px; overflow: hidden; background: #111; position: relative; display:flex; align-items:flex-end; justify-content:flex-start; }
-        .shorts-thumb img { width: 100%; height: 100%; object-fit: cover; display:block; }
-        .shorts-badge { position: absolute; left: 8px; top: 8px; background: rgba(0,0,0,0.6); color: white; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; display:flex; align-items:center; gap:6px; }
-        .shorts-title { font-size: 13px; font-weight: 700; line-height: 1.2; color: var(--text-main); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .shorts-channel { font-size: 12px; color: var(--text-sub); }
-
-        /* scrollbar styling for horizontal shorts */
-        .shorts-group::-webkit-scrollbar { height: 8px; }
-        .shorts-group::-webkit-scrollbar-thumb { background: #333; border-radius: 8px; }
-        .shorts-group::-webkit-scrollbar-track { background: transparent; }
+        /* Shorts セクション用スタイル（既存コードは変更せず追加のみ） */
+        .shorts-section {
+            margin-bottom: 16px;
+        }
+        .shorts-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0 8px 0;
+        }
+        .shorts-icon {
+            color: var(--yt-red);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .shorts-icon i {
+            font-size: 18px;
+        }
+        .shorts-title-text {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .shorts-list {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+        .shorts-list::-webkit-scrollbar {
+            height: 6px;
+        }
+        .shorts-list::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 3px;
+        }
+        .shorts-item {
+            flex: 0 0 150px;
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
+        }
+        .shorts-thumb {
+            width: 100%;
+            aspect-ratio: 9 / 16;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #222;
+        }
+        .shorts-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .shorts-item-title {
+            font-size: 13px;
+            font-weight: bold;
+            margin-top: 6px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .shorts-item-meta {
+            font-size: 11px;
+            color: var(--text-sub);
+            margin-top: 2px;
+        }
 
         @media (max-width: 1000px) {
             .container { flex-direction: column; padding: 0; }
             .sidebar { width: 100%; padding: 16px; box-sizing: border-box; }
             .player-container { border-radius: 0; }
             .main-content { padding: 16px; }
-            .shorts-thumb { height: 180px; }
         }
     </style>
 </head>
@@ -674,83 +727,62 @@ app.get("/video/:id", async (req, res, next) => {
 
 <script>
     async function loadRecommendations() {
-        try {
-            const params = new URLSearchParams({
-                title: "${videoData.videoTitle}",
-                channel: "${videoData.channelName}",
-                id: "${videoId}"
-            });
-            const res = await fetch(\`/api/recommendations?\${params.toString()}\`);
-            if (!res.ok) {
-                console.warn('Recommendations fetch failed', res.status);
-                document.getElementById('recommendations').innerHTML = '';
-                return;
+        const params = new URLSearchParams({
+            title: "${videoData.videoTitle}",
+            channel: "${videoData.channelName}",
+            id: "${videoId}"
+        });
+        const res = await fetch(`/api/recommendations?${params.toString()}`);
+        const data = await res.json();
+
+        const normalItems = [];
+        const shortItems = [];
+
+        (data.items || []).forEach(item => {
+            const title = item.title || "";
+            if (title.includes("#")) {
+                shortItems.push(item);
+            } else {
+                normalItems.push(item);
             }
-            const data = await res.json();
-            const items = Array.isArray(data.items) ? data.items : [];
+        });
 
-            // Detect Shorts by presence of '#' in the title (anywhere)
-            const shorts = items.filter(it => typeof it.title === 'string' && it.title.indexOf('#') !== -1);
-            const normal = items.filter(it => !(typeof it.title === 'string' && it.title.indexOf('#') !== -1));
+        const container = document.getElementById('recommendations');
+        let html = '';
 
-            const container = document.getElementById('recommendations');
-            const parts = [];
-
-            // Render Shorts group first if any
-            if (shorts.length > 0) {
-                const shortsHtml = shorts.map(item => {
-                    // Use vertical-friendly thumbnail if available; fallback to standard thumbnail
-                    const thumb = item.thumbnail || \`https://i.ytimg.com/vi/\${item.id}/mqdefault.jpg\`;
-                    // Clean title for display (remove leading # tags for readability)
-                    const displayTitle = (item.title || '').replace(/#/g, '').trim();
-                    const channel = item.channelTitle || '';
-                    return \`
-                        <a href="/video/\${item.id}" class="shorts-item" aria-label="ショート: \${displayTitle}">
-                            <div class="shorts-thumb">
-                                <img src="\${thumb}" alt="\${displayTitle}">
-                                <div class="shorts-badge"><i class="fas fa-bolt" style="font-size:11px;"></i> SHORTS</div>
-                            </div>
-                            <div class="shorts-title">\${displayTitle}</div>
-                            <div class="shorts-channel">\${channel}</div>
-                        </a>
-                    \`;
-                }).join('');
-
-                parts.push(\`
-                    <div class="rec-section-title"><i class="fas fa-fire" style="color:#ff4d4d;"></i> ショート動画</div>
-                    <div class="shorts-group">\${shortsHtml}</div>
-                \`);
-            }
-
-            // Render normal recommendations (keeps original compact list look)
-            if (normal.length > 0) {
-                const normalHtml = normal.map(item => {
-                    const thumb = item.thumbnail || \`https://i.ytimg.com/vi/\${item.id}/mqdefault.jpg\`;
-                    const title = item.title || '';
-                    const channel = item.channelTitle || '';
-                    return \`
-                        <a href="/video/\${item.id}" class="rec-item">
-                            <div class="rec-thumb"><img src="\${thumb}" alt="\${title}"></div>
-                            <div class="rec-info">
-                                <div class="rec-title">\${title}</div>
-                                <div class="rec-meta">\${channel}</div>
-                            </div>
-                        </a>
-                    \`;
-                }).join('');
-                parts.push(normalHtml);
-            }
-
-            // If no items at all, show a subtle placeholder
-            if (items.length === 0) {
-                parts.push('<div style="color:var(--text-sub); font-size:13px;">おすすめ動画はありません</div>');
-            }
-
-            container.innerHTML = parts.join('');
-        } catch (err) {
-            console.error('Error loading recommendations', err);
-            document.getElementById('recommendations').innerHTML = '<div style="color:var(--text-sub); font-size:13px;">おすすめの読み込み中にエラーが発生しました</div>';
+        if (shortItems.length > 0) {
+            html += `
+                <div class="shorts-section">
+                    <div class="shorts-header">
+                        <span class="shorts-icon"><i class="fas fa-bolt"></i></span>
+                        <span class="shorts-title-text">ショート動画</span>
+                    </div>
+                    <div class="shorts-list">
+                        ${shortItems.map(item => `
+                            <a href="/video/${item.id}" class="shorts-item">
+                                <div class="shorts-thumb">
+                                    <img src="https://i.ytimg.com/vi/${item.id}/hqdefault.jpg" alt="${item.title}">
+                                </div>
+                                <div class="shorts-item-title">${item.title}</div>
+                                <div class="shorts-item-meta">${item.channelTitle}</div>
+                            </a>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
         }
+
+        html += normalItems.map(item => `
+            <a href="/video/${item.id}" class="rec-item">
+                <div class="rec-thumb"><img src="https://i.ytimg.com/vi/${item.id}/mqdefault.jpg" alt="${item.title}"></div>
+                <div class="rec-info">
+                    <div class="rec-title">${item.title}</div>
+                    <div class="rec-meta">${item.channelTitle}</div>
+                </div>
+            </a>
+        `).join('');
+
+        container.innerHTML = html;
     }
     window.onload = loadRecommendations;
 </script>

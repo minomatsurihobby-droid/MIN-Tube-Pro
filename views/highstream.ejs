@@ -1,0 +1,105 @@
+
+<!-- 
+MIN-Tube2内での埋め込みが可能です。
+他のプロジェクトでは利用しないでください
+ -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>HighstreamVideoback</title>
+  <style>
+ 
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: #000;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #videoContainer {
+      width: 100%;
+      max-width: 1280px;
+      position: relative;
+    }
+
+    video {
+      width: 100%;
+      height: auto;
+      display: block;
+      background-color: #000;
+    }
+  </style>
+</head>
+<body>
+  <div id="videoContainer">
+    <video id="video" controls preload="auto">
+      <source src="<%= highstreamUrl %>" type="video/mp4">
+      お使いのブラウザは動画再生に対応していません。
+    </video>
+  </div>
+
+  <audio id="audio" preload="auto" style="display:none;">
+    <source src="<%= audioUrl %>" type="audio/mp3">
+    お使いのブラウザは音声再生に対応していません。
+  </audio>
+
+  <script>
+    // DOM 要素取得
+    const video = document.getElementById('video');
+    const audio = document.getElementById('audio');
+
+
+    function syncAudioWithVideo() {
+
+      if (Math.abs(video.currentTime - audio.currentTime) > 0.8) {
+        audio.currentTime = video.currentTime;
+      }
+    }
+
+
+    video.addEventListener('seeking', syncAudioWithVideo);
+    video.addEventListener('seeked', syncAudioWithVideo);
+    video.addEventListener('timeupdate', syncAudioWithVideo);
+
+
+    video.addEventListener('play', () => {
+
+      audio.currentTime = video.currentTime;
+      audio.play();
+    });
+    video.addEventListener('pause', () => {
+      audio.pause();
+    });
+
+ 
+    let videoReady = false,
+        audioReady = false;
+
+    video.addEventListener('canplaythrough', () => {
+      videoReady = true;
+      if (audioReady) {
+
+        video.currentTime = 0;
+        audio.currentTime = 0;
+        video.play();
+        audio.play();
+      }
+    }, { once: true });
+
+    audio.addEventListener('canplaythrough', () => {
+      audioReady = true;
+      if (videoReady) {
+        video.currentTime = 0;
+        audio.currentTime = 0;
+        video.play();
+        audio.play();
+      }
+    }, { once: true });
+  </script>
+</body>
+</html>

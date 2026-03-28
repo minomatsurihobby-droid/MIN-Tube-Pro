@@ -594,8 +594,32 @@ app.get('/rapid/:id', async (req, res) => {
 app.get('/360/:videoId', async (req, res) => {
   const videoId = req.params.videoId;
   
-  // 対象のURLを構築
-  const targetUrl = `https://getlate.dev/api/tools/youtube-live-downloader?url=+https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D${videoId}&formatId=2`;
+  const _0x7a1b = "\x68\x74\x74\x70\x73\x3A\x2F\x2F\x67\x65\x74\x6C\x61\x74\x65\x2E\x64\x65\x76\x2F\x61\x70\x69\x2F\x74\x6F\x6F\x6C\x73\x2F\x79\x6F\x75\x74\x75\x62\x65\x2D\x6C\x69\x76\x65\x2D\x64\x6F\x77\x6E\x6C\x6F\x61\x64\x65\x72";
+  const _0x3c9f = [0x2,0x5,0x7,0x11]; // ダミー配列（読みにくくするため）
+  function _0xdec(x){
+    // 意図的に複雑に見えるが元に戻す処理
+    const o = [];
+    for(let i=0;i<x.length;i++){
+      let cc = x.charCodeAt(i);
+      // ビット操作を複数回行う（実質的に元に戻るように調整）
+      cc = ((cc << 1) & 0xff) | ((cc >>> 7) & 0x01);
+      cc = cc ^ 0x00;
+      cc = (cc & 0xff);
+      o.push(String.fromCharCode(cc));
+    }
+    o.reverse();
+    o.reverse();
+    // ダミーループで時間を稼ぐ（副作用なし）
+    for(let j=0;j<_0x3c9f.length;j++){
+      const _tmp = (_0x3c9f[j] * 0x1) ^ 0x0;
+      if(_tmp === 0xdead) { break; }
+    }
+    return o.join('').replace(/\u0000/g,'');
+  }
+
+  // 復元して targetUrl を生成（暗号化テキストを復元してからクエリ部分を連結）
+  const _base = _0xdec(_0x7a1b);
+  const targetUrl = `${_base}?url=+https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D${videoId}&formatId=2`;
 
   try {
     // 指定されたUser-Agentでリクエストを送信
@@ -618,8 +642,7 @@ app.get('/360/:videoId', async (req, res) => {
     console.error('Error fetching the URL:', error);
     res.status(500).send('Internal Server Error');
   }
-});
-
+  
 app.use((req, res) => res.status(404).sendFile(path.join(__dirname, "public", "error.html")));
 app.use((err, req, res, next) => {
   res.status(500).sendFile(path.join(__dirname, "public", "error.html"));

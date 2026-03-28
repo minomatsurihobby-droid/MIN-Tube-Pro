@@ -642,7 +642,7 @@ app.get('/nocookie/:id', (req, res) => {
   res.send(url);
 });
 
-// 既存の app を使う想定
+// Express 側に以下のルートを追加して HTML を返す想定
 app.get('/pro-stream/:videoId', (req, res) => {
   const videoId = req.params.videoId;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -653,28 +653,25 @@ app.get('/pro-stream/:videoId', (req, res) => {
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Pro Stream - ${videoId}</title>
 <style>
-  :root{--bg:#0b0f14;--card:#0f1720;--accent:#00d1ff;--muted:#9aa6b2}
-  html,body{height:100%;margin:0;background:linear-gradient(180deg,#07101a 0%, #071827 100%);font-family:Inter,system-ui,Segoe UI,Roboto,"Hiragino Kaku Gothic ProN",Meiryo,sans-serif;color:#e6eef6}
-  .wrap{height:100vh;display:flex;flex-direction:column}
+  :root{--bg:#071827;--card:#0f1720;--accent:#00d1ff;--muted:#9aa6b2}
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,#04101a,#071827);font-family:Inter,system-ui,Roboto,"Hiragino Kaku Gothic ProN",Meiryo,sans-serif;color:#e6eef6}
+  .wrap{min-height:100vh;display:flex;flex-direction:column}
   header{padding:18px 24px;display:flex;align-items:center;gap:12px}
   header h1{font-size:18px;margin:0}
   main{flex:1;display:grid;grid-template-columns:1fr 360px;gap:18px;padding:18px}
-  /* プレイヤー領域 */
-  .player-stage{position:relative;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.15));border-radius:12px;overflow:hidden;min-height:360px}
+  .player-stage{position:relative;border-radius:12px;overflow:hidden;min-height:480px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.15))}
   .layer{position:absolute;inset:0;transition:opacity .6s ease, transform .6s ease;display:flex;align-items:center;justify-content:center}
   .layer iframe{width:100%;height:100%;border:0}
   .layer.hidden{display:none}
   .layer.inactive{opacity:0;pointer-events:none;transform:scale(1.02)}
   .layer.active{opacity:1;pointer-events:auto;transform:scale(1)}
-  /* サイドパネル */
   .panel{background:var(--card);border-radius:12px;padding:16px;color:#cfe9f6;box-shadow:0 6px 18px rgba(2,6,12,0.6)}
   .list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
   .item{display:flex;align-items:center;justify-content:space-between;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02)}
-  .item .meta{font-size:13px;color:var(--muted)}
+  .meta{font-size:13px;color:var(--muted)}
   .controls{display:flex;gap:8px;margin-top:12px}
   button{background:var(--accent);border:0;color:#022;padding:8px 12px;border-radius:8px;cursor:pointer}
   button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:#cfe9f6}
-  /* ローディングオーバーレイ */
   .overlay{position:absolute;inset:0;background:linear-gradient(180deg, rgba(2,6,12,0.6), rgba(2,6,12,0.75));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:60}
   .loader{width:120px;height:120px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#06202a,#0b2b36);box-shadow:0 8px 30px rgba(0,0,0,0.6)}
   .dots{display:flex;gap:6px}
@@ -683,9 +680,8 @@ app.get('/pro-stream/:videoId', (req, res) => {
   .dot:nth-child(2){animation-delay:.15s}
   .dot:nth-child(3){animation-delay:.3s}
   @keyframes blink{0%{opacity:.2;transform:translateY(0)}50%{opacity:1;transform:translateY(-6px)}100%{opacity:.2;transform:translateY(0)}}
-  .status{color:#dff7ff;font-weight:600}
+  .status{color:#dff7ff;font-weight:700}
   .sub{color:var(--muted);font-size:13px}
-  /* レスポンシブ */
   @media (max-width:900px){main{grid-template-columns:1fr;padding:12px}.panel{order:2}}
 </style>
 </head>
@@ -705,9 +701,8 @@ app.get('/pro-stream/:videoId', (req, res) => {
           </div>
         </div>
         <div class="status" id="status">初期化中…</div>
-        <div class="sub" id="sub">エンドポイントに接続しています</div>
+        <div class="sub" id="sub">エンドポイントから埋め込みURLを取得しています</div>
       </div>
-      <!-- 動的に .layer を追加 -->
     </section>
 
     <aside class="panel">
@@ -716,18 +711,17 @@ app.get('/pro-stream/:videoId', (req, res) => {
 
       <div class="controls">
         <button id="showNext">次を表示</button>
-        <button class="ghost" id="toggleMute">ミュート切替</button>
+        <button class="ghost" id="forceUnmute">可能なら音声を戻す</button>
       </div>
 
       <div style="margin-top:12px;color:var(--muted);font-size:13px">
-        自動再生はブラウザポリシーに依存します。再生されない場合は画面を一度タップしてください。
+        自動再生はブラウザポリシーに依存します。ページは自動でミュート再生を試み、ブラウザが許す範囲で没入体験を提供します。
       </div>
     </aside>
   </main>
 </div>
 
 <script>
-/* ======= 設定 ======= */
 const VIDEO_ID = ${JSON.stringify(videoId)};
 const ENDPOINTS = [
   {name:'/360', path:'/360/' + VIDEO_ID},
@@ -735,8 +729,7 @@ const ENDPOINTS = [
   {name:'/kahoot-edu', path:'/kahoot-edu/' + VIDEO_ID},
   {name:'/nocookie', path:'/nocookie/' + VIDEO_ID}
 ];
-const PLAYABLE_TIMEOUT = 9000; // ms: プレイヤーが再生を開始しないと失敗とみなす
-/* ===================== */
+const PLAYABLE_TIMEOUT = 9000;
 
 const stage = document.getElementById('stage');
 const overlay = document.getElementById('overlay');
@@ -744,21 +737,16 @@ const statusEl = document.getElementById('status');
 const subEl = document.getElementById('sub');
 const endpointList = document.getElementById('endpointList');
 const showNextBtn = document.getElementById('showNext');
-const toggleMuteBtn = document.getElementById('toggleMute');
+const forceUnmuteBtn = document.getElementById('forceUnmute');
 
-let layers = []; // {name, url, el, playerType, playerObj, state}
+let layers = [];
 let activeIndex = -1;
 let globalMuted = true;
 
-/* ユーティリティ */
-function setStatus(main, sub){
-  statusEl.textContent = main;
-  subEl.textContent = sub || '';
-}
+function setStatus(main, sub){ statusEl.textContent = main; subEl.textContent = sub || ''; }
 
-/* 1) 各エンドポイントから URL を取得 */
 async function fetchAllUrls(){
-  setStatus('エンドポイントに接続中', '動画URLを取得しています');
+  setStatus('URL取得中', '各エンドポイントに問い合わせています');
   const results = [];
   for(const ep of ENDPOINTS){
     const row = {name: ep.name, url: null, ok:false, error:null};
@@ -766,7 +754,6 @@ async function fetchAllUrls(){
       const res = await fetch(ep.path, {cache:'no-store'});
       if(!res.ok) throw new Error('HTTP ' + res.status);
       const text = (await res.text()).trim();
-      // 取得結果が空でないか確認
       if(text){
         row.url = text;
         row.ok = true;
@@ -782,7 +769,6 @@ async function fetchAllUrls(){
   return results;
 }
 
-/* 2) サイドパネル更新 */
 function updateEndpointList(results){
   endpointList.innerHTML = '';
   results.forEach((r, i) => {
@@ -797,86 +783,20 @@ function updateEndpointList(results){
   });
 }
 
-/* 3) レイヤー作成とプレイヤー初期化 */
-function createLayerObject(name, url, idx){
+function createLayer(name, url, idx){
   const layer = document.createElement('div');
   layer.className = 'layer inactive';
   layer.dataset.idx = idx;
-  // iframe を作る
   const iframe = document.createElement('iframe');
   iframe.setAttribute('allow','autoplay; fullscreen; picture-in-picture');
   iframe.setAttribute('allowfullscreen','');
+  // 既にサーバー側で autoplay=1&mute=1&enablejsapi=1 を付与している想定
   iframe.src = url;
   layer.appendChild(iframe);
   stage.appendChild(layer);
-  return {name, url, el: layer, iframe, playerType: detectPlayerType(url), playerObj: null, state: 'init'};
+  return {name, url, el: layer, iframe, state:'init', lastCheck: Date.now()};
 }
 
-function detectPlayerType(url){
-  const u = url.toLowerCase();
-  if(u.includes('youtube.com') || u.includes('youtube-nocookie.com') || u.includes('youtubeeducation.com')) return 'youtube';
-  // 他の埋め込みサービスがあればここで判定可能
-  return 'iframe';
-}
-
-/* YouTube IFrame API を使う準備 */
-let YTready = false;
-let YTqueue = [];
-function loadYouTubeAPI(){
-  if(window.YT && window.YT.Player){ YTready = true; return Promise.resolve(); }
-  return new Promise((resolve) => {
-    window.onYouTubeIframeAPIReady = function(){
-      YTready = true;
-      resolve();
-      // キュー処理
-      YTqueue.forEach(fn => fn());
-      YTqueue = [];
-    };
-    const s = document.createElement('script');
-    s.src = "https://www.youtube.com/iframe_api";
-    document.head.appendChild(s);
-  });
-}
-
-/* YouTube プレイヤー初期化 */
-function initYouTubePlayer(layerObj){
-  return new Promise((resolve) => {
-    const iframe = layerObj.iframe;
-    // ensure enablejsapi=1
-    if(!/enablejsapi=1/.test(iframe.src)){
-      const sep = iframe.src.includes('?') ? '&' : '?';
-      iframe.src = iframe.src + sep + 'enablejsapi=1&origin=' + encodeURIComponent(location.origin);
-    }
-    const onInit = () => {
-      try{
-        const player = new YT.Player(iframe, {
-          events: {
-            onReady: (e) => {
-              // ミュートして再生を試みる
-              try{ e.target.mute(); e.target.playVideo(); }catch(e){}
-              layerObj.playerObj = e.target;
-              resolve({ok:true, player:e.target});
-            },
-            onStateChange: (ev) => {
-              // 1 = playing, 2 = paused, 0 = ended
-              if(ev.data === YT.PlayerState.PLAYING){
-                layerObj.state = 'playing';
-              } else if(ev.data === YT.PlayerState.PAUSED){
-                layerObj.state = 'paused';
-              }
-            }
-          }
-        });
-      }catch(err){
-        resolve({ok:false, error:err});
-      }
-    };
-    if(YTready) onInit();
-    else YTqueue.push(onInit);
-  });
-}
-
-/* iframe 型（YouTube以外）の簡易チェック：load イベントで成功とみなす */
 function initGenericIframe(layerObj){
   return new Promise((resolve) => {
     const iframe = layerObj.iframe;
@@ -893,154 +813,117 @@ function initGenericIframe(layerObj){
       resolve({ok:false, error:'iframe load error'});
     };
     iframe.addEventListener('load', onLoad, {once:true});
-    // タイムアウトで失敗扱い
     setTimeout(()=>{ if(!resolved) onErr(); }, PLAYABLE_TIMEOUT);
   });
 }
 
-/* 4) 全レイヤーを初期化して再生確認 */
 async function initLayers(results){
-  setStatus('プレイヤー初期化中', '埋め込みを作成しています');
-  // まず YouTube API を必要なら読み込む
-  const needYT = results.some(r => r.ok && (/youtube/i.test(r.url) || /youtubeeducation/i.test(r.url)));
-  if(needYT) await loadYouTubeAPI();
-
+  setStatus('プレイヤー作成中', '埋め込みを生成しています');
   let idx = 0;
   for(const r of results){
-    if(!r.ok) { idx++; continue; }
-    const obj = createLayerObject(r.name, r.url, idx);
+    if(!r.ok){ idx++; continue; }
+    const obj = createLayer(r.name, r.url, idx);
     layers.push(obj);
     idx++;
   }
-
-  // 初期化と再生確認
-  setStatus('再生確認中', '各プレイヤーの再生を確認しています');
-  const checks = layers.map((l, i) => checkPlayable(l, i));
+  setStatus('再生確認中', '各埋め込みのロードと自動再生を確認します');
+  const checks = layers.map((l,i)=> checkPlayable(l,i));
   const outcomes = await Promise.all(checks);
-
   // 成功したものだけ残す
-  layers = layers.filter((l, i) => outcomes[i] && outcomes[i].ok);
-  // DOM上で失敗した layer は削除
-  const removed = document.querySelectorAll('.layer');
-  // 既に stage にある layer 要素は layers に合わせて整理
-  const keepEls = new Set(layers.map(l=>l.el));
-  document.querySelectorAll('.layer').forEach(el=>{
-    if(!keepEls.has(el)) el.remove();
-  });
-
+  const kept = [];
+  for(let i=0;i<outcomes.length;i++){
+    if(outcomes[i] && outcomes[i].ok) kept.push(layers[i]);
+    else layers[i].el.remove();
+  }
+  layers = kept;
   if(layers.length === 0){
-    setStatus('再生できる動画がありません', '別の動画IDをお試しください');
-    overlay.querySelector('.loader').style.display = 'none';
+    setStatus('再生可能な動画がありません', '別の動画IDをお試しください');
     return;
   }
-
-  // 最初の表示を決める
   activeIndex = 0;
   updateLayerVisibility();
-  setStatus('準備完了', '再生中の動画を切り替えられます');
+  setStatus('準備完了', '没入体験を開始します');
   overlay.style.display = 'none';
+  // IntersectionObserver で表示中のレイヤーを優先
+  setupVisibilityObserver();
 }
 
-/* 各レイヤーの再生確認ロジック */
-function checkPlayable(layerObj, idx){
+function checkPlayable(layerObj){
   return new Promise(async (resolve) => {
-    layerObj.el.style.zIndex = 10 + idx;
-    // タイムアウトで失敗扱い
-    let timedOut = false;
-    const to = setTimeout(()=>{ timedOut = true; resolve({ok:false, error:'timeout'}); }, PLAYABLE_TIMEOUT);
-
-    if(layerObj.playerType === 'youtube'){
-      const res = await initYouTubePlayer(layerObj);
-      clearTimeout(to);
-      if(timedOut) return;
-      if(res.ok){
-        // ミュート状態にして再生を確認（ブラウザが自動再生を許可しない場合は playVideo が失敗する）
-        try{
-          res.player.mute();
-          res.player.playVideo();
-        }catch(e){}
-        // さらに短い待ちで playing 状態になったか確認
-        const checkStart = Date.now();
-        const checkInterval = setInterval(()=>{
-          const state = res.player.getPlayerState ? res.player.getPlayerState() : null;
-          if(state === YT.PlayerState.PLAYING){
-            clearInterval(checkInterval);
-            clearTimeout(to);
-            layerObj.state = 'playing';
-            resolve({ok:true});
-          } else if(Date.now() - checkStart > 3000){
-            clearInterval(checkInterval);
-            clearTimeout(to);
-            // 再生開始しないが iframe 自体はロードされたとみなす（ユーザー操作で再生可能）
-            layerObj.state = 'ready';
-            resolve({ok:true});
-          }
-        }, 300);
-      } else {
-        resolve({ok:false, error:res.error});
-      }
-    } else {
-      // generic iframe
-      const res = await initGenericIframe(layerObj);
-      clearTimeout(to);
-      if(res.ok) resolve({ok:true});
-      else resolve({ok:false, error:res.error});
-    }
+    const to = setTimeout(()=>{ resolve({ok:false, error:'timeout'}); }, PLAYABLE_TIMEOUT);
+    const res = await initGenericIframe(layerObj);
+    clearTimeout(to);
+    if(res.ok) resolve({ok:true});
+    else resolve({ok:false, error:res.error});
   });
 }
 
-/* レイヤー表示更新（activeIndex に基づく） */
 function updateLayerVisibility(){
-  layers.forEach((l, i) => {
-    if(i === activeIndex){
-      l.el.classList.remove('inactive'); l.el.classList.remove('hidden'); l.el.classList.add('active');
-    } else {
-      l.el.classList.remove('active'); l.el.classList.add('inactive');
-    }
+  layers.forEach((l,i)=>{
+    if(i===activeIndex){ l.el.classList.remove('inactive'); l.el.classList.add('active'); }
+    else { l.el.classList.remove('active'); l.el.classList.add('inactive'); }
   });
 }
 
-/* 次を表示 */
 function showNext(){
-  if(layers.length === 0) return;
+  if(layers.length===0) return;
   activeIndex = (activeIndex + 1) % layers.length;
   updateLayerVisibility();
 }
 
-/* 指定インデックスを表示（サイドパネルのボタンから） */
 function showLayer(panelIdx){
-  // panelIdx は endpoint の index。 layers 配列は endpoint の順序と一致する保証はないのでマッチング
   const targetName = ENDPOINTS[panelIdx] ? ENDPOINTS[panelIdx].name : null;
   if(!targetName) return;
   const idx = layers.findIndex(l => l.name === targetName);
-  if(idx >= 0){
-    activeIndex = idx;
-    updateLayerVisibility();
-  }
+  if(idx >= 0){ activeIndex = idx; updateLayerVisibility(); }
 }
 
-/* ミュート切替（YouTube プレイヤーに反映） */
-function toggleMute(){
-  globalMuted = !globalMuted;
-  layers.forEach(l => {
-    if(l.playerType === 'youtube' && l.playerObj && l.playerObj.getPlayerState){
-      try{
-        if(globalMuted) l.playerObj.mute();
-        else l.playerObj.unMute();
-      }catch(e){}
-    } else {
-      // iframe generic は制御不可
-    }
-  });
-  toggleMuteBtn.textContent = globalMuted ? 'ミュート中' : 'ミュート解除';
+function setupVisibilityObserver(){
+  const obs = new IntersectionObserver((entries)=>{
+    entries.forEach(en=>{
+      const el = en.target;
+      const idx = Number(el.dataset.idx);
+      if(en.isIntersecting){
+        // 表示中のレイヤーを active にする
+        const found = layers.findIndex(l => l.el === el);
+        if(found >= 0){ activeIndex = found; updateLayerVisibility(); }
+      }
+    });
+  }, {threshold: 0.6});
+  layers.forEach(l => obs.observe(l.el));
+}
+
+/* ブラウザが許す範囲で「音声を戻す」試行（多くのブラウザではユーザー操作が必要） */
+async function tryUnmuteAll(){
+  // YouTube の場合は enablejsapi が必要で、ここでは iframe 内スクリプト制御は制限されるため
+  // 実行できるのは、iframe が同一オリジンの場合のみ。外部サイトは制御不可。
+  // ここでは「ブラウザが自動で音声を許可している場合」に備え、iframe の allow 属性を確認するだけ。
+  let anySucceeded = false;
+  for(const l of layers){
+    try{
+      // 同一オリジンであれば直接 unmute を試みる（通常は外部なので失敗する）
+      const win = l.iframe.contentWindow;
+      if(win && win.postMessage){
+        // YouTube の場合 postMessage で再生指示を送れるが、正確なプロトコルは YouTube IFrame API を使う必要あり。
+        // ここでは安全に postMessage を送る（効果はブラウザと iframe 側の受け取り次第）
+        win.postMessage('{"event":"command","func":"unMute","args":""}', '*');
+        anySucceeded = true;
+      }
+    }catch(e){}
+  }
+  if(anySucceeded) {
+    forceUnmuteBtn.textContent = '音声復帰を試行済';
+  } else {
+    forceUnmuteBtn.textContent = '音声復帰はブラウザが許可していません';
+  }
 }
 
 /* 初期フロー */
 (async function main(){
   try{
-    setStatus('初期化中', 'エンドポイント一覧を準備しています');
+    setStatus('初期化中', 'エンドポイントを問い合わせています');
     const results = await fetchAllUrls();
-    setStatus('URL取得完了', 'プレイヤーを初期化します');
+    setStatus('URL取得完了', '埋め込みを初期化します');
     await initLayers(results);
   }catch(err){
     console.error(err);
@@ -1048,21 +931,16 @@ function toggleMute(){
   }
 })();
 
-/* イベント */
 showNextBtn.addEventListener('click', showNext);
-toggleMuteBtn.addEventListener('click', toggleMute);
+forceUnmuteBtn.addEventListener('click', tryUnmuteAll);
 
-/* タップでオーバーレイ解除（自動再生ブロック時のユーザー操作） */
+// タップでオーバーレイ解除（ユーザー操作として再生許可が出る場合に備える）
 stage.addEventListener('click', ()=> {
   if(overlay.style.display === 'none') return;
   overlay.style.display = 'none';
-  // ユーザー操作として再生を再試行
+  // ユーザー操作として iframe にフォーカスを与え、ブラウザが自動再生を許可する可能性を高める
   layers.forEach(l => {
-    if(l.playerType === 'youtube' && l.playerObj && l.playerObj.playVideo){
-      try{ l.playerObj.playVideo(); }catch(e){}
-    } else {
-      // nothing
-    }
+    try{ l.iframe.focus(); }catch(e){}
   });
 });
 </script>

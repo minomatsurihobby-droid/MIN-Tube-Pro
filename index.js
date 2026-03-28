@@ -376,211 +376,238 @@ const shortsHtml = `
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${videoData.videoTitle} - YouTube Pro</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        :root { --bg-main: #0f0f0f; --bg-secondary: #272727; --bg-hover: #3f3f3f; --text-main: #f1f1f1; --text-sub: #aaaaaa; --yt-red: #ff0000; }
-        body { margin: 0; padding: 0; background: var(--bg-main); color: var(--text-main); font-family: "Roboto", "Arial", sans-serif; overflow-x: hidden; }
-        .navbar { position: fixed; top: 0; width: 100%; height: 56px; background: var(--bg-main); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; box-sizing: border-box; z-index: 1000; border-bottom: 1px solid #222; }
-        .nav-left { display: flex; align-items: center; gap: 16px; }
-        .logo { display: flex; align-items: center; color: white; text-decoration: none; font-weight: bold; font-size: 18px; }
-        .logo i { color: var(--yt-red); font-size: 24px; margin-right: 4px; }
-        .nav-center { flex: 0 1 600px; display: flex; }
-        .search-bar { display: flex; width: 100%; background: #121212; border: 1px solid #303030; border-radius: 40px 0 0 40px; padding: 0 16px; }
-        .search-bar input { width: 100%; background: transparent; border: none; color: white; height: 38px; font-size: 16px; outline: none; }
-        .search-btn { background: #222; border: 1px solid #303030; border-left: none; border-radius: 0 40px 40px 0; width: 64px; height: 40px; color: white; cursor: pointer; }
-        .container { margin-top: 56px; display: flex; justify-content: center; padding: 24px; gap: 24px; max-width: 1700px; margin-left: auto; margin-right: auto; }
-        .main-content { flex: 1; min-width: 0; position: relative; }
-        .sidebar { width: 400px; flex-shrink: 0; }
-        .player-container { width: 100%; aspect-ratio: 16 / 9; background: black; border-radius: 12px; overflow: hidden; position: relative; z-index: 100; box-shadow: 0 4px 30px rgba(0,0,0,0.7); }
-        .video-title { font-size: 20px; font-weight: bold; margin: 12px 0; line-height: 28px; }
-        .owner-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-        .owner-info { display: flex; align-items: center; gap: 12px; }
-        .owner-info img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
-        .channel-name { font-weight: bold; font-size: 16px; }
-        .btn-sub { background: white; color: black; border: none; padding: 0 16px; height: 36px; border-radius: 18px; font-weight: bold; cursor: pointer; }
-        .action-btn { background: var(--bg-secondary); border: none; color: white; padding: 0 16px; height: 36px; border-radius: 18px; cursor: pointer; font-size: 14px; }
-        .description-box { background: var(--bg-secondary); border-radius: 12px; padding: 12px; font-size: 14px; margin-bottom: 24px; }
-        .comment-item { display: flex; gap: 16px; margin-bottom: 20px; }
-        .comment-avatar { width: 40px; height: 40px; border-radius: 50%; }
-        .comment-author { font-weight: bold; font-size: 13px; margin-bottom: 4px; display: block; }
-        .rec-item { display: flex; gap: 8px; margin-bottom: 12px; cursor: pointer; text-decoration: none; color: inherit; }
-        .rec-thumb { width: 160px; height: 90px; flex-shrink: 0; border-radius: 8px; overflow: hidden; background: #222; }
-        .rec-thumb img { width: 100%; height: 100%; object-fit: cover; }
-        .rec-info { display: flex; flex-direction: column; justify-content: flex-start; }
-        .rec-title { font-size: 14px; font-weight: bold; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 4px; }
-        .rec-meta { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
-        .shorts-shelf-container { margin-top: 24px; border-top: 4px solid var(--bg-secondary); padding-top: 20px; margin-bottom: 24px; }
-        .shorts-shelf-title { display: flex; align-items: center; font-size: 18px; font-weight: bold; margin-bottom: 16px; color: white; }
-        .shorts-shelf-title svg { margin-right: 8px; width: 24px; height: 24px; }
-        .shorts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-        .short-card { text-decoration: none; color: inherit; display: block; }
-        .short-thumb { aspect-ratio: 9/16; border-radius: 8px; overflow: hidden; background: #222; }
-        .short-thumb img { width: 100%; height: 100%; object-fit: cover; }
-        .short-info { margin-top: 8px; }
-        .short-title { font-size: 14px; font-weight: 500; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .short-views { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
-        .server-dropdown-container { position: relative; display: inline-block; margin-left: 12px; }
-        .btn-server { background: var(--bg-secondary); color: var(--text-main); border: none; padding: 0 16px; height: 36px; border-radius: 18px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; transition: background 0.2s; }
-        .btn-server:hover { background: var(--bg-hover); }
-        .server-menu { display: none; position: absolute; top: 100%; left: 0; margin-top: 8px; background: var(--bg-secondary); border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 200; min-width: 220px; border: 1px solid #333; }
-        .server-menu.show { display: block; }
-        .server-option { padding: 12px 16px; cursor: pointer; font-size: 14px; transition: background 0.2s; display: flex; align-items: center; }
-        .server-option:hover { background: var(--bg-hover); }
-        .server-option.active { background: #333; border-left: 4px solid var(--yt-red); padding-left: 12px; }
-        .video-loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 150; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; backdrop-filter: blur(2px); }
-        .video-loading-overlay.active { opacity: 1; pointer-events: auto; }
-        .spinner { border: 4px solid rgba(255, 255, 255, 0.1); width: 50px; height: 50px; border-radius: 50%; border-top-color: var(--yt-red); animation: spin 1s ease-in-out infinite; margin-bottom: 16px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @media (max-width: 1000px) { .container { flex-direction: column; padding: 0; } .sidebar { width: 100%; padding: 16px; box-sizing: border-box; } .player-container { border-radius: 0; } .main-content { padding: 16px; } }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>\${videoData.videoTitle} - YouTube Pro</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --bg-main: #0f0f0f; --bg-secondary: #272727; --bg-hover: #3f3f3f; --text-main: #f1f1f1; --text-sub: #aaaaaa; --yt-red: #ff0000; }
+        body { margin: 0; padding: 0; background: var(--bg-main); color: var(--text-main); font-family: "Roboto", "Arial", sans-serif; overflow-x: hidden; }
+        .navbar { position: fixed; top: 0; width: 100%; height: 56px; background: var(--bg-main); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; box-sizing: border-box; z-index: 1000; border-bottom: 1px solid #222; }
+        .nav-left { display: flex; align-items: center; gap: 16px; }
+        .logo { display: flex; align-items: center; color: white; text-decoration: none; font-weight: bold; font-size: 18px; }
+        .logo i { color: var(--yt-red); font-size: 24px; margin-right: 4px; }
+        .nav-center { flex: 0 1 600px; display: flex; }
+        .search-bar { display: flex; width: 100%; background: #121212; border: 1px solid #303030; border-radius: 40px 0 0 40px; padding: 0 16px; }
+        .search-bar input { width: 100%; background: transparent; border: none; color: white; height: 38px; font-size: 16px; outline: none; }
+        .search-btn { background: #222; border: 1px solid #303030; border-left: none; border-radius: 0 40px 40px 0; width: 64px; height: 40px; color: white; cursor: pointer; }
+        .container { margin-top: 56px; display: flex; justify-content: center; padding: 24px; gap: 24px; max-width: 1700px; margin-left: auto; margin-right: auto; }
+        .main-content { flex: 1; min-width: 0; position: relative; }
+        .sidebar { width: 400px; flex-shrink: 0; }
+        .player-container { width: 100%; aspect-ratio: 16 / 9; background: black; border-radius: 12px; overflow: hidden; position: relative; z-index: 100; box-shadow: 0 4px 30px rgba(0,0,0,0.7); }
+        .video-title { font-size: 20px; font-weight: bold; margin: 12px 0; line-height: 28px; }
+        .owner-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .owner-info { display: flex; align-items: center; gap: 12px; }
+        .owner-info img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+        .channel-name { font-weight: bold; font-size: 16px; }
+        .btn-sub { background: white; color: black; border: none; padding: 0 16px; height: 36px; border-radius: 18px; font-weight: bold; cursor: pointer; }
+        .action-btn { background: var(--bg-secondary); border: none; color: white; padding: 0 16px; height: 36px; border-radius: 18px; cursor: pointer; font-size: 14px; }
+        .description-box { background: var(--bg-secondary); border-radius: 12px; padding: 12px; font-size: 14px; margin-bottom: 24px; }
+        .comment-item { display: flex; gap: 16px; margin-bottom: 20px; }
+        .comment-avatar { width: 40px; height: 40px; border-radius: 50%; }
+        .comment-author { font-weight: bold; font-size: 13px; margin-bottom: 4px; display: block; }
+        .rec-item { display: flex; gap: 8px; margin-bottom: 12px; cursor: pointer; text-decoration: none; color: inherit; }
+        .rec-thumb { width: 160px; height: 90px; flex-shrink: 0; border-radius: 8px; overflow: hidden; background: #222; }
+        .rec-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .rec-info { display: flex; flex-direction: column; justify-content: flex-start; }
+        .rec-title { font-size: 14px; font-weight: bold; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 4px; }
+        .rec-meta { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+        .shorts-shelf-container { margin-top: 24px; border-top: 4px solid var(--bg-secondary); padding-top: 20px; margin-bottom: 24px; }
+        .shorts-shelf-title { display: flex; align-items: center; font-size: 18px; font-weight: bold; margin-bottom: 16px; color: white; }
+        .shorts-shelf-title svg { margin-right: 8px; width: 24px; height: 24px; }
+        .shorts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .short-card { text-decoration: none; color: inherit; display: block; }
+        .short-thumb { aspect-ratio: 9/16; border-radius: 8px; overflow: hidden; background: #222; }
+        .short-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .short-info { margin-top: 8px; }
+        .short-title { font-size: 14px; font-weight: 500; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .short-views { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
+        .server-dropdown-container { position: relative; display: inline-block; margin-left: 12px; }
+        .btn-server { background: var(--bg-secondary); color: var(--text-main); border: none; padding: 0 16px; height: 36px; border-radius: 18px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; transition: background 0.2s; }
+        .btn-server:hover { background: var(--bg-hover); }
+        .server-menu { display: none; position: absolute; top: 100%; left: 0; margin-top: 8px; background: var(--bg-secondary); border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 200; min-width: 220px; border: 1px solid #333; }
+        .server-menu.show { display: block; }
+        .server-option { padding: 12px 16px; cursor: pointer; font-size: 14px; transition: background 0.2s; display: flex; align-items: center; }
+        .server-option:hover { background: var(--bg-hover); }
+        .server-option.active { background: #333; border-left: 4px solid var(--yt-red); padding-left: 12px; }
+        .video-loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 150; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; backdrop-filter: blur(2px); }
+        .video-loading-overlay.active { opacity: 1; pointer-events: auto; }
+        .spinner { border: 4px solid rgba(255, 255, 255, 0.1); width: 50px; height: 50px; border-radius: 50%; border-top-color: var(--yt-red); animation: spin 1s ease-in-out infinite; margin-bottom: 16px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @media (max-width: 1000px) { .container { flex-direction: column; padding: 0; } .sidebar { width: 100%; padding: 16px; box-sizing: border-box; } .player-container { border-radius: 0; } .main-content { padding: 16px; } }
+    </style>
 </head>
 <body>
 <nav class="navbar">
-    <div class="nav-left"><a href="/" class="logo"><i class="fab fa-youtube"></i>YouTube Pro</a></div>
-    <div class="nav-center"><form class="search-bar" action="/nothing/search"><input type="text" name="q" placeholder="検索"><button type="submit" class="search-btn"><i class="fas fa-search"></i></button></form></div>
-    <div style="width:100px;"></div>
+    <div class="nav-left"><a href="/" class="logo"><i class="fab fa-youtube"></i>YouTube Pro</a></div>
+    <div class="nav-center"><form class="search-bar" action="/nothing/search"><input type="text" name="q" placeholder="検索"><button type="submit" class="search-btn"><i class="fas fa-search"></i></button></form></div>
+    <div style="width:100px;"></div>
 </nav>
 
 <div class="container">
-    <div class="main-content">
-        <div class="player-container">
-            <div id="playerWrapper" style="width:100%; height:100%;">
-                ${streamEmbedPlaceholder}
-            </div>
-            <div id="videoLoadingOverlay" class="video-loading-overlay">
-                <div class="spinner"></div>
-                <div style="font-weight: bold; font-size: 16px;">動画サーバーに接続中...</div>
-            </div>
-        </div>
-        <h1 class="video-title">${videoData.videoTitle}</h1>
-        <div class="owner-row">
-            <div class="owner-info">
-                <img src="${videoData.channelImage || 'https://via.placeholder.com/40'}">
-                <div class="channel-name">${videoData.channelName}</div>
-                <button class="btn-sub">チャンネル登録</button>
-                <div class="server-dropdown-container">
-                    <button class="btn-server" onclick="toggleServerMenu()">
-                        <i class="fas fa-server"></i> 動画サーバー <i class="fas fa-chevron-down" style="font-size: 12px; margin-left: 2px;"></i>
-                    </button>
-                    <div id="serverMenu" class="server-menu">
-                        <div class="server-option active" onclick="changeServer('googlevideo', '', event)">Googlevideo</div>
-                        <div class="server-option" onclick="changeServer('youtube-nocookie', '/nocookie/${videoId}', event)">Youtube-nocookie</div>
-                        <div class="server-option" onclick="changeServer('DL-Pro', '/360/${videoId}', event)">DL-Pro</div>
-                        <div class="server-option" onclick="changeServer('YoutubeEdu-Kahoot', '/kahoot-edu/${videoId}', event)">YoutubeEdu-Kahoot</div>
-                        <div class="server-option" onclick="changeServer('YoutubeEdu-Scratch', '/scratch-edu/${videoId}', event)">YoutubeEdu-Scratch</div>
-                        <div class="server-option" onclick="changeServer('Youtube-Pro', '/pro-stream/${videoId}', event)">Youtube-Pro</div>
-                    </div>
-                </div>
-            </div>
-            <div style="display:flex; gap:8px;"><button class="action-btn">👍 ${videoData.likeCount || 0}</button><button class="action-btn">共有</button></div>
-        </div>
-        <div class="description-box"><b>${videoData.videoViews || '0'} 回視聴</b><br><br>${videoData.videoDes || ''}</div>
-        <div class="comments-section">
-            <h3>コメント ${commentsData.commentCount} 件</h3>
-            ${commentsData.comments.map(c => `<div class="comment-item"><img class="comment-avatar" src="${c.authorThumbnails?.[0]?.url || ''}"><div><span class="comment-author">${c.author}</span><div style="font-size:14px;">${c.content}</div></div></div>`).join('')}
-        </div>
-    </div>
-    <div class="sidebar">
-        <div id="recommendations"></div>
-        <div id="shortsShelf" class="shorts-shelf-container" style="display:none;">
-            <div class="shorts-shelf-title">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="red">
-                    <path d="M17.77,10.32l-1.2-.5L18,9.06a3.74,3.74,0,0,0-3.5-6.62L6,6.94a3.74,3.74,0,0,0,.23,6.74l1.2.49L6,14.93a3.75,3.75,0,0,0,3.5,6.63l8.5-4.5a3.74,3.74,0,0,0-.23-6.74Z"/>
-                    <polygon points="10 14.65 15 12 10 9.35 10 14.65" fill="#fff"/>
-                </svg>
-                Shorts
-            </div>
-            <div id="shortsGrid" class="shorts-grid"></div>
-        </div>
-    </div>
+    <div class="main-content">
+        <div class="player-container">
+            <div id="playerWrapper" style="width:100%; height:100%;">
+                \${streamEmbedPlaceholder}
+            </div>
+            <div id="videoLoadingOverlay" class="video-loading-overlay">
+                <div class="spinner"></div>
+                <div style="font-weight: bold; font-size: 16px;">動画サーバーに接続中...</div>
+            </div>
+        </div>
+        <h1 class="video-title">\${videoData.videoTitle}</h1>
+        <div class="owner-row">
+            <div class="owner-info">
+                <img src="\${videoData.channelImage || 'https://via.placeholder.com/40'}">
+                <div class="channel-name">\${videoData.channelName}</div>
+                <button class="btn-sub">チャンネル登録</button>
+                <div class="server-dropdown-container">
+                    <button class="btn-server" onclick="toggleServerMenu()">
+                        <i class="fas fa-server"></i> 動画サーバー <i class="fas fa-chevron-down" style="font-size: 12px; margin-left: 2px;"></i>
+                    </button>
+                    <div id="serverMenu" class="server-menu">
+                        <div class="server-option active" onclick="changeServer('googlevideo', '', event)">Googlevideo</div>
+                        <div class="server-option" onclick="changeServer('youtube-nocookie', '/nocookie/\${videoId}', event)">Youtube-nocookie</div>
+                        <div class="server-option" onclick="changeServer('DL-Pro', '/360/\${videoId}', event)">DL-Pro</div>
+                        <div class="server-option" onclick="changeServer('YoutubeEdu-Kahoot', '/kahoot-edu/\${videoId}', event)">YoutubeEdu-Kahoot</div>
+                        <div class="server-option" onclick="changeServer('YoutubeEdu-Scratch', '/scratch-edu/\${videoId}', event)">YoutubeEdu-Scratch</div>
+                        <div class="server-option" onclick="changeServer('Youtube-Pro', '/pro-stream/\${videoId}', event)">Youtube-Pro</div>
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex; gap:8px;"><button class="action-btn">👍 \${videoData.likeCount || 0}</button><button class="action-btn">共有</button></div>
+        </div>
+        <div class="description-box"><b>\${videoData.videoViews || '0'} 回視聴</b><br><br>\${videoData.videoDes || ''}</div>
+        <div class="comments-section">
+            <h3>コメント \${commentsData.commentCount} 件</h3>
+            \${commentsData.comments.map(c => \`<div class="comment-item"><img class="comment-avatar" src="\${c.authorThumbnails?.[0]?.url || ''}"><div><span class="comment-author">\${c.author}</span><div style="font-size:14px;">\${c.content}</div></div></div>\`).join('')}
+        </div>
+    </div>
+    <div class="sidebar">
+        <div id="recommendations"></div>
+        <div id="shortsShelf" class="shorts-shelf-container" style="display:none;">
+            <div class="shorts-shelf-title">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="red">
+                    <path d="M17.77,10.32l-1.2-.5L18,9.06a3.74,3.74,0,0,0-3.5-6.62L6,6.94a3.74,3.74,0,0,0,.23,6.74l1.2.49L6,14.93a3.75,3.75,0,0,0,3.5,6.63l8.5-4.5a3.74,3.74,0,0,0-.23-6.74Z"/>
+                    <polygon points="10 14.65 15 12 10 9.35 10 14.65" fill="#fff"/>
+                </svg>
+                Shorts
+            </div>
+            <div id="shortsGrid" class="shorts-grid"></div>
+        </div>
+    </div>
 </div>
 
 <script>
-    function toggleServerMenu() { document.getElementById('serverMenu').classList.toggle('show'); }
-    window.addEventListener('click', function(e) { if (!e.target.closest('.server-dropdown-container')) { const menu = document.getElementById('serverMenu'); if (menu && menu.classList.contains('show')) menu.classList.remove('show'); } });
+    function toggleServerMenu() { document.getElementById('serverMenu').classList.toggle('show'); }
+    window.addEventListener('click', function(e) { if (!e.target.closest('.server-dropdown-container')) { const menu = document.getElementById('serverMenu'); if (menu && menu.classList.contains('show')) menu.classList.remove('show'); } });
 
-    async function changeServer(serverName, endpointPath, event) {
-        document.getElementById('serverMenu').classList.remove('show');
-        const options = document.querySelectorAll('.server-option');
-        options.forEach(opt => opt.classList.remove('active'));
-        event.currentTarget.classList.add('active');
+    async function changeServer(serverName, endpointPath, event) {
+        document.getElementById('serverMenu').classList.remove('show');
+        const options = document.querySelectorAll('.server-option');
+        options.forEach(opt => opt.classList.remove('active'));
+        event.currentTarget.classList.add('active');
 
-        const overlay = document.getElementById('videoLoadingOverlay');
-        overlay.classList.add('active');
+        const overlay = document.getElementById('videoLoadingOverlay');
+        overlay.classList.add('active');
 
-        try {
-            let newUrl = '';
-            // --- ロジックの条件分岐 ---
-            if (serverName === 'googlevideo') {
-                newUrl = "${videoData.stream_url}" === "youtube-nocookie" ? \`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1\` : "${videoData.stream_url}";
-            } else if (serverName === 'Youtube-Pro') {
-                // Youtube-ProはエンドポイントURLをそのまま使用
-                newUrl = endpointPath;
-            } else {
-                // それ以外はサーバーから生のURLを取得
-                const res = await fetch(endpointPath);
-                if (!res.ok) throw new Error("サーバーエラー");
-                newUrl = await res.text();
-            }
+        try {
+            let newUrl = '';
+            // --- ロジックの条件分岐 ---
+            if (serverName === 'googlevideo') {
+                newUrl = "\${videoData.stream_url}" === "youtube-nocookie" ? \`https://www.youtube-nocookie.com/embed/\${videoId}?autoplay=1\` : "\${videoData.stream_url}";
+            } else if (serverName === 'Youtube-Pro') {
+                // Youtube-ProはエンドポイントURLをそのまま使用
+                newUrl = endpointPath;
+            } else {
+                // それ以外はサーバーから生のURLを取得
+                const res = await fetch(endpointPath);
+                if (!res.ok) throw new Error("サーバーエラー");
+                newUrl = await res.text();
+            }
 
-            const playerContainer = document.getElementById('playerWrapper');
-            // Kahoot, Scratch, Youtube-Pro, およびnocookieは強制的にiframe
-            const forceIframe = ['YoutubeEdu-Kahoot', 'YoutubeEdu-Scratch', 'Youtube-Pro', 'youtube-nocookie'].includes(serverName);
-            const isIframe = forceIframe || newUrl.includes('embed');
+            const playerContainer = document.getElementById('playerWrapper');
+            // Kahoot, Scratch, Youtube-Pro, およびnocookieは強制的にiframe
+            const forceIframe = ['YoutubeEdu-Kahoot', 'YoutubeEdu-Scratch', 'Youtube-Pro', 'youtube-nocookie'].includes(serverName);
+            const isIframe = forceIframe || newUrl.includes('embed');
 
-            let playerHtml = '';
-            if (isIframe) {
-                playerHtml = \`<iframe id="mainIframe" src="\${newUrl}" frameborder="0" allowfullscreen style="width:100%; height:100%; position:relative; z-index:10;"></iframe>\`;
-            } else {
-                playerHtml = \`<video id="mainPlayer" controls autoplay style="width:100%; height:100%; position:relative; z-index:10; background:#000;"><source src="\${newUrl}" type="video/mp4"></video>\`;
-            }
-            playerContainer.innerHTML = playerHtml;
-            const newVideo = document.getElementById('mainPlayer');
-            if (newVideo) { newVideo.load(); newVideo.play().catch(e => console.log("Auto")); }
-        } catch (error) { console.error(error); alert('サーバー切り替えに失敗しました。'); } finally { overlay.classList.remove('active'); }
-    }
+            let playerHtml = '';
+            if (isIframe) {
+                playerHtml = \`<iframe id="mainIframe" src="\${newUrl}" frameborder="0" allowfullscreen style="width:100%; height:100%; position:relative; z-index:10;"></iframe>\`;
+            } else {
+                playerHtml = \`<video id="mainPlayer" controls autoplay style="width:100%; height:100%; position:relative; z-index:10; background:#000;"><source src="\${newUrl}" type="video/mp4"></video>\`;
+            }
+            playerContainer.innerHTML = playerHtml;
+            const newVideo = document.getElementById('mainPlayer');
+            if (newVideo) { newVideo.load(); newVideo.play().catch(e => console.log("Auto")); }
+        } catch (error) { console.error(error); alert('サーバー切り替えに失敗しました。'); } finally { overlay.classList.remove('active'); }
+    }
 
-    async function loadRecommendations() {
-        const params = new URLSearchParams({ title: "${videoData.videoTitle}", channel: "${videoData.channelName}", id: "${videoId}" });
-        const res = await fetch(\`/api/recommendations?\${params.toString()}\`);
-        const data = await res.json();
-        const shorts = data.items.filter(item => item.title.includes('#'));
-        const regulars = data.items.filter(item => !item.title.includes('#'));
-        document.getElementById('recommendations').innerHTML = regulars.map(item => \`
-            <a href="/video/\${item.id}" class="rec-item">
-                <div class="rec-thumb"><img src="https://i.ytimg.com/vi/\${item.id}/mqdefault.jpg"></div>
-                <div class="rec-info">
-                    <div class="rec-title">\${item.title}</div>
-                    <div class="rec-meta">\${item.channelTitle}</div>
-                    <div class="rec-meta">\${item.viewCountText || ''}</div>
-                </div>
-            </a>
-        \`).join('');
-        if (shorts.length > 0) {
-            const shelf = document.getElementById('shortsShelf');
-            const grid = document.getElementById('shortsGrid');
-            shelf.style.display = 'block';
-            grid.innerHTML = shorts.slice(0, 4).map(item => \`
-                <a href="/video/\${item.id}" class="short-card">
-                    <div class="short-thumb"><img src="https://i.ytimg.com/vi/\${item.id}/hq720.jpg"></div>
-                    <div class="short-info">
-                        <div class="short-title">\${item.title}</div>
-                        <div class="short-views">\${item.viewCountText || ''}</div>
-                    </div>
-                </a>
-            \`).join('');
-        }
-    }
-    window.onload = () => {
-        loadRecommendations();
-        const video = document.getElementById('mainPlayer');
-        const iframe = document.getElementById('mainIframe');
-        if (video) { const source = video.querySelector('source'); source.src = source.dataset.src; video.load(); video.play().catch(e => {}); }
-        if (iframe) { iframe.src = iframe.dataset.src; }
-    };
+    async function loadRecommendations() {
+        const params = new URLSearchParams({ title: "\${videoData.videoTitle}", channel: "\${videoData.channelName}", id: "\${videoId}" });
+        const res = await fetch(\`/api/recommendations?\${params.toString()}\`);
+        const data = await res.json();
+        const shorts = data.items.filter(item => item.title.includes('#'));
+        const regulars = data.items.filter(item => !item.title.includes('#'));
+        document.getElementById('recommendations').innerHTML = regulars.map(item => \`
+            <a href="/video/\${item.id}" class="rec-item">
+                <div class="rec-thumb"><img src="https://i.ytimg.com/vi/\${item.id}/mqdefault.jpg"></div>
+                <div class="rec-info">
+                    <div class="rec-title">\${item.title}</div>
+                    <div class="rec-meta">\${item.channelTitle}</div>
+                    <div class="rec-meta">\${item.viewCountText || ''}</div>
+                </div>
+            </a>
+        \`).join('');
+        if (shorts.length > 0) {
+            const shelf = document.getElementById('shortsShelf');
+            const grid = document.getElementById('shortsGrid');
+            shelf.style.display = 'block';
+            grid.innerHTML = shorts.slice(0, 4).map(item => \`
+                <a href="/video/\${item.id}" class="short-card">
+                    <div class="short-thumb"><img src="https://i.ytimg.com/vi/\${item.id}/hq720.jpg"></div>
+                    <div class="short-info">
+                        <div class="short-title">\${item.title}</div>
+                        <div class="short-views">\${item.viewCountText || ''}</div>
+                    </div>
+                </a>
+            \`).join('');
+        }
+    }
+
+    window.onload = () => {
+        loadRecommendations();
+        const video = document.getElementById('mainPlayer');
+        const iframe = document.getElementById('mainIframe');
+
+        if (video) { 
+            const source = video.querySelector('source'); 
+            // dataset.srcが存在する場合のみ代入する（正しく入っているsrcをundefinedで上書き破壊するのを防ぐ）
+            if (source && source.dataset.src) { 
+                source.src = source.dataset.src; 
+            }
+            video.load(); 
+            video.play().catch(e => {}); 
+
+            // 初期ロードエラー時に、自動で「もう一度埋め込み(再読み込み)」を1回だけ実行する処理
+            if (!window.hasAutoFixedVideo) {
+                const autoFix = () => {
+                    if (window.hasAutoFixedVideo) return;
+                    window.hasAutoFixedVideo = true; // 無限ループ防止
+                    const btn = document.querySelector('.server-option.active') || document.querySelector('.server-option');
+                    changeServer('googlevideo', '', { currentTarget: btn });
+                };
+                video.addEventListener('error', autoFix, true);
+                if (source) source.addEventListener('error', autoFix, true);
+            }
+        }
+
+        if (iframe) { 
+            if (iframe.dataset.src) {
+                iframe.src = iframe.dataset.src; 
+            }
+        }
+    };
 </script>
 </body>
 </html>

@@ -620,6 +620,59 @@ app.get('/360/:videoId', async (req, res) => {
         res.status(500).send('Internal Server Error');
     }
 });
+
+
+app.get("/stream-ytdlp/:videoId", async (req, res) => {
+  try {
+    const { videoId } = req.params;
+    const protocol = req.protocol; // http or https
+    const host = req.get("host");  // host:port
+    const targetUrl = `${protocol}://${host}/rapid/${encodeURIComponent(videoId)}`;
+
+    const fetchRes = await fetch(targetUrl, { method: "GET" });
+
+    if (!fetchRes.ok) {
+      return res.status(502).send(`Failed to fetch rapid endpoint: ${fetchRes.status}`);
+    }
+
+    let directUrl = null;
+    const contentType = fetchRes.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      const json = await fetchRes.json();
+      directUrl = json.url || json.directUrl || (typeof json === "string" ? json : null);
+    } else {
+      directUrl = (await fetchRes.text()).trim();
+    }
+
+    if (!directUrl) {
+      return res.status(502).send("Direct URL not found in rapid response");
+    }
+
+    const safeUrl = escapeHtml(directUrl);
+    const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Stream Player</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="stage">
+    <div id="player" class="player" data-src="${safeUrl}"></div>
+  </main>
+
+  <script src="index.js" type="module"></script>
+</body>
+</html>`;
+
+    res.type("html").send(html);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Internal server error");
+  }
+});
   
 app.use((req, res) => res.status(404).sendFile(path.join(__dirname, "public", "error.html")));
 app.use((err, req, res, next) => {

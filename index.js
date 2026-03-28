@@ -12,6 +12,13 @@ app.set("view engine", "ejs");
 
 const API_HEALTH_CHECKER = "https://raw.githubusercontent.com/Minotaur-ZAOU/test/refs/heads/main/min-tube-api.json";
 const TEMP_API_LIST = "https://raw.githubusercontent.com/Minotaur-ZAOU/test/refs/heads/main/min-tube-api.json";
+const RAPID_API_HOST = 'ytstream-download-youtube-videos.p.rapidapi.com';
+
+const keys = [
+  process.env.RAPIDAPI_KEY_1 || '69e2995a79mshcb657184ba6731cp16f684jsn32054a070ba5',
+  process.env.RAPIDAPI_KEY_2 || 'ece95806fdmshe322f47bce30060p1c3411jsn41a3d4820039',
+  process.env.RAPIDAPI_KEY_3 || '41c9265bc6msha0fa7dfc1a63eabp18bf7cjsne6ef10b79b38'
+];
 
 app.use(express.static(path.join(__dirname, "public")));
 app.use(cookieParser());
@@ -507,6 +514,63 @@ app.get("/nothing/*", (req, res) => {
 
 app.post("/api/save-history", express.json(), (req, res) => {
   res.json({ success: true });
+});
+app.get('/rapid/:id', async (req, res) => {
+  const videoId = req.params.id;
+  const selectedKey = keys[Math.floor(Math.random() * keys.length)];
+
+  const url = `https://${RAPID_API_HOST}/dl?id=${videoId}`;
+  const options = {
+    method: 'GET',
+    headers: {
+      'x-rapidapi-key': selectedKey,
+      'x-rapidapi-host': RAPID_API_HOST,
+      'Content-Type': 'application/json'
+    }
+  };
+
+  try {
+    const response = await fetch(url, options);
+    const data = await response.json();
+
+    if (data.status !== "OK") {
+      return res.status(400).json({ error: "Failed to fetch video data" });
+    }
+
+    // --- チャンネル画像の取得と生成ロジック ---
+    // 1. レスポンス内にあるか確認 (APIの仕様により channelThumbnail や author.thumbnails など)
+    let channelImageUrl = data.channelThumbnail?.[0]?.url || data.author?.thumbnails?.[0]?.url;
+
+    // 2. もし取得できなかった場合、チャンネル名からアバター画像を「生成」するURLを作成
+    if (!channelImageUrl) {
+      const name = encodeURIComponent(data.channelTitle || 'Youtube Channel');
+      // UI Avatars を使用して、背景色付きの頭文字アイコンを生成
+      channelImageUrl = `https://ui-avatars.com/api/?name=${name}&background=random&color=fff&size=128`;
+    }
+
+    const highResStream = data.adaptiveFormats?.find(f => f.qualityLabel === '1080p') || data.adaptiveFormats?.[0];
+    const audioStream = data.adaptiveFormats?.find(f => f.mimeType.includes('audio')) || data.adaptiveFormats?.[data.adaptiveFormats?.length - 1];
+
+    const formattedResponse = {
+      stream_url: data.formats?.[0]?.url || "",
+      highstreamUrl: highResStream?.url || "",
+      audioUrl: audioStream?.url || "",
+      videoId: data.id,
+      channelId: data.channelId,
+      channelName: data.channelTitle,
+      channelImage: channelImageUrl, 
+      videoTitle: data.title,
+      videoDes: data.description,
+      videoViews: parseInt(data.viewCount) || 0,
+      likeCount: data.likeCount || 0
+    };
+
+    res.json(formattedResponse);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 
 app.use((req, res) => res.status(404).sendFile(path.join(__dirname, "public", "error.html")));

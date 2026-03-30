@@ -985,7 +985,7 @@ frame.addEventListener('click', ()=> {
 </html>`);
 });
 
-app.get("youtube-pro", (req, res) => {
+app.get("/youtube-pro", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "min-tube-pro.html"));
 });
 

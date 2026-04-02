@@ -203,7 +203,16 @@ app.get("/video/:id", async (req, res, next) => {
             .then(data => data.stream_url ? data : Promise.reject()),
           fetchWithTimeout(`${protocol}://${host}/sia-dl/${videoId}`, {}, 5000)
             .then(res => res.ok ? res.json() : Promise.reject())
-            .then(data => data.stream_url ? data : Promise.reject())
+            .then(data => data.stream_url ? data : Promise.reject()),
+
+          new Promise((resolve, reject) => {
+            setTimeout(() => {
+              fetchWithTimeout(`${protocol}://${host}/ai-fetch/${videoId}`, {}, 5000)
+                .then(res => res.ok ? res.json() : Promise.reject())
+                .then(data => data.stream_url ? resolve(data) : reject())
+                .catch(reject);
+            }, 2000);
+          })
         ]);
 
 

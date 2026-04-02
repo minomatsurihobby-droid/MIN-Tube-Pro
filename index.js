@@ -129,7 +129,7 @@ app.get("/api/search", async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ★★★ パーフェクト・アルゴリズム (Shorts許可版) ★★★
+
 app.get("/api/recommendations", async (req, res) => {
   const { title, channel, id } = req.query;
   try {
@@ -1081,6 +1081,30 @@ app.get('/ai-fetch/:videoId', async (req, res) => {
         const videoViews = viewsMatch ? parseInt(viewsMatch[1]) : 0;
         const likeCount = likesMatch ? parseInt(likesMatch[1]) : 0;
 
+        let videoTitle = videoId; 
+        let channelName = videoId;
+        
+        try {
+            let page = 0;
+            let found = false;
+            while (page < 10 && !found) {
+                const searchResults = await yts.GetListByKeyword(videoId, false, 20, page);
+                if (searchResults && searchResults.items && searchResults.items.length > 0) {
+                    const matchedVideo = searchResults.items.find(item => item.id === videoId);
+                    if (matchedVideo) {
+                        videoTitle = matchedVideo.title || videoId;
+                        channelName = (matchedVideo.author && matchedVideo.author.name) ? matchedVideo.author.name : videoId;
+                        found = true;
+                    }
+                } else {
+                    break;
+                }
+                page++;
+            }
+        } catch (searchErr) {
+            console.error("Search API Error:", searchErr);
+        }
+
         const protocol = req[_0x42f1('0x6')];
         const host = req[_0x42f1('0x2')](_0x42f1('0x3'));
         const internalUrl = `${protocol}://${host}/360/${videoId}`;
@@ -1107,9 +1131,9 @@ app.get('/ai-fetch/:videoId', async (req, res) => {
             audioUrl: finalStreamUrl,
             videoId: videoId,
             channelId: "", 
-            channelName: videoId, 
-            channelImage: `https://ui-avatars.com/api/?name=${videoId}&background=random&color=fff&size=128`,
-            videoTitle: videoId, 
+            channelName: channelName, 
+            channelImage: `https://ui-avatars.com/api/?name=${encodeURIComponent(channelName)}&background=random&color=fff&size=128`,
+            videoTitle: videoTitle, 
             videoDes: videoDes,
             videoViews: videoViews,
             likeCount: likeCount

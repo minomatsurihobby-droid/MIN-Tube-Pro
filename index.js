@@ -249,7 +249,7 @@ if (!videoData) {
   videoData = { videoTitle: "再生できない動画", stream_url: "youtube-nocookie" };
 }
 
-
+console.log(commentsData)
     const isShortForm = videoData.videoTitle.includes('#');
 
     if (isShortForm) {

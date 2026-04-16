@@ -53,6 +53,15 @@ function fetchWithTimeout(url, options = {}, timeout = 5000) {
   ]);
 }
 
+setInterval(() => {
+    const now = Date.now();
+    for (const [videoId, cachedItem] of videoCache.entries()) {
+        if (cachedItem.expiry < now) {
+            videoCache.delete(videoId);
+        }
+    }
+}, 300000);
+
 // ミドルウェア: 人間確認
 app.use(async (req, res, next) => {
   if (req.path.startsWith("/api") || req.path.startsWith("/video") || req.path === "/") {

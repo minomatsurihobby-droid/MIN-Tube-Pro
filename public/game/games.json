@@ -166,5 +166,19 @@
   "tags": ["アクション", "採掘", "強化"],
   "isNew": true,
   "status": "done"
+},
+   {
+  "key": "Board game",
+  "name": "Board Games",
+  "emoji": "♟️",
+  "sub": "アーケード · 1人でも2人でも",
+  "file": "fun/BG.html",
+  "desc": "オセロに将棋にその他諸々‼︎",
+  "genre": "board",
+  "genreLabel": "アーケード",
+  "players": "1人プレイ 対戦",
+  "tags": ["アーケード", "マルチプレイ"],
+  "isNew": true,
+  "status": "done"
 }
 ]

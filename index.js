@@ -69,7 +69,7 @@ setInterval(() => {
     }
 }, 300000);
 
-// ミドルウェア: 人間確認
+// ミドルウェア: 人間確認,
 app.use(async (req, res, next) => {
   if (req.path.startsWith("/api") || req.path.startsWith("/video") || req.path === "/") {
     if (!req.cookies || req.cookies.humanVerified !== "true") {

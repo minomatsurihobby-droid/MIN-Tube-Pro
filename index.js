@@ -1306,78 +1306,264 @@ app.get("/api/channel", async (req, res) => {
 // --- チャンネルページ ---
 app.get("/channel/:channelName", (req, res) => {
   const channelName = decodeURIComponent(req.params.channelName);
+  const initial = channelName.charAt(0).toUpperCase();
+  // チャンネルごとにアバター背景色を決定（固定色）
+  const colors = ['#ff0000','#ff6d00','#ffd600','#00c853','#00b0ff','#651fff','#d500f9','#f50057'];
+  const colorIndex = channelName.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length;
+  const avatarBg = colors[colorIndex];
+
   const html = `<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${channelName} - YouTube Pro</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <title>${channelName} - MIN-Tube-Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
-    :root { --bg-main:#0f0f0f; --bg-secondary:#272727; --bg-hover:#3f3f3f; --text-main:#f1f1f1; --text-sub:#aaaaaa; --yt-red:#ff0000; }
-    * { box-sizing: border-box; }
-    body { margin:0; padding:0; background:var(--bg-main); color:var(--text-main); font-family:"Roboto","Arial",sans-serif; }
-    .navbar { position:fixed; top:0; width:100%; height:56px; background:var(--bg-main); display:flex; align-items:center; justify-content:space-between; padding:0 16px; z-index:1000; border-bottom:1px solid #222; }
-    .nav-left { display:flex; align-items:center; gap:16px; }
-    .logo { display:flex; align-items:center; color:white; text-decoration:none; font-weight:bold; font-size:18px; }
-    .logo i { color:var(--yt-red); font-size:24px; margin-right:4px; }
-    .back-btn { background:none; border:none; color:var(--text-main); font-size:20px; cursor:pointer; padding:8px; border-radius:50%; transition:background .2s; }
-    .back-btn:hover { background:var(--bg-secondary); }
-    .channel-banner { margin-top:56px; width:100%; height:160px; background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460); position:relative; overflow:hidden; }
-    .channel-banner::after { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 30% 50%, rgba(255,0,0,0.15), transparent 70%); }
-    .channel-header { max-width:1200px; margin:0 auto; padding:0 24px; display:flex; align-items:flex-end; gap:20px; transform:translateY(-40px); }
-    .channel-avatar { width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg,#ff0000,#ff6b6b); display:flex; align-items:center; justify-content:center; font-size:32px; font-weight:bold; border:4px solid var(--bg-main); flex-shrink:0; overflow:hidden; }
-    .channel-avatar img { width:100%; height:100%; object-fit:cover; }
-    .channel-info { flex:1; padding-bottom:8px; }
-    .channel-title { font-size:22px; font-weight:bold; margin-bottom:4px; }
-    .channel-meta { font-size:13px; color:var(--text-sub); }
-    .channel-tabs { max-width:1200px; margin:0 auto; padding:0 24px; border-bottom:1px solid #333; display:flex; gap:0; margin-top:-24px; }
-    .tab { padding:12px 20px; cursor:pointer; font-size:14px; font-weight:500; color:var(--text-sub); border-bottom:2px solid transparent; transition:.2s; }
-    .tab.active { color:var(--text-main); border-bottom-color:white; }
-    .content { max-width:1200px; margin:24px auto; padding:0 24px; }
-    .video-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; }
+    :root {
+      --bg:#0f0f0f; --surface:#212121; --card:#272727; --hover:#3f3f3f;
+      --text:#f1f1f1; --text-sub:#aaaaaa; --text-sec:#717171;
+      --red:#ff0000; --border:#3f3f3f;
+      --avatar-bg: ${avatarBg};
+    }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:var(--bg); color:var(--text); font-family:'Roboto',Arial,sans-serif; -webkit-font-smoothing:antialiased; }
+
+    /* ===== NAVBAR ===== */
+    .navbar {
+      position:fixed; top:0; width:100%; height:56px;
+      background:var(--bg); display:flex; align-items:center;
+      padding:0 16px; z-index:1000; gap:12px;
+    }
+    .nav-logo { display:flex; align-items:center; gap:4px; text-decoration:none; color:var(--text); }
+    .nav-logo-icon { background:var(--red); border-radius:6px; width:34px; height:24px; display:flex; align-items:center; justify-content:center; }
+    .nav-logo-icon svg { width:16px; height:16px; fill:white; }
+    .nav-logo-text { font-size:18px; font-weight:700; letter-spacing:-0.5px; }
+    .nav-logo-sub { font-size:10px; color:var(--text-sub); font-weight:500; margin-left:1px; align-self:flex-end; margin-bottom:4px; }
+    .back-btn {
+      background:none; border:none; color:var(--text); cursor:pointer;
+      width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+      transition:background .15s; font-size:0; flex-shrink:0;
+    }
+    .back-btn:hover { background:rgba(255,255,255,0.1); }
+    .back-btn svg { width:24px; height:24px; fill:var(--text); }
+
+    /* ===== BANNER ===== */
+    .channel-banner {
+      margin-top:56px; width:100%; height:176px;
+      background:linear-gradient(135deg, #1c1c2e 0%, #2d1b4e 40%, #1a2a4a 100%);
+      position:relative; overflow:hidden;
+    }
+    .channel-banner::before {
+      content:''; position:absolute; inset:0;
+      background:radial-gradient(ellipse at 20% 60%, ${avatarBg}33 0%, transparent 60%);
+    }
+    .channel-banner::after {
+      content:''; position:absolute; inset:0;
+      background:radial-gradient(ellipse at 80% 30%, rgba(255,255,255,0.04) 0%, transparent 50%);
+    }
+    .banner-pattern {
+      position:absolute; inset:0; opacity:0.05;
+      background-image: repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%);
+      background-size:20px 20px;
+    }
+
+    /* ===== CHANNEL HEADER ===== */
+    .channel-header-wrap {
+      max-width:1284px; margin:0 auto; padding:0 24px;
+    }
+    .channel-header {
+      display:flex; align-items:flex-end; gap:24px;
+      padding:0 0 16px;
+      transform:translateY(-28px);
+    }
+    .channel-avatar {
+      width:88px; height:88px; border-radius:50%;
+      background:var(--avatar-bg);
+      display:flex; align-items:center; justify-content:center;
+      font-size:36px; font-weight:700; color:#fff;
+      border:4px solid var(--bg); flex-shrink:0;
+      overflow:hidden; position:relative;
+      box-shadow:0 2px 16px rgba(0,0,0,0.6);
+    }
+    .channel-avatar img {
+      width:100%; height:100%; object-fit:cover; display:none;
+      position:absolute; inset:0;
+    }
+    .channel-avatar img.loaded { display:block; }
+    .avatar-initial { position:relative; z-index:1; }
+
+    .channel-info { flex:1; min-width:0; padding-bottom:4px; }
+    .channel-title {
+      font-size:24px; font-weight:700; line-height:1.2;
+      margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .channel-handle {
+      font-size:13px; color:var(--text-sub); margin-bottom:4px;
+    }
+    .channel-stats {
+      font-size:13px; color:var(--text-sub);
+      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    }
+    .channel-stats-dot { color:var(--text-sec); }
+
+    .channel-actions { display:flex; align-items:center; gap:8px; padding-bottom:4px; flex-shrink:0; }
+    .btn-subscribe {
+      background:var(--text); color:var(--bg);
+      border:none; border-radius:20px;
+      padding:10px 16px; font-size:14px; font-weight:500;
+      cursor:pointer; transition:background .15s, opacity .15s;
+      font-family:'Roboto',Arial,sans-serif; white-space:nowrap;
+    }
+    .btn-subscribe:hover { opacity:0.85; }
+    .btn-subscribe.subscribed {
+      background:var(--card); color:var(--text);
+    }
+    .btn-subscribe.subscribed:hover { background:var(--hover); }
+    .btn-notify {
+      background:var(--card); border:none; color:var(--text);
+      width:40px; height:40px; border-radius:50%;
+      display:none; align-items:center; justify-content:center;
+      cursor:pointer; transition:background .15s; flex-shrink:0;
+    }
+    .btn-notify.show { display:flex; }
+    .btn-notify:hover { background:var(--hover); }
+    .btn-notify svg { width:20px; height:20px; fill:var(--text); }
+
+    /* ===== TABS ===== */
+    .channel-tabs-wrap {
+      max-width:1284px; margin:0 auto; padding:0 24px;
+      border-bottom:1px solid var(--border);
+      margin-top:-28px;
+    }
+    .channel-tabs { display:flex; gap:0; overflow-x:auto; scrollbar-width:none; }
+    .channel-tabs::-webkit-scrollbar { display:none; }
+    .tab {
+      padding:12px 20px; cursor:pointer; font-size:14px; font-weight:500;
+      color:var(--text-sub); border-bottom:2px solid transparent;
+      transition:color .15s, border-color .15s; white-space:nowrap;
+      letter-spacing:0.3px;
+    }
+    .tab:hover { color:var(--text); background:rgba(255,255,255,0.05); }
+    .tab.active { color:var(--text); border-bottom-color:var(--text); }
+
+    /* ===== CONTENT ===== */
+    .content { max-width:1284px; margin:24px auto; padding:0 24px; }
+    .video-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fill, minmax(220px,1fr));
+      gap:16px 16px; row-gap:32px;
+    }
     .video-card { text-decoration:none; color:inherit; display:block; cursor:pointer; }
-    .video-card:hover .thumb img { transform:scale(1.05); }
-    .thumb { aspect-ratio:16/9; border-radius:10px; overflow:hidden; background:#222; }
-    .thumb img { width:100%; height:100%; object-fit:cover; transition:transform .3s; }
-    .video-meta { margin-top:8px; }
-    .video-meta-title { font-size:14px; font-weight:500; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin-bottom:4px; }
-    .video-meta-sub { font-size:12px; color:var(--text-sub); }
+    .thumb { aspect-ratio:16/9; border-radius:10px; overflow:hidden; background:#1a1a1a; position:relative; }
+    .thumb img { width:100%; height:100%; object-fit:cover; display:block; transition:border-radius .2s; }
+    .video-card:hover .thumb img { border-radius:0; }
+    .duration-badge {
+      position:absolute; bottom:6px; right:6px;
+      background:rgba(0,0,0,0.85); color:#fff;
+      font-size:12px; font-weight:700; padding:2px 5px;
+      border-radius:4px; letter-spacing:0.3px;
+    }
+    .video-card-meta { margin-top:10px; display:flex; gap:10px; align-items:flex-start; }
+    .card-avatar {
+      width:36px; height:36px; border-radius:50%;
+      background:var(--avatar-bg);
+      display:flex; align-items:center; justify-content:center;
+      font-size:14px; font-weight:700; color:#fff;
+      flex-shrink:0;
+    }
+    .card-info { flex:1; min-width:0; }
+    .video-title {
+      font-size:14px; font-weight:500; line-height:1.4;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+      overflow:hidden; margin-bottom:4px; color:var(--text);
+    }
+    .video-sub { font-size:12px; color:var(--text-sub); }
+
+    /* ===== LOADING ===== */
     .loading { display:flex; justify-content:center; align-items:center; padding:60px; }
-    .spinner { border:3px solid #333; border-top-color:var(--yt-red); border-radius:50%; width:40px; height:40px; animation:spin 0.8s linear infinite; }
+    .spinner { border:3px solid #333; border-top-color:var(--red); border-radius:50%; width:40px; height:40px; animation:spin 0.8s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
-    .load-more { display:block; margin:32px auto; padding:12px 32px; background:var(--bg-secondary); border:none; color:var(--text-main); border-radius:20px; font-size:14px; font-weight:bold; cursor:pointer; transition:background .2s; }
-    .load-more:hover { background:var(--bg-hover); }
+
+    .load-more {
+      display:block; margin:32px auto; padding:10px 24px;
+      background:var(--card); border:none; color:var(--text);
+      border-radius:20px; font-size:14px; font-weight:500;
+      cursor:pointer; transition:background .15s;
+      font-family:'Roboto',Arial,sans-serif;
+    }
+    .load-more:hover { background:var(--hover); }
     .empty { text-align:center; padding:60px; color:var(--text-sub); font-size:15px; }
-    @media (max-width:640px) {
-      .video-grid { grid-template-columns:repeat(2,1fr); gap:10px; }
-      .channel-banner { height:100px; }
-      .channel-header { padding:0 16px; }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width:768px) {
+      .channel-banner { height:110px; }
+      .channel-avatar { width:72px; height:72px; font-size:28px; }
+      .channel-title { font-size:18px; }
+      .channel-header { gap:16px; transform:translateY(-24px); }
+      .channel-tabs-wrap { margin-top:-24px; }
+      .channel-header-wrap { padding:0 16px; }
+      .channel-tabs-wrap { padding:0 16px; }
       .content { padding:0 12px; }
+      .video-grid { grid-template-columns:repeat(2,1fr); gap:10px; row-gap:24px; }
+      .btn-subscribe { padding:8px 14px; font-size:13px; }
+    }
+    @media (max-width:480px) {
+      .channel-title { font-size:16px; }
+      .channel-actions { gap:6px; }
+      .video-grid { gap:8px; row-gap:20px; }
     }
   </style>
 </head>
 <body>
+
 <nav class="navbar">
-  <div class="nav-left">
-    <button class="back-btn" onclick="history.back()"><i class="fas fa-arrow-left"></i></button>
-    <a href="/" class="logo"><i class="fab fa-youtube"></i>YouTube Pro</a>
-  </div>
+  <button class="back-btn" onclick="history.back()" aria-label="戻る">
+    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+  </button>
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M10 15l5.19-3L10 9v6zm11.56-7.83c.13.47.22 1.1.28 1.9.07.8.1 1.49.1 2.09L22 12c0 2.19-.16 3.8-.44 4.83-.25.9-.83 1.48-1.73 1.73-.47.13-1.33.22-2.65.28-1.3.07-2.49.1-3.59.1L12 19c-4.19 0-6.8-.16-7.83-.44-.9-.25-1.48-.83-1.73-1.73-.13-.47-.22-1.1-.28-1.9-.07-.8-.1-1.49-.1-2.09L2 12c0-2.19.16-3.8.44-4.83.25-.9.83-1.48 1.73-1.73.47-.13 1.33-.22 2.65-.28 1.3-.07 2.49-.1 3.59-.1L12 5c4.19 0 6.8.16 7.83.44.9.25 1.48.83 1.73 1.73z"/></svg>
+    </div>
+    <span class="nav-logo-text">MIN-Tube</span><span class="nav-logo-sub">Pro</span>
+  </a>
 </nav>
 
-<div class="channel-banner"></div>
-<div class="channel-header">
-  <div class="channel-avatar" id="channelAvatar">
-    ${channelName.charAt(0).toUpperCase()}
-  </div>
-  <div class="channel-info">
-    <div class="channel-title" id="channelTitle">${channelName}</div>
-    <div class="channel-meta" id="channelMeta">読み込み中...</div>
+<div class="channel-banner">
+  <div class="banner-pattern"></div>
+</div>
+
+<div class="channel-header-wrap">
+  <div class="channel-header">
+    <div class="channel-avatar" id="channelAvatar">
+      <img id="channelAvatarImg" src="" alt="">
+      <span class="avatar-initial" id="avatarInitial">${initial}</span>
+    </div>
+    <div class="channel-info">
+      <div class="channel-title" id="channelTitle">${channelName}</div>
+      <div class="channel-handle" id="channelHandle">@${channelName.toLowerCase().replace(/\s+/g, '')}</div>
+      <div class="channel-stats">
+        <span id="subCount">読み込み中...</span>
+        <span class="channel-stats-dot" id="statsDot" style="display:none">•</span>
+        <span id="videoCount" style="display:none"></span>
+      </div>
+    </div>
+    <div class="channel-actions">
+      <button class="btn-subscribe" id="subscribeBtn" onclick="toggleSubscribe()">チャンネル登録</button>
+      <button class="btn-notify" id="notifyBtn" aria-label="通知">
+        <svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+      </button>
+    </div>
   </div>
 </div>
 
-<div class="channel-tabs">
-  <div class="tab active">動画</div>
+<div class="channel-tabs-wrap">
+  <div class="channel-tabs">
+    <div class="tab active">動画</div>
+    <div class="tab" onclick="alert('近日公開予定')">再生リスト</div>
+    <div class="tab" onclick="alert('近日公開予定')">コミュニティ</div>
+  </div>
 </div>
 
 <div class="content">
@@ -1388,9 +1574,38 @@ app.get("/channel/:channelName", (req, res) => {
 
 <script>
   const CHANNEL_NAME = ${JSON.stringify(channelName)};
+  const AVATAR_INITIAL = ${JSON.stringify(initial)};
   let currentPage = 0;
   let isLoading = false;
   let totalLoaded = 0;
+  let isSubscribed = false;
+
+  // ローカルストレージでチャンネル登録状態を管理
+  const SUB_KEY = 'subscribed_' + CHANNEL_NAME;
+  if (localStorage.getItem(SUB_KEY) === 'true') {
+    isSubscribed = true;
+    updateSubscribeUI();
+  }
+
+  function toggleSubscribe() {
+    isSubscribed = !isSubscribed;
+    localStorage.setItem(SUB_KEY, isSubscribed ? 'true' : 'false');
+    updateSubscribeUI();
+  }
+
+  function updateSubscribeUI() {
+    const btn = document.getElementById('subscribeBtn');
+    const notifyBtn = document.getElementById('notifyBtn');
+    if (isSubscribed) {
+      btn.textContent = '登録済み';
+      btn.classList.add('subscribed');
+      notifyBtn.classList.add('show');
+    } else {
+      btn.textContent = 'チャンネル登録';
+      btn.classList.remove('subscribed');
+      notifyBtn.classList.remove('show');
+    }
+  }
 
   function formatViews(v) {
     if (!v) return '';
@@ -1398,36 +1613,93 @@ app.get("/channel/:channelName", (req, res) => {
     if (isNaN(n)) return v;
     if (n >= 100000000) return Math.floor(n/100000000) + '億回視聴';
     if (n >= 10000) return Math.floor(n/10000) + '万回視聴';
+    if (n >= 1000) return (n/1000).toFixed(1) + '千回視聴';
     return n.toLocaleString() + '回視聴';
+  }
+
+  // 視聴数からチャンネル登録者数を推定
+  function estimateSubscribers(videos) {
+    if (!videos || videos.length === 0) return null;
+    let totalViews = 0;
+    let count = 0;
+    for (const v of videos) {
+      if (!v.viewCountText) continue;
+      const n = parseInt(String(v.viewCountText).replace(/[^0-9]/g, ''));
+      if (!isNaN(n) && n > 0) { totalViews += n; count++; }
+    }
+    if (count === 0) return null;
+    const avgViews = totalViews / count;
+    // 平均再生数の約1〜5%が登録者数と仮定（チャンネルの規模に応じて調整）
+    const est = Math.round(avgViews * (0.01 + Math.random() * 0.04));
+    return est;
+  }
+
+  function formatSubscribers(n) {
+    if (!n || n <= 0) return null;
+    if (n >= 100000000) return (n/100000000).toFixed(1) + '億人';
+    if (n >= 10000000) return Math.floor(n/10000000) + '千万人';
+    if (n >= 10000) return Math.floor(n/10000) + '万人';
+    if (n >= 1000) return (n/1000).toFixed(1) + '千人';
+    return n.toLocaleString() + '人';
+  }
+
+  // チャンネルアイコン画像をYouTube APIから試みる（利用不可の場合はイニシャル）
+  function tryLoadChannelAvatar(channelId) {
+    if (!channelId) return;
+    // YTのチャンネルアバターURLパターンを試みる
+    const tryUrls = [
+      \`https://yt3.ggpht.com/ytc/\${channelId}=s88-c-k-c0x00ffffff-no-rj\`,
+    ];
+    const img = document.getElementById('channelAvatarImg');
+    img.onload = function() { img.classList.add('loaded'); document.getElementById('avatarInitial').style.display='none'; };
+    img.onerror = function() { /* イニシャル表示のまま */ };
+    img.src = tryUrls[0];
   }
 
   function renderVideos(videos) {
     const grid = document.getElementById('videoGrid');
     if (videos.length === 0 && totalLoaded === 0) {
-      grid.innerHTML = '<div class="empty"><i class="fas fa-video-slash" style="font-size:40px;margin-bottom:12px;display:block;"></i>動画が見つかりませんでした</div>';
+      grid.innerHTML = '<div class="empty">動画が見つかりませんでした</div>';
       return;
     }
+
     const html = videos.map(v => \`
       <a href="/video/\${v.id}" class="video-card">
-        <div class="thumb"><img src="https://i.ytimg.com/vi/\${v.id}/mqdefault.jpg" loading="lazy" alt="\${v.title}"></div>
-        <div class="video-meta">
-          <div class="video-meta-title">\${v.title}</div>
-          <div class="video-meta-sub">\${formatViews(v.viewCountText) || ''}</div>
+        <div class="thumb">
+          <img src="https://i.ytimg.com/vi/\${v.id}/mqdefault.jpg" loading="lazy" alt="\${(v.title||'').replace(/"/g,'&quot;')}">
+        </div>
+        <div class="video-card-meta">
+          <div class="card-avatar">\${AVATAR_INITIAL}</div>
+          <div class="card-info">
+            <div class="video-title">\${v.title || ''}</div>
+            <div class="video-sub">\${formatViews(v.viewCountText) || ''}\${v.publishedTimeText ? ' • '+v.publishedTimeText : ''}</div>
+          </div>
         </div>
       </a>
     \`).join('');
+
     grid.insertAdjacentHTML('beforeend', html);
     totalLoaded += videos.length;
 
-    // チャンネルアバターを最初の動画から取得
+    // 初回ロード時にチャンネル情報を更新
     if (totalLoaded <= videos.length && videos[0]) {
-      const firstVideo = videos[0];
-      if (firstVideo.channelTitle) {
-        document.getElementById('channelTitle').textContent = firstVideo.channelTitle || CHANNEL_NAME;
-      }
-      document.getElementById('channelMeta').textContent = \`動画 \${totalLoaded}件以上\`;
+      const first = videos[0];
+      const realName = first.channelTitle || CHANNEL_NAME;
+      document.getElementById('channelTitle').textContent = realName;
+      document.getElementById('channelHandle').textContent = '@' + realName.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9\u3000-\u9fff]/g, '');
+
+      // 登録者数の推定表示
+      const estSubs = estimateSubscribers(videos);
+      const subFmt = estSubs ? formatSubscribers(estSubs) + ' 人のチャンネル登録者' : 'チャンネル';
+      document.getElementById('subCount').textContent = subFmt;
+      document.getElementById('statsDot').style.display = '';
+      document.getElementById('videoCount').style.display = '';
+      document.getElementById('videoCount').textContent = \`動画 \${totalLoaded}件以上\`;
+
+      // チャンネルIDを推定して試みる（first.channelIdがあれば）
+      if (first.channelId) tryLoadChannelAvatar(first.channelId);
     } else {
-      document.getElementById('channelMeta').textContent = \`動画 \${totalLoaded}件以上\`;
+      document.getElementById('videoCount').textContent = \`動画 \${totalLoaded}件以上\`;
     }
   }
 

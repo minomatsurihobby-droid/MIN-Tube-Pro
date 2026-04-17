@@ -1259,6 +1259,10 @@ app.get("/urls", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "app/public-url.html"));
 });
 
+app.get("/wista", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "wista.html"));
+});
+
 // --- チャンネル動画API ---
 app.get("/api/channel", async (req, res) => {
   const channelName = req.query.name || req.query.id;

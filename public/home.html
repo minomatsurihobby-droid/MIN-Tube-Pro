@@ -811,6 +811,40 @@
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 
+  <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+  import { getDatabase, ref, get, set, child } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCPkgzCIOP3-ln0eX6043s2G3tyZu4uj18",
+    authDomain: "message-site-d283b.firebaseapp.com",
+    databaseURL: "https://message-site-d283b-default-rtdb.firebaseio.com",
+    projectId: "message-site-d283b",
+    storageBucket: "message-site-d283b.firebasestorage.app",
+    messagingSenderId: "58182307350",
+    appId: "1:58182307350:web:34a295f442ed2ce4ffaf37",
+    measurementId: "G-BGT7PTEVK2"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const currentUrl = window.location.origin;
+
+  if (!currentUrl.includes("projects") && !currentUrl.includes("private")) {
+      const safeKey = btoa(currentUrl).replace(/[=+/]/g, '_');
+      const dbRef = ref(db);
+
+      get(child(dbRef, `public_domains/${safeKey}`)).then((snapshot) => {
+        if (!snapshot.exists()) {
+          set(ref(db, `public_domains/${safeKey}`), {
+            url: currentUrl,
+            timestamp: Date.now()
+          });
+        }
+      });
+  }
+</script>
+
   <script>
     const videoGrid = document.getElementById('videoGrid');
     const searchForm = document.getElementById('searchForm');

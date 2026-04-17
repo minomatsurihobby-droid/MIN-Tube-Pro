@@ -1788,6 +1788,66 @@ app.get('/stream/inv/:videoId', async (req, res) => {
     }
 });
 
+app.get('/status', async (req, res) => {
+    const startTime = Date.now();
+
+    let version = "unknown";
+    try {
+        const protocol = req.secure ? 'https' : 'http';
+        const host = req.get('host');
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1500);
+
+        const versionRes = await fetch(`${protocol}://${host}/version`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (versionRes.ok) {
+            const data = await versionRes.json();
+            version = data.version;
+        }
+    } catch (e) {
+        version = "fetch-failed";
+    }
+
+
+    const mem = process.memoryUsage();
+    const uptimeSeconds = process.uptime(); 
+
+
+    let score = 100;
+    const heapUsedMB = Math.round(mem.heapUsed / 1024 / 1024);
+    if (heapUsedMB > 256) score -= 20;
+    if (version === "fetch-failed") score -= 10;
+
+    const responseTime = Date.now() - startTime;
+
+    const statusData = {
+        status: score > 80 ? "OK" : "DEGRADED",
+        health_score: `${Math.max(0, score)}%`,
+        version: version,
+        metrics: {
+            latency: `${responseTime}ms`,
+            uptime_formatted: `${Math.floor(uptimeSeconds / 3600)}h ${Math.floor((uptimeSeconds % 3600) / 60)}m`,
+            process_memory: {
+                rss: `${(mem.rss / 1024 / 1024).toFixed(2)} MB`, 
+                heap_total: `${(mem.heapTotal / 1024 / 1024).toFixed(2)} MB`,
+                heap_used: `${heapUsedMB} MB`,
+                external: `${(mem.external / 1024 / 1024).toFixed(2)} MB`
+            }
+        },
+        engine: {
+            node_version: process.version,
+            platform: process.platform,
+            pid: process.pid
+        },
+        timestamp: new Date().toISOString()
+    };
+
+    res.set('Access-Control-Allow-Origin', '*');
+    res.status(score > 50 ? 200 : 503).json(statusData);
+});
+
 app.use((req, res) => res.status(404).sendFile(path.join(__dirname, "public", "error.html")));
 app.use((err, req, res, next) => {
   res.status(500).sendFile(path.join(__dirname, "public", "error.html"));

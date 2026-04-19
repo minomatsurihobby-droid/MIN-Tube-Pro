@@ -1,5 +1,9 @@
 vercel垢復活させました～～　<br>https://min-tube-pro.vercel.app/　<br>ご迷惑をお掛けしました---mino
 
+# ver1.2.2
+- しあtubeを追加
+- 公式URL一覧に応答速度を追加
+
 # ver1.2.1
 変更点
 - ゲームを3つ追加

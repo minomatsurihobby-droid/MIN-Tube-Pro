@@ -332,10 +332,10 @@ const shortsHtml = `
                 <div class="action-btn"><div class="btn-icon"><i class="fas fa-thumbs-down"></i></div><span>低評価</span></div>
                 <div class="action-btn" onclick="toggleComments()"><div class="btn-icon"><i class="fas fa-comment-dots"></i></div><span>${commentsData.commentCount || 0}</span></div>
                 <div class="action-btn"><div class="btn-icon"><i class="fas fa-share"></i></div><span>共有</span></div>
-                <div class="action-btn"><div class="btn-icon" style="background:none;"><img src="${videoData.channelImage}" style="width:30px; height:30px; border-radius:4px; border:2px solid #fff;"></div></div>
+                <div class="action-btn"><div class="btn-icon" style="background:none;"><img src="${videoData.channelImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(videoData.channelName||'C')}&background=random&color=fff&size=64&bold=true`}" style="width:30px; height:30px; border-radius:4px; border:2px solid #fff;" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(videoData.channelName||'C')}&background=555&color=fff&size=64&bold=true'"></div></div>
             </div>
             <div class="bottom-overlay">
-                <div class="channel-info"><img src="${videoData.channelImage || 'https://via.placeholder.com/40'}"><a href="/channel/${encodeURIComponent(videoData.channelName)}" style="text-decoration:none;color:inherit;"><span class="channel-name">@${videoData.channelName}</span></a><button class="subscribe-btn">登録</button></div>
+                <div class="channel-info"><img src="${videoData.channelImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(videoData.channelName||'C')}&background=random&color=fff&size=64&bold=true`}" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(videoData.channelName||'C')}&background=555&color=fff&size=64&bold=true'"><a href="/channel/${encodeURIComponent(videoData.channelName)}" style="text-decoration:none;color:inherit;"><span class="channel-name">@${videoData.channelName}</span></a><button id="shortSubBtn" class="subscribe-btn" onclick="toggleShortSub()">登録</button></div>
                 <div class="video-title">${videoData.videoTitle}</div>
             </div>
             <div id="commentsPanel" class="comments-panel">
@@ -353,28 +353,94 @@ const shortsHtml = `
         const swipeHint = document.getElementById('swipeHint');
         const progressBar = document.getElementById('progressBar');
 
-        window.onload = () => {
-            // ページが完全に読み込まれたら動画をロード
-            const video = document.getElementById('videoPlayer');
-            const iframe = document.getElementById('videoIframe');
-            
-            if (video) {
-                video.src = video.dataset.src;
-                video.style.visibility = 'visible';
-                video.play();
-                video.ontimeupdate = () => { const percent = (video.currentTime / video.duration) * 100; progressBar.style.width = percent + '%'; };
-            }
-            if (iframe) {
-                iframe.src = iframe.dataset.src;
-                iframe.style.visibility = 'visible';
+        window.onload = async () => {
+            // 設定から保存された再生方法を取得
+            const savedMode = localStorage.getItem('playbackMode') || 'googlevideo';
+
+            async function initShortsPlayer() {
+                const videoEl = document.getElementById('videoPlayer');
+                const iframeEl = document.getElementById('videoIframe');
+
+                if (savedMode === 'youtube-nocookie') {
+                    // youtube-nocookie: video要素があればiframeに差し替え
+                    const targetIframe = iframeEl || document.createElement('iframe');
+                    if (!iframeEl) {
+                        targetIframe.id = 'videoIframe';
+                        targetIframe.setAttribute('allow', 'autoplay');
+                        targetIframe.setAttribute('allowfullscreen', '');
+                        targetIframe.style.cssText = 'width:100%; height:100%; object-fit:cover; border:none; position:relative; z-index:11;';
+                        if (videoEl) videoEl.replaceWith(targetIframe);
+                        else document.querySelector('.video-container').insertBefore(targetIframe, document.querySelector('.progress-container'));
+                    }
+                    targetIframe.src = \`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&controls=0&loop=1&playlist=${videoId}&modestbranding=1&rel=0\`;
+                    targetIframe.style.visibility = 'visible';
+
+                } else if (savedMode !== 'googlevideo' && videoEl) {
+                    // DL-Pro などその他のモード: エンドポイントからURLを取得して再生
+                    const endpointMap = { 'DL-Pro': '/360/${videoId}' };
+                    const endpoint = endpointMap[savedMode];
+                    if (endpoint) {
+                        try {
+                            const res = await fetch(endpoint);
+                            if (res.ok) {
+                                const url = await res.text();
+                                videoEl.src = url;
+                                videoEl.style.visibility = 'visible';
+                                videoEl.play().catch(() => {});
+                                videoEl.ontimeupdate = () => { const p = (videoEl.currentTime / videoEl.duration) * 100; progressBar.style.width = p + '%'; };
+                                return;
+                            }
+                        } catch (e) {
+                            console.warn('ショート: エンドポイント取得失敗、googlevideoにフォールバック', e);
+                        }
+                    }
+                    // フォールバック: googlevideo
+                    if (videoEl.dataset.src) {
+                        videoEl.src = videoEl.dataset.src;
+                        videoEl.style.visibility = 'visible';
+                        videoEl.play().catch(() => {});
+                        videoEl.ontimeupdate = () => { const p = (videoEl.currentTime / videoEl.duration) * 100; progressBar.style.width = p + '%'; };
+                    }
+
+                } else {
+                    // デフォルト: googlevideo (またはサーバーがnocookieを返した場合はiframe)
+                    if (videoEl && videoEl.dataset.src) {
+                        videoEl.src = videoEl.dataset.src;
+                        videoEl.style.visibility = 'visible';
+                        videoEl.play().catch(() => {});
+                        videoEl.ontimeupdate = () => { const p = (videoEl.currentTime / videoEl.duration) * 100; progressBar.style.width = p + '%'; };
+                    }
+                    if (iframeEl && iframeEl.dataset.src) {
+                        iframeEl.src = iframeEl.dataset.src;
+                        iframeEl.style.visibility = 'visible';
+                    }
+                }
             }
 
+            await initShortsPlayer();
             loader.classList.add('fade');
             swipeHint.classList.add('show');
             setTimeout(() => { swipeHint.classList.remove('show'); }, 1500);
         };
 
         function toggleComments() { commentsPanel.classList.toggle('open'); }
+        // チャンネル登録機能（ショート）
+        const SHORT_CHANNEL = "${videoData.channelName || ''}";
+        const SHORT_SUB_KEY = 'subscribed_' + SHORT_CHANNEL;
+        const shortSubBtn = document.getElementById('shortSubBtn');
+        function updateShortSubBtn() {
+          const isSub = localStorage.getItem(SHORT_SUB_KEY) === 'true';
+          shortSubBtn.textContent = isSub ? '登録済み' : '登録';
+          shortSubBtn.style.background = isSub ? 'rgba(255,255,255,0.3)' : '#fff';
+          shortSubBtn.style.color = isSub ? '#fff' : '#000';
+        }
+        function toggleShortSub() {
+          const isSub = localStorage.getItem(SHORT_SUB_KEY) === 'true';
+          if (isSub) localStorage.removeItem(SHORT_SUB_KEY);
+          else localStorage.setItem(SHORT_SUB_KEY, 'true');
+          updateShortSubBtn();
+        }
+        updateShortSubBtn();
         async function loadNextShort() {
             if (commentsPanel.classList.contains('open')) return;
             loader.classList.remove('fade');
@@ -397,12 +463,8 @@ const shortsHtml = `
     }
 
     // --- STANDARD VIDEO MODE HTML ---
-    // HTMLソースを空にしておき、JSで後から注入するように変更
-    const streamEmbedPlaceholder = videoData.stream_url !== "youtube-nocookie"
-      ? `<video id="mainPlayer" controls poster="https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg" style="width:100%; height:100%; position:relative; z-index:10; background:#000;">
-           <source data-src="${videoData.stream_url}" type="video/mp4">
-         </video>`
-      : `<iframe id="mainIframe" data-src="https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1" frameborder="0" allowfullscreen style="width:100%; height:100%; position:relative; z-index:10;"></iframe>`;
+    // playerWrapper は空にして、クライアント側JSが localStorage.playbackMode に基づいて初期化する
+    const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;"><div class="spinner"></div></div>`;
 
     const html = `
 <!DOCTYPE html>
@@ -491,10 +553,10 @@ const shortsHtml = `
         <div class="owner-row">
             <div class="owner-info">
                 <a href="/channel/${encodeURIComponent(videoData.channelName)}" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;">
-                  <img src="${videoData.channelImage || 'https://via.placeholder.com/40'}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
+                  <img id="ownerAvatar" src="${videoData.channelImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(videoData.channelName||'C')}&background=random&color=fff&size=80&bold=true`}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(videoData.channelName||'C')}&background=555&color=fff&size=80&bold=true'">
                   <div class="channel-name">${videoData.channelName}</div>
                 </a>
-                <button class="btn-sub">チャンネル登録</button>
+                <button id="subBtn" class="btn-sub" onclick="toggleSubscribeVideo()">チャンネル登録</button>
                 <div class="server-dropdown-container">
                     <button class="btn-server" onclick="toggleServerMenu()">
                         <i class="fas fa-server"></i> 動画サーバー <i class="fas fa-chevron-down" style="font-size: 12px; margin-left: 2px;"></i>
@@ -535,6 +597,33 @@ const shortsHtml = `
 <script>
     function toggleServerMenu() { document.getElementById('serverMenu').classList.toggle('show'); }
     window.addEventListener('click', function(e) { if (!e.target.closest('.server-dropdown-container')) { const menu = document.getElementById('serverMenu'); if (menu && menu.classList.contains('show')) menu.classList.remove('show'); } });
+
+    // チャンネル登録機能
+    const VIDEO_CHANNEL = ${JSON.stringify(videoData.channelName || '')};
+    const SUB_KEY_VIDEO = 'subscribed_' + VIDEO_CHANNEL;
+    const subBtn = document.getElementById('subBtn');
+    function updateSubBtnUI() {
+      const isSub = localStorage.getItem(SUB_KEY_VIDEO) === 'true';
+      if (isSub) {
+        subBtn.textContent = '登録済み';
+        subBtn.style.background = '#272727';
+        subBtn.style.color = '#aaa';
+      } else {
+        subBtn.textContent = 'チャンネル登録';
+        subBtn.style.background = 'white';
+        subBtn.style.color = 'black';
+      }
+    }
+    function toggleSubscribeVideo() {
+      const isSub = localStorage.getItem(SUB_KEY_VIDEO) === 'true';
+      if (isSub) {
+        localStorage.removeItem(SUB_KEY_VIDEO);
+      } else {
+        localStorage.setItem(SUB_KEY_VIDEO, 'true');
+      }
+      updateSubBtnUI();
+    }
+    updateSubBtnUI();
 
     async function changeServer(serverName, endpointPath, event) {
         document.getElementById('serverMenu').classList.remove('show');
@@ -611,36 +700,30 @@ const shortsHtml = `
     window.onload = () => {
         loadRecommendations();
 
-        const storageKey = "reloaded_" + "${videoId}";
-        if (!sessionStorage.getItem(storageKey)) {
-            sessionStorage.setItem(storageKey, "true");
+        // ページ読み込み時に localStorage の再生方法を即座に適用
+        // (sessionStorage ガードと setTimeout を廃止: 毎回正しいモードで初期化する)
+        const savedMode = localStorage.getItem('playbackMode') || 'googlevideo';
+        const serverEndpoints = {
+            'googlevideo':        '',
+            'youtube-nocookie':   '/nocookie/${videoId}',
+            'DL-Pro':             '/360/${videoId}',
+            'YoutubeEdu-Kahoot':  '/kahoot-edu/${videoId}',
+            'YoutubeEdu-Scratch': '/scratch-edu/${videoId}',
+            'Youtube-Pro':        '/pro-stream/${videoId}'
+        };
+        const serverName = serverEndpoints.hasOwnProperty(savedMode) ? savedMode : 'googlevideo';
+        const endpointPath = serverEndpoints[serverName];
 
-            setTimeout(() => {
-                // 設定画面で保存した再生方法をlocalStorageから読み取る
-                const savedMode = localStorage.getItem('playbackMode') || 'googlevideo';
-                const serverEndpoints = {
-                    'googlevideo':        '',
-                    'youtube-nocookie':   '/nocookie/${videoId}',
-                    'DL-Pro':             '/360/${videoId}',
-                    'YoutubeEdu-Kahoot':  '/kahoot-edu/${videoId}',
-                    'YoutubeEdu-Scratch': '/scratch-edu/${videoId}',
-                    'Youtube-Pro':        '/pro-stream/${videoId}'
-                };
-                const serverName = serverEndpoints.hasOwnProperty(savedMode) ? savedMode : 'googlevideo';
-                const endpointPath = serverEndpoints[serverName];
+        // 対応する .server-option 要素を探してアクティブにする
+        const options = document.querySelectorAll('.server-option');
+        let targetOption = options[0];
+        options.forEach(opt => {
+            const onclick = opt.getAttribute('onclick') || '';
+            if (onclick.includes("'" + serverName + "'")) targetOption = opt;
+        });
 
-                // 対応する .server-option 要素を探してアクティブにする
-                const options = document.querySelectorAll('.server-option');
-                let targetOption = options[0];
-                options.forEach(opt => {
-                    const onclick = opt.getAttribute('onclick') || '';
-                    if (onclick.includes("'" + serverName + "'")) targetOption = opt;
-                });
-
-                if (targetOption) {
-                    changeServer(serverName, endpointPath, { currentTarget: targetOption });
-                }
-            }, 500);
+        if (targetOption) {
+            changeServer(serverName, endpointPath, { currentTarget: targetOption });
         }
     };
 </script>

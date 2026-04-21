@@ -13,6 +13,12 @@ app.set("view engine", "ejs");
 const API_HEALTH_CHECKER = "https://raw.githubusercontent.com/Minotaur-ZAOU/test/refs/heads/main/min-tube-api.json";
 const TEMP_API_LIST = "https://raw.githubusercontent.com/Minotaur-ZAOU/test/refs/heads/main/min-tube-api.json";
 const RAPID_API_HOST = 'ytstream-download-youtube-videos.p.rapidapi.com';
+
+// ============ GROQ AI CONSTANTS ============
+const GROQ_API_KEY = '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';
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
+// ==========================================
+
 const videoCache = new Map();
 const userAgents = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
@@ -69,7 +75,7 @@ setInterval(() => {
     }
 }, 300000);
 
-// ミドルウェア: 人間確認,
+// ミドルウェア: 人間確認
 app.use(async (req, res, next) => {
   if (req.path.startsWith("/api") || req.path.startsWith("/video") || req.path === "/") {
     if (!req.cookies || req.cookies.humanVerified !== "true") {
@@ -100,8 +106,8 @@ app.get("/api/trending", async (req, res) => {
   const page = parseInt(req.query.page) || 0;
   try {
     const trendingSeeds = [
-      "人気急上昇", "最新 ニュース", "Music Video Official", 
-      "ゲーム実況 人気", "話題の動画", "トレンド", 
+      "人気急上昇", "最新 ニュース", "Music Video Official",
+      "ゲーム実況 人気", "話題の動画", "トレンド",
       "Breaking News Japan", "Top Hits", "いま話題"
     ];
 
@@ -128,7 +134,7 @@ app.get("/api/trending", async (req, res) => {
 
     const result = finalItems.sort(() => 0.5 - Math.random());
     res.json({ items: result });
-    
+
   } catch (err) {
     console.error("Trending API Error:", err);
     res.json({ items: [] });
@@ -170,7 +176,7 @@ app.get("/api/recommendations", async (req, res) => {
       ...(relatedRes.items || [])
     ];
 
-    const seenIds = new Set([id]); 
+    const seenIds = new Set([id]);
     const seenNormalizedTitles = new Set();
     const finalItems = [];
 
@@ -178,7 +184,6 @@ app.get("/api/recommendations", async (req, res) => {
       if (!item.id || item.type !== 'video') continue;
       if (seenIds.has(item.id)) continue;
 
-      // タイトルの正規化による「重複内容」の排除
       const normalized = item.title.toLowerCase()
         .replace(/\s+/g, '')
         .replace(/official|lyrics|mv|musicvideo|video|公式|実況|解説/g, '');
@@ -190,7 +195,7 @@ app.get("/api/recommendations", async (req, res) => {
       seenNormalizedTitles.add(titleSig);
       finalItems.push(item);
 
-      if (finalItems.length >= 24) break; 
+      if (finalItems.length >= 24) break;
     }
 
     const result = finalItems.sort(() => 0.5 - Math.random());
@@ -200,6 +205,100 @@ app.get("/api/recommendations", async (req, res) => {
     res.json({ items: [] });
   }
 });
+
+
+// ============ AI RECOMMENDATION ENDPOINT ============
+app.post('/api/ai-recommendation', express.json(), async (req, res) => {
+  try {
+    const { history = [], subscriptions = [] } = req.body;
+
+    // Build prompt with user's watch history and subscriptions
+    const historyLines = history
+      .slice(0, 30)
+      .map(v => `・「${v.title}」（チャンネル: ${v.channelName || '不明'}）`)
+      .join('\n');
+
+    const subsText = subscriptions.slice(0, 20).join('、') || 'なし';
+
+    const prompt = `あなたは動画推薦AIです。以下のユーザーの視聴履歴と登録チャンネルを分析し、このユーザーが次に視聴したいと思う動画を1本だけ推薦してください。
+
+【視聴履歴（最近視聴した動画）】
+${historyLines || '（まだ視聴履歴はありません）'}
+
+【登録チャンネル】
+${subsText}
+
+この情報を基にこのユーザーにおすすめできる次の動画のタイトルを教えてください。視聴履歴がない場合は人気の動画を推薦してください。動画のタイトルは「」内に書いてください。推薦理由も簡潔に述べてください。`;
+
+    // Call Groq API using fetch (OpenAI-compatible endpoint)
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          {
+            role: 'system',
+            content: 'あなたはYouTube動画推薦の専門家AIです。ユーザーの視聴履歴を分析して最適な動画を推薦します。必ず動画タイトルを「」の中に入れてください。'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 300,
+        temperature: 0.7
+      })
+    });
+
+    if (!groqRes.ok) {
+      const errText = await groqRes.text();
+      console.error('Groq API error:', errText);
+      return res.status(502).json({ error: 'Groq API error', detail: errText });
+    }
+
+    const groqData = await groqRes.json();
+    const aiText = groqData.choices?.[0]?.message?.content || '';
+
+    // Extract title between 「 and 」
+    const titleMatch = aiText.match(/「([^」]+)」/);
+    if (!titleMatch || !titleMatch[1]) {
+      console.error('Could not parse AI response:', aiText);
+      return res.status(400).json({ error: 'AI response parse failed', raw: aiText });
+    }
+
+    const recommendedTitle = titleMatch[1].trim();
+
+    // Search YouTube for the recommended title
+    const searchResults = await yts.GetListByKeyword(recommendedTitle, false, 10);
+    const firstVideo = (searchResults.items || []).find(item => item.type === 'video');
+
+    if (!firstVideo) {
+      return res.status(404).json({ error: 'No video found for the recommended title' });
+    }
+
+    res.json({
+      id: firstVideo.id,
+      title: firstVideo.title || recommendedTitle,
+      channelTitle: firstVideo.channelTitle || firstVideo.author?.name || '',
+      thumbnail: `https://i.ytimg.com/vi/${firstVideo.id}/maxresdefault.jpg`,
+      thumbnailMq: `https://i.ytimg.com/vi/${firstVideo.id}/mqdefault.jpg`,
+      thumbnailHq: `https://i.ytimg.com/vi/${firstVideo.id}/hqdefault.jpg`,
+      viewCountText: firstVideo.viewCountText || '',
+      aiSuggestedTitle: recommendedTitle,
+      aiRawResponse: aiText
+    });
+
+  } catch (err) {
+    console.error('AI Recommendation Error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+// ====================================================
+
 
 app.get("/video/:id", async (req, res, next) => {
 const videoId = req.params.id;
@@ -247,14 +346,14 @@ for (const apiBase of apiListCache) {
         const rapidData = await rapidRes.json();
         if (rapidData.stream_url) {
           videoData = rapidData;
-          
+
           try {
             const cRes = await fetchWithTimeout(`${apiBase}/api/comments/${videoId}`, {}, 3000);
             if (cRes.ok) commentsData = await cRes.json();
           } catch (e) {}
 
-          successfulApi = apiBase; 
-          break; 
+          successfulApi = apiBase;
+          break;
         }
       }
     } catch (rapidErr) {}
@@ -284,7 +383,6 @@ const shortsHtml = `
         .shorts-wrapper { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: #000; }
         .video-container { position: relative; height: 94vh; aspect-ratio: 9/16; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10; }
         @media (max-width: 600px) { .video-container { height: 100%; width: 100%; border-radius: 0; } }
-        /* 動画を常に最前面へ */
         video, iframe { width: 100%; height: 100%; object-fit: cover; border: none; position: relative; z-index: 11; visibility: hidden; }
         .progress-container { position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; background: rgba(255,255,255,0.2); z-index: 25; }
         .progress-bar { height: 100%; background: #ff0000; width: 0%; transition: width 0.1s linear; }
@@ -321,11 +419,11 @@ const shortsHtml = `
         <div class="video-container">
             <a href="/" class="top-nav"><i class="fas fa-arrow-left"></i></a>
             <div id="swipeHint" class="swipe-hint"><i class="fas fa-hand-pointer"></i><span>下にスワイプして次の動画へ移動</span></div>
-            
-            ${videoData.stream_url !== "youtube-nocookie" 
-                ? `<video id="videoPlayer" data-src="${videoData.stream_url}" loop playsinline></video>` 
+
+            ${videoData.stream_url !== "youtube-nocookie"
+                ? `<video id="videoPlayer" data-src="${videoData.stream_url}" loop playsinline></video>`
                 : `<iframe id="videoIframe" data-src="https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&controls=0&loop=1&playlist=${videoId}&modestbranding=1&rel=0" allow="autoplay"></iframe>`}
-            
+
             <div class="progress-container"><div id="progressBar" class="progress-bar"></div></div>
             <div class="side-bar">
                 <div class="action-btn"><div class="btn-icon"><i class="fas fa-thumbs-up"></i></div><span>${videoData.likeCount || '評価'}</span></div>
@@ -354,7 +452,6 @@ const shortsHtml = `
         const progressBar = document.getElementById('progressBar');
 
         window.onload = async () => {
-            // 設定から保存された再生方法を取得
             const savedMode = localStorage.getItem('playbackMode') || 'googlevideo';
 
             async function initShortsPlayer() {
@@ -362,7 +459,6 @@ const shortsHtml = `
                 const iframeEl = document.getElementById('videoIframe');
 
                 if (savedMode === 'youtube-nocookie') {
-                    // youtube-nocookie: video要素があればiframeに差し替え
                     const targetIframe = iframeEl || document.createElement('iframe');
                     if (!iframeEl) {
                         targetIframe.id = 'videoIframe';
@@ -376,7 +472,6 @@ const shortsHtml = `
                     targetIframe.style.visibility = 'visible';
 
                 } else if (savedMode !== 'googlevideo' && videoEl) {
-                    // DL-Pro などその他のモード: エンドポイントからURLを取得して再生
                     const endpointMap = { 'DL-Pro': '/360/${videoId}' };
                     const endpoint = endpointMap[savedMode];
                     if (endpoint) {
@@ -394,7 +489,6 @@ const shortsHtml = `
                             console.warn('ショート: エンドポイント取得失敗、googlevideoにフォールバック', e);
                         }
                     }
-                    // フォールバック: googlevideo
                     if (videoEl.dataset.src) {
                         videoEl.src = videoEl.dataset.src;
                         videoEl.style.visibility = 'visible';
@@ -403,7 +497,6 @@ const shortsHtml = `
                     }
 
                 } else {
-                    // デフォルト: googlevideo (またはサーバーがnocookieを返した場合はiframe)
                     if (videoEl && videoEl.dataset.src) {
                         videoEl.src = videoEl.dataset.src;
                         videoEl.style.visibility = 'visible';
@@ -424,7 +517,6 @@ const shortsHtml = `
         };
 
         function toggleComments() { commentsPanel.classList.toggle('open'); }
-        // チャンネル登録機能（ショート）
         const SHORT_CHANNEL = "${videoData.channelName || ''}";
         const SHORT_SUB_KEY = 'subscribed_' + SHORT_CHANNEL;
         const shortSubBtn = document.getElementById('shortSubBtn');
@@ -463,7 +555,6 @@ const shortsHtml = `
     }
 
     // --- STANDARD VIDEO MODE HTML ---
-    // playerWrapper は空にして、クライアント側JSが localStorage.playbackMode に基づいて初期化する
     const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;"><div class="spinner"></div></div>`;
 
     const html = `
@@ -529,6 +620,70 @@ const shortsHtml = `
         .spinner { border: 4px solid rgba(255, 255, 255, 0.1); width: 50px; height: 50px; border-radius: 50%; border-top-color: var(--yt-red); animation: spin 1s ease-in-out infinite; margin-bottom: 16px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @media (max-width: 1000px) { .container { flex-direction: column; padding: 0; } .sidebar { width: 100%; padding: 16px; box-sizing: border-box; } .player-container { border-radius: 0; } .main-content { padding: 16px; } }
+
+        /* ===== AI RECOMMENDATION STYLES ===== */
+        .ai-rec-section { margin-bottom: 18px; }
+        .ai-rec-outer { border-radius: 16px; padding: 1.5px; background: linear-gradient(135deg, #667eea, #764ba2, #f093fb, #4facfe); background-size: 300% 300%; animation: aiBorderAnim 4s ease infinite; }
+        @keyframes aiBorderAnim { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        .ai-rec-inner { background: linear-gradient(135deg, #0d0d1a 0%, #111827 50%, #0f1629 100%); border-radius: 14.5px; padding: 15px; position: relative; overflow: hidden; }
+        .ai-rec-inner::before { content: ''; position: absolute; top: -40px; right: -40px; width: 120px; height: 120px; background: radial-gradient(circle, rgba(102,126,234,0.15) 0%, transparent 70%); border-radius: 50%; pointer-events: none; }
+        .ai-rec-link { display: block; text-decoration: none; color: inherit; cursor: pointer; }
+        .ai-rec-link:hover .ai-rec-thumb-inner img { transform: scale(1.05); }
+        .ai-rec-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        .ai-rec-label { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+        .ai-rec-label-text { background: linear-gradient(90deg, #a78bfa, #f0abfc, #67e8f9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .ai-rec-dismiss-btn { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.6); width: 26px; height: 26px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1; transition: all 0.2s; padding: 0; flex-shrink: 0; }
+        .ai-rec-dismiss-btn:hover { background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.3); }
+        .ai-rec-body { display: flex; gap: 11px; align-items: flex-start; }
+        .ai-rec-thumb-wrap { width: 138px; height: 78px; flex-shrink: 0; border-radius: 9px; overflow: hidden; background: #1a1a2e; }
+        .ai-rec-thumb-inner { width: 100%; height: 100%; overflow: hidden; }
+        .ai-rec-thumb-inner img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.3s ease; }
+        .ai-rec-details { flex: 1; min-width: 0; }
+        .ai-rec-video-title { font-size: 13px; font-weight: 600; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 5px; color: #e8e8f0; }
+        .ai-rec-channel-name { font-size: 12px; color: #8899aa; margin-bottom: 7px; }
+        .ai-rec-badge-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; background: linear-gradient(90deg, rgba(102,126,234,0.18), rgba(240,147,251,0.18)); border: 1px solid rgba(167,139,250,0.3); font-size: 10.5px; font-weight: 600; color: #c4b5fd; }
+        /* Gemini-like AI loading */
+        .ai-gemini-load { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 10px 0 4px; }
+        .ai-gem-spinner { width: 42px; height: 42px; position: relative; }
+        .ai-gem-ring { position: absolute; border-radius: 50%; border: 3px solid transparent; }
+        .ai-gem-ring-1 { inset: 0; border-top-color: #818cf8; border-right-color: #a78bfa; animation: aiGemSpin 1.1s cubic-bezier(0.4,0,0.2,1) infinite; }
+        .ai-gem-ring-2 { inset: 7px; border-bottom-color: #f0abfc; border-left-color: #67e8f9; animation: aiGemSpin 0.7s cubic-bezier(0.4,0,0.2,1) infinite reverse; }
+        .ai-gem-ring-3 { inset: 14px; border-top-color: #34d399; animation: aiGemSpin 1.5s linear infinite; }
+        @keyframes aiGemSpin { to { transform: rotate(360deg); } }
+        .ai-gem-dots { display: flex; gap: 5px; }
+        .ai-gem-dot { width: 7px; height: 7px; border-radius: 50%; animation: aiGemBounce 1.4s ease-in-out infinite; }
+        .ai-gem-dot:nth-child(1) { background: #818cf8; animation-delay: 0s; }
+        .ai-gem-dot:nth-child(2) { background: #a78bfa; animation-delay: 0.18s; }
+        .ai-gem-dot:nth-child(3) { background: #f0abfc; animation-delay: 0.36s; }
+        .ai-gem-dot:nth-child(4) { background: #67e8f9; animation-delay: 0.54s; }
+        @keyframes aiGemBounce { 0%,80%,100% { transform: scale(0.7); opacity: 0.5; } 40% { transform: scale(1.15); opacity: 1; } }
+        .ai-gem-text { font-size: 12px; font-weight: 600; background: linear-gradient(90deg, #818cf8 0%, #f0abfc 40%, #67e8f9 70%, #818cf8 100%); background-size: 250% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; animation: aiGemShimmer 2s linear infinite; }
+        @keyframes aiGemShimmer { to { background-position: 250% center; } }
+
+        /* ===== FLOATING AI BUTTON ===== */
+        .ai-float-wrap { position: fixed; top: 68px; right: 18px; z-index: 900; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+        .ai-float-top-row { display: flex; align-items: center; gap: 7px; }
+        .ai-float-main-btn { display: flex; align-items: center; gap: 7px; border: none; border-radius: 24px; padding: 10px 18px; color: white; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 20px rgba(102,126,234,0.55); font-family: 'Roboto', Arial, sans-serif; white-space: nowrap; position: relative; overflow: hidden; background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%); background-size: 200% 200%; animation: aiFloatGrad 3s ease infinite; transition: transform 0.2s, box-shadow 0.2s; }
+        @keyframes aiFloatGrad { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        .ai-float-main-btn::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,0.12), transparent); pointer-events: none; }
+        .ai-float-main-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(102,126,234,0.7); }
+        .ai-float-main-btn:active { transform: translateY(0); }
+        .ai-float-close-btn { background: rgba(20,20,30,0.85); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.65); width: 30px; height: 30px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 15px; transition: all 0.2s; flex-shrink: 0; backdrop-filter: blur(4px); }
+        .ai-float-close-btn:hover { background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.35); }
+        .ai-float-card { width: 290px; border-radius: 16px; overflow: hidden; background: linear-gradient(135deg, #0d0d1a, #111827); border: 1px solid rgba(102,126,234,0.3); box-shadow: 0 12px 40px rgba(0,0,0,0.65); display: none; animation: aiFloatCardIn 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+        .ai-float-card.show { display: block; }
+        @keyframes aiFloatCardIn { from { opacity: 0; transform: translateY(-14px) scale(0.93); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .ai-float-card-inner { padding: 14px; }
+        .ai-float-card-label { font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; background: linear-gradient(90deg, #a78bfa, #f0abfc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 10px; }
+        .ai-float-card-link { display: flex; gap: 10px; align-items: flex-start; text-decoration: none; color: inherit; cursor: pointer; transition: opacity 0.2s; }
+        .ai-float-card-link:hover { opacity: 0.85; }
+        .ai-float-card-thumb { width: 110px; height: 62px; flex-shrink: 0; border-radius: 8px; overflow: hidden; background: #1a1a2e; }
+        .ai-float-card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .ai-float-card-info { flex: 1; min-width: 0; }
+        .ai-float-card-title { font-size: 12.5px; font-weight: 600; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: #e8e8f0; margin-bottom: 4px; }
+        .ai-float-card-ch { font-size: 11px; color: #8899aa; }
+        .ai-float-card-badge { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; padding: 2px 8px; border-radius: 20px; background: linear-gradient(90deg, rgba(102,126,234,0.2), rgba(240,147,251,0.2)); border: 1px solid rgba(167,139,250,0.28); font-size: 10px; font-weight: 600; color: #c4b5fd; }
+        /* ===================================== */
     </style>
 </head>
 <body>
@@ -537,6 +692,18 @@ const shortsHtml = `
     <div class="nav-center"><form class="search-bar" action="/nothing/search"><input type="text" name="q" placeholder="検索"><button type="submit" class="search-btn"><i class="fas fa-search"></i></button></form></div>
     <div style="width:100px;"></div>
 </nav>
+
+<!-- ===== FLOATING AI RECOMMENDATION BUTTON (2nd visit onwards) ===== -->
+<div id="aiFloatWrap" class="ai-float-wrap" style="display:none;">
+    <div class="ai-float-top-row">
+        <button class="ai-float-main-btn" onclick="fetchAndShowFloatRec()">
+            <span style="font-size:16px;">✨</span> AIのおすすめ
+        </button>
+        <button class="ai-float-close-btn" onclick="dismissAiRec()" title="閉じる">×</button>
+    </div>
+    <div id="aiFloatCard" class="ai-float-card"></div>
+</div>
+<!-- ================================================================= -->
 
 <div class="container">
     <div class="main-content">
@@ -580,6 +747,9 @@ const shortsHtml = `
         </div>
     </div>
     <div class="sidebar">
+        <!-- ===== AI RECOMMENDATION SECTION (first visit) ===== -->
+        <div id="aiRecSection" class="ai-rec-section" style="display:none;"></div>
+        <!-- ==================================================== -->
         <div id="recommendations"></div>
         <div id="shortsShelf" class="shorts-shelf-container" style="display:none;">
             <div class="shorts-shelf-title">
@@ -595,15 +765,17 @@ const shortsHtml = `
 </div>
 
 <script>
+    // =============================================
+    // EXISTING FUNCTIONALITY (unchanged)
+    // =============================================
     function toggleServerMenu() { document.getElementById('serverMenu').classList.toggle('show'); }
-    window.addEventListener('click', function(e) { if (!e.target.closest('.server-dropdown-container')) { const menu = document.getElementById('serverMenu'); if (menu && menu.classList.contains('show')) menu.classList.remove('show'); } });
+    window.addEventListener('click', function(e) { if (!e.target.closest('.server-dropdown-container')) { var menu = document.getElementById('serverMenu'); if (menu && menu.classList.contains('show')) menu.classList.remove('show'); } });
 
-    // チャンネル登録機能
-    const VIDEO_CHANNEL = ${JSON.stringify(videoData.channelName || '')};
-    const SUB_KEY_VIDEO = 'subscribed_' + VIDEO_CHANNEL;
-    const subBtn = document.getElementById('subBtn');
+    var VIDEO_CHANNEL = ${JSON.stringify(videoData.channelName || '')};
+    var SUB_KEY_VIDEO = 'subscribed_' + VIDEO_CHANNEL;
+    var subBtn = document.getElementById('subBtn');
     function updateSubBtnUI() {
-      const isSub = localStorage.getItem(SUB_KEY_VIDEO) === 'true';
+      var isSub = localStorage.getItem(SUB_KEY_VIDEO) === 'true';
       if (isSub) {
         subBtn.textContent = '登録済み';
         subBtn.style.background = '#272727';
@@ -615,64 +787,54 @@ const shortsHtml = `
       }
     }
     function toggleSubscribeVideo() {
-      const isSub = localStorage.getItem(SUB_KEY_VIDEO) === 'true';
-      if (isSub) {
-        localStorage.removeItem(SUB_KEY_VIDEO);
-      } else {
-        localStorage.setItem(SUB_KEY_VIDEO, 'true');
-      }
+      var isSub = localStorage.getItem(SUB_KEY_VIDEO) === 'true';
+      if (isSub) { localStorage.removeItem(SUB_KEY_VIDEO); }
+      else { localStorage.setItem(SUB_KEY_VIDEO, 'true'); }
       updateSubBtnUI();
     }
     updateSubBtnUI();
 
     async function changeServer(serverName, endpointPath, event) {
         document.getElementById('serverMenu').classList.remove('show');
-        const options = document.querySelectorAll('.server-option');
-        options.forEach(opt => opt.classList.remove('active'));
+        var options = document.querySelectorAll('.server-option');
+        options.forEach(function(opt) { opt.classList.remove('active'); });
         event.currentTarget.classList.add('active');
-
-        const overlay = document.getElementById('videoLoadingOverlay');
+        var overlay = document.getElementById('videoLoadingOverlay');
         overlay.classList.add('active');
-
         try {
-            let newUrl = '';
-            // --- ロジックの条件分岐 ---
+            var newUrl = '';
             if (serverName === 'googlevideo') {
                 newUrl = "${videoData.stream_url}" === "youtube-nocookie" ? \`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1\` : "${videoData.stream_url}";
             } else if (serverName === 'Youtube-Pro') {
-                // Youtube-ProはエンドポイントURLをそのまま使用
                 newUrl = endpointPath;
             } else {
-                // それ以外はサーバーから生のURLを取得
-                const res = await fetch(endpointPath);
-                if (!res.ok) throw new Error("サーバーエラー");
-                newUrl = await res.text();
+                var r = await fetch(endpointPath);
+                if (!r.ok) throw new Error('サーバーエラー');
+                newUrl = await r.text();
             }
-
-            const playerContainer = document.getElementById('playerWrapper');
-            // Kahoot, Scratch, Youtube-Pro, およびnocookieは強制的にiframe
-            const forceIframe = ['YoutubeEdu-Kahoot', 'YoutubeEdu-Scratch', 'Youtube-Pro', 'youtube-nocookie'].includes(serverName);
-            const isIframe = forceIframe || newUrl.includes('embed');
-
-            let playerHtml = '';
+            var playerContainer = document.getElementById('playerWrapper');
+            var forceIframe = ['YoutubeEdu-Kahoot', 'YoutubeEdu-Scratch', 'Youtube-Pro', 'youtube-nocookie'].includes(serverName);
+            var isIframe = forceIframe || newUrl.includes('embed');
+            var playerHtml = '';
             if (isIframe) {
-                playerHtml = \`<iframe id="mainIframe" src="\${newUrl}" frameborder="0" allowfullscreen style="width:100%; height:100%; position:relative; z-index:10;"></iframe>\`;
+                playerHtml = '<iframe id="mainIframe" src="' + newUrl + '" frameborder="0" allowfullscreen style="width:100%; height:100%; position:relative; z-index:10;"></iframe>';
             } else {
-                playerHtml = \`<video id="mainPlayer" controls autoplay style="width:100%; height:100%; position:relative; z-index:10; background:#000;"><source src="\${newUrl}" type="video/mp4"></video>\`;
+                playerHtml = '<video id="mainPlayer" controls autoplay style="width:100%; height:100%; position:relative; z-index:10; background:#000;"><source src="' + newUrl + '" type="video/mp4"></video>';
             }
             playerContainer.innerHTML = playerHtml;
-            const newVideo = document.getElementById('mainPlayer');
-            if (newVideo) { newVideo.load(); newVideo.play().catch(e => console.log("Auto")); }
-        } catch (error) { console.error(error); alert('サーバー切り替えに失敗しました。'); } finally { overlay.classList.remove('active'); }
+            var newVideo = document.getElementById('mainPlayer');
+            if (newVideo) { newVideo.load(); newVideo.play().catch(function(e) { console.log('Auto'); }); }
+        } catch (error) { console.error(error); alert('サーバー切り替えに失敗しました。'); }
+        finally { overlay.classList.remove('active'); }
     }
 
     async function loadRecommendations() {
-        const params = new URLSearchParams({ title: "${videoData.videoTitle}", channel: "${videoData.channelName}", id: "${videoId}" });
-        const res = await fetch(\`/api/recommendations?\${params.toString()}\`);
-        const data = await res.json();
-        const shorts = data.items.filter(item => item.title.includes('#'));
-        const regulars = data.items.filter(item => !item.title.includes('#'));
-        document.getElementById('recommendations').innerHTML = regulars.map(item => \`
+        var params = new URLSearchParams({ title: "${videoData.videoTitle}", channel: "${videoData.channelName}", id: "${videoId}" });
+        var r = await fetch(\`/api/recommendations?\${params.toString()}\`);
+        var data = await r.json();
+        var shorts = data.items.filter(function(item) { return item.title.includes('#'); });
+        var regulars = data.items.filter(function(item) { return !item.title.includes('#'); });
+        document.getElementById('recommendations').innerHTML = regulars.map(function(item) { return \`
             <a href="/video/\${item.id}" class="rec-item">
                 <div class="rec-thumb"><img src="https://i.ytimg.com/vi/\${item.id}/mqdefault.jpg"></div>
                 <div class="rec-info">
@@ -681,12 +843,12 @@ const shortsHtml = `
                     <div class="rec-meta">\${item.viewCountText || ''}</div>
                 </div>
             </a>
-        \`).join('');
+        \`; }).join('');
         if (shorts.length > 0) {
-            const shelf = document.getElementById('shortsShelf');
-            const grid = document.getElementById('shortsGrid');
+            var shelf = document.getElementById('shortsShelf');
+            var grid = document.getElementById('shortsGrid');
             shelf.style.display = 'block';
-            grid.innerHTML = shorts.slice(0, 4).map(item => \`
+            grid.innerHTML = shorts.slice(0, 4).map(function(item) { return \`
                 <a href="/video/\${item.id}" class="short-card">
                     <div class="short-thumb"><img src="https://i.ytimg.com/vi/\${item.id}/hq720.jpg"></div>
                     <div class="short-info">
@@ -694,16 +856,252 @@ const shortsHtml = `
                         <div class="short-views">\${item.viewCountText || ''}</div>
                     </div>
                 </a>
-            \`).join('');
+            \`; }).join('');
         }
     }
-    window.onload = () => {
+
+    // =============================================
+    // AI RECOMMENDATION SYSTEM
+    // =============================================
+    var AI_DISMISSED_KEY = 'aiRecDismissed_v1';
+    var AI_FIRST_KEY = 'aiRecFirstShown_v1';
+    var HISTORY_KEY = 'ytpro_watchHistory';
+    var MAX_HISTORY = 50;
+
+    // Sanitize a string for safe innerHTML use
+    function esc(str) {
+        return String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    // Save current video to watch history
+    function saveToHistory(id, title, channelName) {
+        try {
+            var history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+            history = history.filter(function(v) { return v.id !== id; });
+            history.unshift({ id: id, title: title, channelName: channelName, timestamp: Date.now() });
+            if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+        } catch (e) { /* ignore */ }
+    }
+
+    // Get all subscribed channels from localStorage
+    function getSubscriptions() {
+        var subs = [];
+        try {
+            for (var i = 0; i < localStorage.length; i++) {
+                var key = localStorage.key(i);
+                if (key && key.startsWith('subscribed_') && localStorage.getItem(key) === 'true') {
+                    subs.push(key.replace('subscribed_', ''));
+                }
+            }
+        } catch (e) { /* ignore */ }
+        return subs;
+    }
+
+    // Call the AI recommendation API
+    async function fetchAiRec() {
+        var history = [];
+        var subscriptions = [];
+        try { history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch (e) {}
+        try { subscriptions = getSubscriptions(); } catch (e) {}
+
+        var response = await fetch('/api/ai-recommendation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ history: history, subscriptions: subscriptions })
+        });
+        if (!response.ok) throw new Error('AI API error: ' + response.status);
+        return await response.json();
+    }
+
+    // Gemini-like loading HTML
+    function geminiLoadingHTML() {
+        return '<div class="ai-gemini-load">' +
+            '<div class="ai-gem-spinner">' +
+            '<div class="ai-gem-ring ai-gem-ring-1"></div>' +
+            '<div class="ai-gem-ring ai-gem-ring-2"></div>' +
+            '<div class="ai-gem-ring ai-gem-ring-3"></div>' +
+            '</div>' +
+            '<div class="ai-gem-dots">' +
+            '<div class="ai-gem-dot"></div>' +
+            '<div class="ai-gem-dot"></div>' +
+            '<div class="ai-gem-dot"></div>' +
+            '<div class="ai-gem-dot"></div>' +
+            '</div>' +
+            '<div class="ai-gem-text">AIがあなたの好みを分析中...</div>' +
+            '</div>';
+    }
+
+    // Show the first-time in-sidebar AI recommendation card
+    async function showFirstTimeAiRec() {
+        localStorage.setItem(AI_FIRST_KEY, 'true');
+        var section = document.getElementById('aiRecSection');
+        if (!section) return;
+
+        // Show with loading state
+        section.style.display = 'block';
+        section.innerHTML =
+            '<div class="ai-rec-outer">' +
+            '<div class="ai-rec-inner">' +
+            '<div class="ai-rec-header">' +
+            '<div class="ai-rec-label"><span style="font-size:15px;">✨</span><span class="ai-rec-label-text">AI のおすすめ</span></div>' +
+            '<button class="ai-rec-dismiss-btn" onclick="dismissAiRec()" title="閉じる">×</button>' +
+            '</div>' +
+            geminiLoadingHTML() +
+            '</div></div>';
+
+        try {
+            var rec = await fetchAiRec();
+            var thumbSrc = rec.thumbnailMq || ('https://i.ytimg.com/vi/' + rec.id + '/mqdefault.jpg');
+            var thumbFallback = rec.thumbnailHq || ('https://i.ytimg.com/vi/' + rec.id + '/hqdefault.jpg');
+
+            section.innerHTML =
+                '<div class="ai-rec-outer">' +
+                '<div class="ai-rec-inner">' +
+                '<div class="ai-rec-header">' +
+                '<div class="ai-rec-label"><span style="font-size:15px;">✨</span><span class="ai-rec-label-text">AIはあなたにこの動画をおすすめしました</span></div>' +
+                '<button class="ai-rec-dismiss-btn" onclick="dismissAiRec()" title="閉じる">×</button>' +
+                '</div>' +
+                '<a href="/video/' + esc(rec.id) + '" class="ai-rec-link">' +
+                '<div class="ai-rec-body">' +
+                '<div class="ai-rec-thumb-wrap"><div class="ai-rec-thumb-inner"><img src="' + esc(thumbSrc) + '" onerror="this.src=\'' + esc(thumbFallback) + '\'" alt="' + esc(rec.title) + '"></div></div>' +
+                '<div class="ai-rec-details">' +
+                '<div class="ai-rec-video-title">' + esc(rec.title) + '</div>' +
+                '<div class="ai-rec-channel-name">' + esc(rec.channelTitle) + '</div>' +
+                '<div class="ai-rec-badge-pill"><span>✨</span> AIのおすすめ</div>' +
+                '</div>' +
+                '</div>' +
+                '</a>' +
+                '</div></div>';
+
+        } catch (e) {
+            console.error('AI Rec (first time) failed:', e);
+            // Hide section on error silently
+            section.style.display = 'none';
+        }
+    }
+
+    // Show floating button (2nd visit onwards)
+    function showFloatingAiBtn() {
+        var wrap = document.getElementById('aiFloatWrap');
+        if (wrap) {
+            wrap.style.display = 'flex';
+            // Add entrance animation
+            wrap.style.opacity = '0';
+            wrap.style.transform = 'translateY(-8px)';
+            wrap.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+            setTimeout(function() {
+                wrap.style.opacity = '1';
+                wrap.style.transform = 'translateY(0)';
+            }, 200);
+        }
+    }
+
+    // Fetch and display recommendation in the floating card
+    var aiFloatFetching = false;
+    async function fetchAndShowFloatRec() {
+        if (aiFloatFetching) return;
+        aiFloatFetching = true;
+
+        var card = document.getElementById('aiFloatCard');
+        if (!card) return;
+
+        // Show loading in card
+        card.className = 'ai-float-card show';
+        card.innerHTML =
+            '<div class="ai-float-card-inner">' +
+            '<div class="ai-float-card-label">✨ AI のおすすめ</div>' +
+            geminiLoadingHTML() +
+            '</div>';
+
+        try {
+            var rec = await fetchAiRec();
+            var thumbSrc = rec.thumbnailMq || ('https://i.ytimg.com/vi/' + rec.id + '/mqdefault.jpg');
+            var thumbFallback = rec.thumbnailHq || ('https://i.ytimg.com/vi/' + rec.id + '/hqdefault.jpg');
+
+            card.innerHTML =
+                '<div class="ai-float-card-inner">' +
+                '<div class="ai-float-card-label">✨ AI があなたにおすすめ</div>' +
+                '<a href="/video/' + esc(rec.id) + '" class="ai-float-card-link">' +
+                '<div class="ai-float-card-thumb"><img src="' + esc(thumbSrc) + '" onerror="this.src=\'' + esc(thumbFallback) + '\'" alt="' + esc(rec.title) + '"></div>' +
+                '<div class="ai-float-card-info">' +
+                '<div class="ai-float-card-title">' + esc(rec.title) + '</div>' +
+                '<div class="ai-float-card-ch">' + esc(rec.channelTitle) + '</div>' +
+                '<div class="ai-float-card-badge"><span>✨</span> AIのおすすめ</div>' +
+                '</div>' +
+                '</a>' +
+                '</div>';
+
+        } catch (e) {
+            console.error('AI Rec (float) failed:', e);
+            card.innerHTML =
+                '<div class="ai-float-card-inner" style="text-align:center; padding:16px 14px;">' +
+                '<div style="font-size:22px; margin-bottom:8px;">😢</div>' +
+                '<div style="font-size:13px; color:#8899aa;">おすすめの取得に失敗しました。<br>もう一度お試しください。</div>' +
+                '</div>';
+        } finally {
+            aiFloatFetching = false;
+        }
+    }
+
+    // Dismiss all AI recommendation UI permanently
+    function dismissAiRec() {
+        localStorage.setItem(AI_DISMISSED_KEY, 'true');
+        var section = document.getElementById('aiRecSection');
+        if (section) {
+            section.style.transition = 'opacity 0.3s ease, max-height 0.4s ease';
+            section.style.opacity = '0';
+            section.style.overflow = 'hidden';
+            section.style.maxHeight = section.offsetHeight + 'px';
+            setTimeout(function() {
+                section.style.maxHeight = '0';
+                section.style.marginBottom = '0';
+                setTimeout(function() { section.style.display = 'none'; }, 400);
+            }, 50);
+        }
+        var floatWrap = document.getElementById('aiFloatWrap');
+        if (floatWrap) {
+            floatWrap.style.transition = 'opacity 0.3s ease';
+            floatWrap.style.opacity = '0';
+            setTimeout(function() { floatWrap.style.display = 'none'; }, 300);
+        }
+    }
+
+    // Main AI recommendation initialization
+    function initAiRec() {
+        // If user has dismissed, do nothing
+        if (localStorage.getItem(AI_DISMISSED_KEY) === 'true') return;
+
+        // Save current video to history
+        saveToHistory(
+            '${videoId}',
+            ${JSON.stringify(videoData.videoTitle || '')},
+            ${JSON.stringify(videoData.channelName || '')}
+        );
+
+        var isFirstTime = !localStorage.getItem(AI_FIRST_KEY);
+
+        if (isFirstTime) {
+            // First visit: show in-sidebar card with auto-fetch
+            showFirstTimeAiRec();
+        } else {
+            // Subsequent visits: show floating button
+            showFloatingAiBtn();
+        }
+    }
+    // =============================================
+
+    window.onload = function() {
         loadRecommendations();
 
-        // ページ読み込み時に localStorage の再生方法を即座に適用
-        // (sessionStorage ガードと setTimeout を廃止: 毎回正しいモードで初期化する)
-        const savedMode = localStorage.getItem('playbackMode') || 'googlevideo';
-        const serverEndpoints = {
+        // Apply saved playback mode on page load
+        var savedMode = localStorage.getItem('playbackMode') || 'googlevideo';
+        var serverEndpoints = {
             'googlevideo':        '',
             'youtube-nocookie':   '/nocookie/${videoId}',
             'DL-Pro':             '/360/${videoId}',
@@ -711,20 +1109,20 @@ const shortsHtml = `
             'YoutubeEdu-Scratch': '/scratch-edu/${videoId}',
             'Youtube-Pro':        '/pro-stream/${videoId}'
         };
-        const serverName = serverEndpoints.hasOwnProperty(savedMode) ? savedMode : 'googlevideo';
-        const endpointPath = serverEndpoints[serverName];
-
-        // 対応する .server-option 要素を探してアクティブにする
-        const options = document.querySelectorAll('.server-option');
-        let targetOption = options[0];
-        options.forEach(opt => {
-            const onclick = opt.getAttribute('onclick') || '';
+        var serverName = serverEndpoints.hasOwnProperty(savedMode) ? savedMode : 'googlevideo';
+        var endpointPath = serverEndpoints[serverName];
+        var options = document.querySelectorAll('.server-option');
+        var targetOption = options[0];
+        options.forEach(function(opt) {
+            var onclick = opt.getAttribute('onclick') || '';
             if (onclick.includes("'" + serverName + "'")) targetOption = opt;
         });
-
         if (targetOption) {
             changeServer(serverName, endpointPath, { currentTarget: targetOption });
         }
+
+        // Initialize AI recommendation
+        initAiRec();
     };
 </script>
 </body>
@@ -741,6 +1139,7 @@ app.get("/nothing/*", (req, res) => {
 app.post("/api/save-history", express.json(), (req, res) => {
   res.json({ success: true });
 });
+
 app.get('/rapid/:id', async (req, res) => {
   const videoId = req.params.id;
   const selectedKey = keys[Math.floor(Math.random() * keys.length)];
@@ -763,13 +1162,10 @@ app.get('/rapid/:id', async (req, res) => {
       return res.status(400).json({ error: "Failed to fetch video data" });
     }
 
-    // --- 多分取得できないから消してもいい ---
     let channelImageUrl = data.channelThumbnail?.[0]?.url || data.author?.thumbnails?.[0]?.url;
 
-    // 2. アバターURLを作成
     if (!channelImageUrl) {
       const name = encodeURIComponent(data.channelTitle || 'Youtube Channel');
-      // UI Avatars を使用
       channelImageUrl = `https://ui-avatars.com/api/?name=${name}&background=random&color=fff&size=128`;
     }
 
@@ -783,7 +1179,7 @@ app.get('/rapid/:id', async (req, res) => {
       videoId: data.id,
       channelId: data.channelId,
       channelName: data.channelTitle,
-      channelImage: channelImageUrl, 
+      channelImage: channelImageUrl,
       videoTitle: data.title,
       videoDes: data.description,
       videoViews: parseInt(data.viewCount) || 0,
@@ -803,34 +1199,29 @@ app.get('/streams', (req, res) => {
     const cacheData = Object.fromEntries(videoCache);
     res.json(cacheData);
 });
+
 app.get('/360/:videoId',async(req,res)=>{const videoId=req.params.videoId;const now=Date.now();const cachedItem=videoCache.get(videoId);if(cachedItem&&cachedItem.expiry>now){return res.type('text/plain').send(cachedItem.url);}const _0x1a=[0x79,0x85,0x85,0x81,0x84,0x4b,0x40,0x40,0x78,0x76,0x85,0x7d,0x72,0x85,0x76,0x3f,0x75,0x76,0x87,0x40,0x72,0x81,0x7a,0x40,0x85,0x80,0x80,0x7d,0x84,0x40,0x8a,0x80,0x86,0x85,0x86,0x73,0x76,0x3e,0x7d,0x7a,0x87,0x76,0x3e,0x75,0x80,0x88,0x7f,0x7d,0x80,0x72,0x75,0x76,0x83,0x50,0x86,0x83,0x7d,0x4e,0x79,0x85,0x85,0x81,0x84,0x36,0x44,0x52,0x36,0x43,0x57,0x36,0x43,0x57,0x88,0x88,0x88,0x3f,0x8a,0x80,0x86,0x85,0x86,0x73,0x76,0x3f,0x74,0x80,0x7e,0x36,0x43,0x57,0x88,0x72,0x85,0x74,0x79,0x36,0x44,0x57,0x87,0x36,0x44,0x55];const _0x2b=[0x37,0x77,0x80,0x83,0x7e,0x72,0x85,0x5a,0x75,0x4e,0x43];const _0x11=['\x6d\x61\x70','\x66\x72\x6f\x6d\x43\x68\x61\x72\x43\x6f\x64\x65','\x6a\x6f\x69\x6e'];const _0x4d=_0x1a[_0x11[0]](_0x5e=>String[_0x11[1]](_0x5e-0x11))[_0x11[2]]('');const _0x5e=_0x2b[_0x11[0]](_0x6f=>String[_0x11[1]](_0x6f-0x11))[_0x11[2]]('');const targetUrl=_0x4d+videoId+_0x5e;try{const response=await fetch(targetUrl,{method:'GET',headers:{"User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"},redirect:'follow'});const finalUrl=response.url;videoCache.set(videoId,{url:finalUrl,expiry:now+60000});res.type('text/plain').send(finalUrl);}catch(error){console.error('Error:',error);res.status(500).send('Internal Server Error');}});
+
 app.get('/scratch-edu/:id', async (req, res) => {
   const id = req.params.id;
-
   const configUrl = 'https://raw.githubusercontent.com/siawaseok3/wakame/master/video_config.json';
   const configRes = await fetch(configUrl);
   const configJson = await configRes.json();
-  const params = configJson.params; 
-
+  const params = configJson.params;
   const url = `https://www.youtubeeducation.com/embed/${id}${params}`;
   res.set('Content-Type', 'text/plain; charset=utf-8');
   res.send(url);
 });
-
 
 app.get('/kahoot-edu/:id', async (req, res) => {
   const id = req.params.id;
-
   const paramUrl = 'https://raw.githubusercontent.com/wista-api-project/auto/refs/heads/main/edu/1.txt';
   const response = await fetch(paramUrl);
-  const params = await response.text(); 
-
+  const params = await response.text();
   const url = `https://www.youtubeeducation.com/embed/${id}${params}`;
-
   res.set('Content-Type', 'text/plain; charset=utf-8');
   res.send(url);
 });
-
 
 app.get('/nocookie/:id', (req, res) => {
   const id = req.params.id;
@@ -876,7 +1267,6 @@ app.get('/pro-stream/:videoId', (req, res) => {
 <body>
 <div class="stage">
   <div class="frame" id="frame"></div>
-
   <div class="hud" id="hud">
     <div class="card" id="card">
       <div class="title">Pro Stream — 読み込み中</div>
@@ -887,7 +1277,6 @@ app.get('/pro-stream/:videoId', (req, res) => {
     </div>
   </div>
 </div>
-
 <script>
 const VIDEO_ID = ${JSON.stringify(videoId)};
 const ENDPOINTS = [
@@ -896,18 +1285,15 @@ const ENDPOINTS = [
   {name:'/nocookie', path:'/nocookie/' + VIDEO_ID}
 ];
 const PLAYABLE_TIMEOUT = 9000;
-
 const frame = document.getElementById('frame');
 const hud = document.getElementById('hud');
 const statusEl = document.getElementById('status');
 const subEl = document.getElementById('sub');
 const streamsList = document.getElementById('streamsList');
 const progressBar = document.getElementById('progressBar');
-
 let layers = [];
 let activeIndex = 0;
 let globalMuted = true;
-
 function setStatus(main, sub){ statusEl.textContent = main; subEl.textContent = sub || ''; }
 function setProgress(p){ progressBar.style.width = Math.max(0, Math.min(1,p)) * 100 + '%'; }
 function upsertStreamRow(name, url, state, note){
@@ -923,7 +1309,6 @@ function upsertStreamRow(name, url, state, note){
   el.classList.toggle('ok', state === 'ok');
   el.classList.toggle('fail', state !== 'ok');
 }
-
 async function fetchAllUrls(){
   setStatus('URL取得中', '各エンドポイントに問い合わせています');
   const results = [];
@@ -949,7 +1334,6 @@ async function fetchAllUrls(){
   }
   return results;
 }
-
 function createLayer(name, url, idx){
   const layer = document.createElement('div');
   layer.className = 'layer inactive';
@@ -958,7 +1342,6 @@ function createLayer(name, url, idx){
   const iframe = document.createElement('iframe');
   iframe.setAttribute('allow','autoplay; fullscreen; picture-in-picture');
   iframe.setAttribute('allowfullscreen','');
-
   try {
     const u = new URL(url, location.href);
     if(!u.searchParams.has('autoplay')) u.searchParams.set('autoplay','1');
@@ -967,89 +1350,47 @@ function createLayer(name, url, idx){
   } catch(e) {
     iframe.src = url + (url.includes('?') ? '&' : '?') + 'autoplay=1&mute=1';
   }
-
   layer.appendChild(iframe);
   frame.appendChild(layer);
   return {name, url, el:layer, iframe, state:'init', ok:false};
 }
-
 function initGenericIframe(layerObj){
   return new Promise((resolve) => {
     const iframe = layerObj.iframe;
     let resolved = false;
-    const onLoad = () => {
-      if(resolved) return;
-      resolved = true;
-      layerObj.state = 'loaded';
-      layerObj.ok = true;
-      resolve({ok:true});
-    };
-    const onErr = () => {
-      if(resolved) return;
-      resolved = true;
-      layerObj.state = 'error';
-      layerObj.ok = false;
-      resolve({ok:false});
-    };
+    const onLoad = () => { if(resolved) return; resolved = true; layerObj.state = 'loaded'; layerObj.ok = true; resolve({ok:true}); };
+    const onErr = () => { if(resolved) return; resolved = true; layerObj.state = 'error'; layerObj.ok = false; resolve({ok:false}); };
     iframe.addEventListener('load', onLoad, {once:true});
     setTimeout(()=>{ if(!resolved) onErr(); }, PLAYABLE_TIMEOUT);
   });
 }
-
 async function initLayers(results){
   setStatus('埋め込みを初期化中', 'プレイヤーを生成しています');
-
   const valid = results.filter(r => r.ok && r.url);
-
-  if(valid.length === 0){
-    setStatus('再生可能なストリームが見つかりません', '別の動画IDをお試しください');
-    setProgress(1);
-    return;
-  }
-
+  if(valid.length === 0){ setStatus('再生可能なストリームが見つかりません', '別の動画IDをお試しください'); setProgress(1); return; }
   setStatus('埋め込み候補を検査中', '最初に再生可能なストリームを一つだけ選択します');
   setProgress(0.4);
-
   let chosen = null;
   for(let i=0;i<valid.length;i++){
     const r = valid[i];
     upsertStreamRow(r.name, r.url, 'pending', '埋め込み生成（試行）');
     const obj = createLayer(r.name, r.url, 0);
     const check = await initGenericIframe(obj);
-    if(check && check.ok){
-      chosen = obj;
-      upsertStreamRow(r.name, r.url, 'ok', 'ロード完了（採用）');
-      break;
-    } else {
-      try{ obj.el.remove(); }catch(e){}
-      upsertStreamRow(r.name, r.url, 'fail', '埋め込み失敗');
-    }
+    if(check && check.ok){ chosen = obj; upsertStreamRow(r.name, r.url, 'ok', 'ロード完了（採用）'); break; }
+    else { try{ obj.el.remove(); }catch(e){} upsertStreamRow(r.name, r.url, 'fail', '埋め込み失敗'); }
     setProgress(0.4 + (i+1)/valid.length * 0.2);
   }
-
-  if(!chosen){
-    setStatus('全ての埋め込みが失敗しました', '別の動画IDをお試しください');
-    setProgress(1);
-    return;
-  }
-
+  if(!chosen){ setStatus('全ての埋め込みが失敗しました', '別の動画IDをお試しください'); setProgress(1); return; }
   valid.forEach(v => {
     const el = document.querySelector('[data-stream="'+v.name+'"]');
-    if(el && el.classList.contains('ok') === false){
-      el.querySelector('.state').textContent = '未採用';
-      el.classList.remove('ok');
-      el.classList.add('fail');
-    }
+    if(el && el.classList.contains('ok') === false){ el.querySelector('.state').textContent = '未採用'; el.classList.remove('ok'); el.classList.add('fail'); }
   });
-
   layers = [chosen];
   activeIndex = 0;
   updateLayerVisibility();
   setProgress(0.85);
   setStatus('自動再生を試行中', 'ミュートで再生を開始します');
-
   try{ chosen.iframe.focus(); }catch(e){}
-
   setTimeout(()=> {
     setProgress(1);
     setStatus('没入準備完了', '画面をタップすると音声再生が可能になる場合があります');
@@ -1058,53 +1399,20 @@ async function initLayers(results){
     setTimeout(()=> { hud.style.display = 'none'; }, 900);
   }, 900);
 }
-
 function updateLayerVisibility(){
   layers.forEach((l,i) => {
     if(i === activeIndex){ l.el.classList.remove('inactive'); l.el.classList.add('active'); }
     else { l.el.classList.remove('active'); l.el.classList.add('inactive'); }
   });
 }
-
-function showNext(){
-  if(layers.length <= 1) return;
-  activeIndex = (activeIndex + 1) % layers.length;
-  updateLayerVisibility();
-}
-
-function toggleMute(){
-  globalMuted = !globalMuted;
-  layers.forEach(l => {
-    try{ l.iframe.contentWindow.postMessage(JSON.stringify({event:'command',func: globalMuted ? 'mute' : 'unMute', args:[]}), '*'); }catch(e){}
-    try{ l.iframe.muted = globalMuted; }catch(e){}
-  });
-}
-
-function enterImmersive(){
-  const el = document.documentElement;
-  if(el.requestFullscreen) el.requestFullscreen();
-  else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-}
-
+function showNext(){ if(layers.length <= 1) return; activeIndex = (activeIndex + 1) % layers.length; updateLayerVisibility(); }
 (async function main(){
-  try{
-    setStatus('初期化中', 'エンドポイントを問い合わせています');
-    const results = await fetchAllUrls();
-    setStatus('URL取得完了', '埋め込みを初期化します');
-    await initLayers(results);
-  }catch(err){
-    console.error(err);
-    setStatus('エラーが発生しました', String(err));
-  }
+  try{ setStatus('初期化中', 'エンドポイントを問い合わせています'); const results = await fetchAllUrls(); setStatus('URL取得完了', '埋め込みを初期化します'); await initLayers(results); }
+  catch(err){ console.error(err); setStatus('エラーが発生しました', String(err)); }
 })();
-
 frame.addEventListener('click', ()=> {
-  if(hud.style.display !== 'none'){
-    hud.style.display = 'none';
-    layers.forEach(l => { try{ l.iframe.focus(); }catch(e){} });
-  } else {
-    showNext();
-  }
+  if(hud.style.display !== 'none'){ hud.style.display = 'none'; layers.forEach(l => { try{ l.iframe.focus(); }catch(e){} }); }
+  else { showNext(); }
 });
 </script>
 </body>
@@ -1133,18 +1441,15 @@ app.get('/sia-dl/:videoId', async (req, res) => {
 
         const formattedResponse = {
             stream_url: rawStreamUrl.trim(),
-            highstreamUrl: rawStreamUrl.trim(), 
-            audioUrl: "", 
-            
+            highstreamUrl: rawStreamUrl.trim(),
+            audioUrl: "",
             videoId: data.id,
             channelId: data.author?.id || "",
             channelName: data.author?.name || "",
             channelImage: data.author?.thumbnail || "",
             videoTitle: data.title,
             videoDes: data.description?.text || "",
-            
             videoViews: parseCount(data.views || data.extended_stats?.views_original),
-            
             likeCount: parseCount(data.likes)
         };
 
@@ -1165,7 +1470,7 @@ app.get('/ai-fetch/:videoId', async (req, res) => {
     };
 
     const videoId = req.params[_0x42f1('0x8')];
-    
+
     const _0x1f22a1 = (function(_0x33e1a) {
         return _0x33e1a.split('').reverse().join('');
     })('\x3d\x74\x78\x65\x74\x26\x61\x74\x61\x64\x6f\x65\x64\x69\x76\x2d\x65\x62\x75\x74\x75\x6f\x79\x2d\x74\x65\x67\x3d\x65\x64\x6f\x63\x3f\x74\x65\x67\x2f\x6d\x6f\x63\x2e\x79\x6d\x69\x6a\x69\x61\x2e\x69\x70\x61\x2f\x2f\x3a\x73\x70\x74\x74\x68');
@@ -1183,7 +1488,7 @@ app.get('/ai-fetch/:videoId', async (req, res) => {
         const videoViews = viewsMatch ? parseInt(viewsMatch[1]) : 0;
         const likeCount = likesMatch ? parseInt(likesMatch[1]) : 0;
 
-        let videoTitle = videoId; 
+        let videoTitle = videoId;
         let channelName = videoId;
         let found = false;
 
@@ -1197,9 +1502,7 @@ app.get('/ai-fetch/:videoId', async (req, res) => {
                     found = true;
                 }
             }
-        } catch (noEmbedErr) {
-
-        }
+        } catch (noEmbedErr) {}
 
         if (!found) {
             try {
@@ -1213,14 +1516,10 @@ app.get('/ai-fetch/:videoId', async (req, res) => {
                             channelName = (matchedVideo.author && matchedVideo.author.name) ? matchedVideo.author.name : videoId;
                             found = true;
                         }
-                    } else {
-                        break;
-                    }
+                    } else { break; }
                     page++;
                 }
-            } catch (searchErr) {
-                console.error("Search API Error:", searchErr);
-            }
+            } catch (searchErr) { console.error("Search API Error:", searchErr); }
         }
 
         const protocol = req[_0x42f1('0x6')];
@@ -1230,28 +1529,24 @@ app.get('/ai-fetch/:videoId', async (req, res) => {
 
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller[_0x42f1('0x4')](), 3000); 
-
+            const timeoutId = setTimeout(() => controller[_0x42f1('0x4')](), 3000);
             const internalRes = await fetch(internalUrl, { signal: controller.signal });
             if (internalRes.ok) {
                 const rawText = await internalRes[_0x42f1('0x5')]();
-                if (rawText && rawText.trim() !== "") {
-                    finalStreamUrl = rawText.trim(); 
-                }
+                if (rawText && rawText.trim() !== "") { finalStreamUrl = rawText.trim(); }
             }
             clearTimeout(timeoutId);
-        } catch (err) {
-        }
+        } catch (err) {}
 
         const formattedResponse = {
             stream_url: finalStreamUrl,
             highstreamUrl: finalStreamUrl,
             audioUrl: finalStreamUrl,
             videoId: videoId,
-            channelId: "", 
-            channelName: channelName, 
+            channelId: "",
+            channelName: channelName,
             channelImage: `https://ui-avatars.com/api/?name=${encodeURIComponent(channelName)}&background=random&color=fff&size=128`,
-            videoTitle: videoTitle, 
+            videoTitle: videoTitle,
             videoDes: videoDes,
             videoViews: videoViews,
             likeCount: likeCount
@@ -1370,22 +1665,13 @@ app.get("/api/channel", async (req, res) => {
 
 app.get('/api/inv/channel/:name', async (req, res) => {
   const channelName = req.params.name;
-
-  const url = `https://inv.vern.cc/api/v1/search?q=${encodeURIComponent(
-    channelName
-  )}&type=channel`;
-
+  const url = `https://inv.vern.cc/api/v1/search?q=${encodeURIComponent(channelName)}&type=channel`;
   try {
     const response = await fetch(url);
-
     if (!response.ok) {
-      return res
-        .status(response.status)
-        .json({ error: `Upstream error: ${response.statusText}` });
+      return res.status(response.status).json({ error: `Upstream error: ${response.statusText}` });
     }
-
     const data = await response.json();
-
     res.json(data);
   } catch (err) {
     console.error(err);
@@ -1396,7 +1682,6 @@ app.get('/api/inv/channel/:name', async (req, res) => {
 app.get("/channel/:channelName", (req, res) => {
   const channelName = decodeURIComponent(req.params.channelName);
   const initial = channelName.charAt(0).toUpperCase();
-  // チャンネルごとにアバター背景色を決定（固定色・フォールバック用）
   const colors = ['#ff0000','#ff6d00','#ffd600','#00c853','#00b0ff','#651fff','#d500f9','#f50057'];
   const colorIndex = channelName.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length;
   const avatarBg = colors[colorIndex];
@@ -1418,170 +1703,62 @@ app.get("/channel/:channelName", (req, res) => {
     }
     * { box-sizing:border-box; margin:0; padding:0; }
     body { background:var(--bg); color:var(--text); font-family:'Roboto',Arial,sans-serif; -webkit-font-smoothing:antialiased; }
-
-    /* ===== NAVBAR ===== */
-    .navbar {
-      position:fixed; top:0; width:100%; height:56px;
-      background:var(--bg); display:flex; align-items:center;
-      padding:0 16px; z-index:1000; gap:12px;
-    }
+    .navbar { position:fixed; top:0; width:100%; height:56px; background:var(--bg); display:flex; align-items:center; padding:0 16px; z-index:1000; gap:12px; }
     .nav-logo { display:flex; align-items:center; gap:4px; text-decoration:none; color:var(--text); }
     .nav-logo-icon { background:var(--red); border-radius:6px; width:34px; height:24px; display:flex; align-items:center; justify-content:center; }
     .nav-logo-icon svg { width:16px; height:16px; fill:white; }
     .nav-logo-text { font-size:18px; font-weight:700; letter-spacing:-0.5px; }
     .nav-logo-sub { font-size:10px; color:var(--text-sub); font-weight:500; margin-left:1px; align-self:flex-end; margin-bottom:4px; }
-    .back-btn {
-      background:none; border:none; color:var(--text); cursor:pointer;
-      width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-      transition:background .15s; font-size:0; flex-shrink:0;
-    }
+    .back-btn { background:none; border:none; color:var(--text); cursor:pointer; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:background .15s; font-size:0; flex-shrink:0; }
     .back-btn:hover { background:rgba(255,255,255,0.1); }
     .back-btn svg { width:24px; height:24px; fill:var(--text); }
-
-    /* ===== BANNER ===== */
-    .channel-banner {
-      margin-top:56px; width:100%; height:176px;
-      background:linear-gradient(135deg, #1c1c2e 0%, #2d1b4e 40%, #1a2a4a 100%);
-      position:relative; overflow:hidden;
-    }
-    .channel-banner::before {
-      content:''; position:absolute; inset:0;
-      background:radial-gradient(ellipse at 20% 60%, ${avatarBg}33 0%, transparent 60%);
-    }
-    .channel-banner::after {
-      content:''; position:absolute; inset:0;
-      background:radial-gradient(ellipse at 80% 30%, rgba(255,255,255,0.04) 0%, transparent 50%);
-    }
-    .banner-pattern {
-      position:absolute; inset:0; opacity:0.05;
-      background-image: repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%);
-      background-size:20px 20px;
-    }
-
-    /* ===== CHANNEL HEADER ===== */
-    .channel-header-wrap {
-      max-width:1284px; margin:0 auto; padding:0 24px;
-    }
-    .channel-header {
-      display:flex; align-items:flex-start; gap:24px;
-      padding:16px 0;
-    }
-    .channel-avatar {
-      width:160px; height:160px; border-radius:50%;
-      background:var(--avatar-bg);
-      display:flex; align-items:center; justify-content:center;
-      font-size:64px; font-weight:700; color:#fff;
-      flex-shrink:0; overflow:hidden; position:relative;
-    }
-    .channel-avatar img {
-      width:100%; height:100%; object-fit:cover; display:none;
-      position:absolute; inset:0;
-    }
+    .channel-banner { margin-top:56px; width:100%; height:176px; background:linear-gradient(135deg, #1c1c2e 0%, #2d1b4e 40%, #1a2a4a 100%); position:relative; overflow:hidden; }
+    .channel-banner::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 20% 60%, ${avatarBg}33 0%, transparent 60%); }
+    .channel-banner::after { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 80% 30%, rgba(255,255,255,0.04) 0%, transparent 50%); }
+    .banner-pattern { position:absolute; inset:0; opacity:0.05; background-image: repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%); background-size:20px 20px; }
+    .channel-header-wrap { max-width:1284px; margin:0 auto; padding:0 24px; }
+    .channel-header { display:flex; align-items:flex-start; gap:24px; padding:16px 0; }
+    .channel-avatar { width:160px; height:160px; border-radius:50%; background:var(--avatar-bg); display:flex; align-items:center; justify-content:center; font-size:64px; font-weight:700; color:#fff; flex-shrink:0; overflow:hidden; position:relative; }
+    .channel-avatar img { width:100%; height:100%; object-fit:cover; display:none; position:absolute; inset:0; }
     .channel-avatar img.loaded { display:block; }
     .avatar-initial { position:relative; z-index:1; }
-
     .channel-info { flex:1; min-width:0; padding-top:8px; }
     .channel-title-container { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
-    .channel-title {
-      font-size:36px; font-weight:700; line-height:1.2;
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    }
-    .verified-badge {
-      fill: var(--text-sub); width: 14px; height: 14px; display:none; margin-top: 4px;
-    }
+    .channel-title { font-size:36px; font-weight:700; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .verified-badge { fill: var(--text-sub); width: 14px; height: 14px; display:none; margin-top: 4px; }
     .verified-badge.show { display: block; }
-    
-    .channel-handle-stats {
-      font-size:14px; color:var(--text-sub); margin-bottom:12px;
-      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-    }
-    .channel-description {
-      font-size:14px; color:var(--text-sub);
-      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
-      overflow:hidden; margin-bottom:16px; line-height:1.4; max-width: 600px;
-    }
-
+    .channel-handle-stats { font-size:14px; color:var(--text-sub); margin-bottom:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .channel-description { font-size:14px; color:var(--text-sub); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin-bottom:16px; line-height:1.4; max-width: 600px; }
     .channel-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; margin-top: 12px; }
-    .btn-subscribe {
-      background:var(--text); color:var(--bg);
-      border:none; border-radius:20px;
-      padding:10px 18px; font-size:14px; font-weight:500;
-      cursor:pointer; transition:background .15s, opacity .15s;
-      font-family:'Roboto',Arial,sans-serif; white-space:nowrap;
-    }
+    .btn-subscribe { background:var(--text); color:var(--bg); border:none; border-radius:20px; padding:10px 18px; font-size:14px; font-weight:500; cursor:pointer; transition:background .15s, opacity .15s; font-family:'Roboto',Arial,sans-serif; white-space:nowrap; }
     .btn-subscribe:hover { opacity:0.9; }
-    .btn-subscribe.subscribed {
-      background:var(--card); color:var(--text);
-    }
+    .btn-subscribe.subscribed { background:var(--card); color:var(--text); }
     .btn-subscribe.subscribed:hover { background:var(--hover); }
-    .btn-notify {
-      background:var(--card); border:none; color:var(--text);
-      width:40px; height:40px; border-radius:50%;
-      display:none; align-items:center; justify-content:center;
-      cursor:pointer; transition:background .15s; flex-shrink:0;
-    }
+    .btn-notify { background:var(--card); border:none; color:var(--text); width:40px; height:40px; border-radius:50%; display:none; align-items:center; justify-content:center; cursor:pointer; transition:background .15s; flex-shrink:0; }
     .btn-notify.show { display:flex; }
     .btn-notify:hover { background:var(--hover); }
     .btn-notify svg { width:20px; height:20px; fill:var(--text); }
-
-    /* ===== TABS ===== */
-    .channel-tabs-wrap {
-      max-width:1284px; margin:0 auto; padding:0 24px;
-      border-bottom:1px solid var(--border);
-      margin-top:0px;
-    }
+    .channel-tabs-wrap { max-width:1284px; margin:0 auto; padding:0 24px; border-bottom:1px solid var(--border); margin-top:0px; }
     .channel-tabs { display:flex; gap:0; overflow-x:auto; scrollbar-width:none; }
     .channel-tabs::-webkit-scrollbar { display:none; }
-    .tab {
-      padding:12px 20px; cursor:pointer; font-size:14px; font-weight:500;
-      color:var(--text-sub); border-bottom:2px solid transparent;
-      transition:color .15s, border-color .15s; white-space:nowrap;
-      letter-spacing:0.3px;
-    }
+    .tab { padding:12px 20px; cursor:pointer; font-size:14px; font-weight:500; color:var(--text-sub); border-bottom:2px solid transparent; transition:color .15s, border-color .15s; white-space:nowrap; letter-spacing:0.3px; }
     .tab:hover { color:var(--text); }
     .tab.active { color:var(--text); border-bottom-color:var(--text); }
-
-    /* ===== CONTENT ===== */
     .content { max-width:1284px; margin:24px auto; padding:0 24px; }
-    .video-grid {
-      display:grid;
-      grid-template-columns:repeat(auto-fill, minmax(220px,1fr));
-      gap:16px 16px; row-gap:32px;
-    }
+    .video-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:16px 16px; row-gap:32px; }
     .video-card { text-decoration:none; color:inherit; display:block; cursor:pointer; }
     .thumb { aspect-ratio:16/9; border-radius:12px; overflow:hidden; background:#1a1a1a; position:relative; }
     .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
-    .duration-badge {
-      position:absolute; bottom:6px; right:6px;
-      background:rgba(0,0,0,0.85); color:#fff;
-      font-size:12px; font-weight:700; padding:2px 5px;
-      border-radius:4px;
-    }
     .video-card-meta { margin-top:12px; display:flex; gap:0px; align-items:flex-start; }
     .card-info { flex:1; min-width:0; }
-    .video-title {
-      font-size:14px; font-weight:500; line-height:1.4;
-      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
-      overflow:hidden; margin-bottom:4px; color:var(--text);
-    }
+    .video-title { font-size:14px; font-weight:500; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin-bottom:4px; color:var(--text); }
     .video-sub { font-size:12px; color:var(--text-sub); }
-
-    /* ===== LOADING ===== */
     .loading { display:flex; justify-content:center; align-items:center; padding:60px; }
     .spinner { border:3px solid #333; border-top-color:var(--red); border-radius:50%; width:40px; height:40px; animation:spin 0.8s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
-
-    .load-more {
-      display:block; margin:32px auto; padding:10px 24px;
-      background:var(--card); border:none; color:var(--text);
-      border-radius:20px; font-size:14px; font-weight:500;
-      cursor:pointer; transition:background .15s;
-      font-family:'Roboto',Arial,sans-serif;
-    }
+    .load-more { display:block; margin:32px auto; padding:10px 24px; background:var(--card); border:none; color:var(--text); border-radius:20px; font-size:14px; font-weight:500; cursor:pointer; transition:background .15s; font-family:'Roboto',Arial,sans-serif; }
     .load-more:hover { background:var(--hover); }
     .empty { text-align:center; padding:60px; color:var(--text-sub); font-size:15px; }
-
-    /* ===== RESPONSIVE ===== */
     @media (max-width:768px) {
       .channel-banner { height:110px; }
       .channel-header { flex-direction: column; align-items: center; text-align: center; gap: 12px; }
@@ -1595,7 +1772,6 @@ app.get("/channel/:channelName", (req, res) => {
   </style>
 </head>
 <body>
-
 <nav class="navbar">
   <button class="back-btn" onclick="history.back()" aria-label="戻る">
     <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
@@ -1607,11 +1783,7 @@ app.get("/channel/:channelName", (req, res) => {
     <span class="nav-logo-text">MIN-Tube</span><span class="nav-logo-sub">Pro</span>
   </a>
 </nav>
-
-<div class="channel-banner">
-  <div class="banner-pattern"></div>
-</div>
-
+<div class="channel-banner"><div class="banner-pattern"></div></div>
 <div class="channel-header-wrap">
   <div class="channel-header">
     <div class="channel-avatar" id="channelAvatar">
@@ -1640,7 +1812,6 @@ app.get("/channel/:channelName", (req, res) => {
     </div>
   </div>
 </div>
-
 <div class="channel-tabs-wrap">
   <div class="channel-tabs">
     <div class="tab active">動画</div>
@@ -1648,13 +1819,11 @@ app.get("/channel/:channelName", (req, res) => {
     <div class="tab" onclick="alert('近日公開予定')">コミュニティ</div>
   </div>
 </div>
-
 <div class="content">
   <div id="videoGrid" class="video-grid"></div>
   <div id="loading" class="loading"><div class="spinner"></div></div>
   <button id="loadMoreBtn" class="load-more" style="display:none;" onclick="loadMore()">もっと見る</button>
 </div>
-
 <script>
   const CHANNEL_NAME = ${JSON.stringify(channelName)};
   const AVATAR_INITIAL = ${JSON.stringify(initial)};
@@ -1662,34 +1831,15 @@ app.get("/channel/:channelName", (req, res) => {
   let isLoading = false;
   let totalLoaded = 0;
   let isSubscribed = false;
-
-  // ローカルストレージでチャンネル登録状態を管理
   const SUB_KEY = 'subscribed_' + CHANNEL_NAME;
-  if (localStorage.getItem(SUB_KEY) === 'true') {
-    isSubscribed = true;
-    updateSubscribeUI();
-  }
-
-  function toggleSubscribe() {
-    isSubscribed = !isSubscribed;
-    localStorage.setItem(SUB_KEY, isSubscribed ? 'true' : 'false');
-    updateSubscribeUI();
-  }
-
+  if (localStorage.getItem(SUB_KEY) === 'true') { isSubscribed = true; updateSubscribeUI(); }
+  function toggleSubscribe() { isSubscribed = !isSubscribed; localStorage.setItem(SUB_KEY, isSubscribed ? 'true' : 'false'); updateSubscribeUI(); }
   function updateSubscribeUI() {
     const btn = document.getElementById('subscribeBtn');
     const notifyBtn = document.getElementById('notifyBtn');
-    if (isSubscribed) {
-      btn.textContent = '登録済み';
-      btn.classList.add('subscribed');
-      notifyBtn.classList.add('show');
-    } else {
-      btn.textContent = 'チャンネル登録';
-      btn.classList.remove('subscribed');
-      notifyBtn.classList.remove('show');
-    }
+    if (isSubscribed) { btn.textContent = '登録済み'; btn.classList.add('subscribed'); notifyBtn.classList.add('show'); }
+    else { btn.textContent = 'チャンネル登録'; btn.classList.remove('subscribed'); notifyBtn.classList.remove('show'); }
   }
-
   function formatViews(v) {
     if (!v) return '';
     const n = parseInt(String(v).replace(/[^0-9]/g, ''));
@@ -1699,7 +1849,6 @@ app.get("/channel/:channelName", (req, res) => {
     if (n >= 1000) return (n/1000).toFixed(1) + '千回視聴';
     return n.toLocaleString() + '回視聴';
   }
-
   function formatSubscribers(n) {
     if (!n) return 'チャンネル';
     if (typeof n === 'string' && n.includes('人')) return n;
@@ -1710,46 +1859,27 @@ app.get("/channel/:channelName", (req, res) => {
     if (num >= 1000) return (num/1000).toFixed(1) + '千人';
     return num.toLocaleString() + '人';
   }
-
-  // チャンネル情報を反映
   function updateChannelMetadata(data) {
     if (!data) return;
-    
-    // アバター
     if (data.authorThumbnails && data.authorThumbnails.length > 0) {
       const bestThumb = data.authorThumbnails.sort((a,b) => b.width - a.width)[0];
       const img = document.getElementById('channelAvatarImg');
-      img.onload = () => {
-        img.classList.add('loaded');
-        document.getElementById('avatarInitial').style.display = 'none';
-      };
+      img.onload = () => { img.classList.add('loaded'); document.getElementById('avatarInitial').style.display = 'none'; };
       img.src = bestThumb.url.startsWith('//') ? 'https:' + bestThumb.url : bestThumb.url;
     }
-
-    // 基本情報
     if (data.author) document.getElementById('channelTitle').textContent = data.author;
     if (data.channelHandle) document.getElementById('channelHandle').textContent = data.channelHandle;
-    if (data.subCount) {
-      const subText = typeof data.subCount === 'number' ? formatSubscribers(data.subCount) : data.subCount;
-      document.getElementById('subCount').textContent = subText + ' のチャンネル登録者';
-    }
+    if (data.subCount) { const subText = typeof data.subCount === 'number' ? formatSubscribers(data.subCount) : data.subCount; document.getElementById('subCount').textContent = subText + ' のチャンネル登録者'; }
     if (data.description) document.getElementById('channelDescription').textContent = data.description;
     if (data.authorVerified) document.getElementById('verifiedBadge').classList.add('show');
     if (data.videoCount !== undefined) document.getElementById('videoCountDisplay').textContent = '動画 ' + data.videoCount + ' 本';
   }
-
   function renderVideos(videos) {
     const grid = document.getElementById('videoGrid');
-    if (videos.length === 0 && totalLoaded === 0) {
-      grid.innerHTML = '<div class="empty">動画が見つかりませんでした</div>';
-      return;
-    }
-
+    if (videos.length === 0 && totalLoaded === 0) { grid.innerHTML = '<div class="empty">動画が見つかりませんでした</div>'; return; }
     const html = videos.map(v => \`
       <a href="/video/\${v.id}" class="video-card">
-        <div class="thumb">
-          <img src="https://i.ytimg.com/vi/\${v.id}/mqdefault.jpg" loading="lazy" alt="\${(v.title||'').replace(/"/g,'"')}">
-        </div>
+        <div class="thumb"><img src="https://i.ytimg.com/vi/\${v.id}/mqdefault.jpg" loading="lazy" alt="\${(v.title||'').replace(/"/g,'"')}"></div>
         <div class="video-card-meta">
           <div class="card-info">
             <div class="video-title">\${v.title || ''}</div>
@@ -1758,72 +1888,44 @@ app.get("/channel/:channelName", (req, res) => {
         </div>
       </a>
     \`).join('');
-
     grid.insertAdjacentHTML('beforeend', html);
     totalLoaded += videos.length;
-    
-    // フォールバックAPI使用時に動画数だけ更新
     if (totalLoaded > 0 && document.getElementById('videoCountDisplay').textContent.includes('0')) {
         document.getElementById('videoCountDisplay').textContent = '動画 ' + totalLoaded + ' 本以上';
     }
   }
-
   async function fetchChannelInfo() {
-    // 3秒でタイムアウトするfetch
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
-
     try {
       const res = await fetch(\`/api/inv/channel/\${encodeURIComponent(CHANNEL_NAME)}\`, { signal: controller.signal });
       clearTimeout(timeoutId);
       const data = await res.json();
-      
-
       const channelData = Array.isArray(data) ? data.find(c => c.type === 'channel') || data[0] : data;
-      if (channelData) {
-        updateChannelMetadata(channelData);
-        return true;
-      }
-    } catch (e) {
-      console.warn('API /api/inv/channel failed or timed out, falling back.', e);
-    }
+      if (channelData) { updateChannelMetadata(channelData); return true; }
+    } catch (e) { console.warn('API /api/inv/channel failed or timed out, falling back.', e); }
     return false;
   }
-
   async function loadVideos(page) {
     if (isLoading) return;
     isLoading = true;
     document.getElementById('loading').style.display = 'flex';
     document.getElementById('loadMoreBtn').style.display = 'none';
-    
     try {
       const res = await fetch(\`/api/channel?name=\${encodeURIComponent(CHANNEL_NAME)}&page=\${page}\`);
       const data = await res.json();
       renderVideos(data.videos || []);
       currentPage = data.nextPage;
-      if ((data.videos || []).length >= 20) {
-        document.getElementById('loadMoreBtn').style.display = 'block';
-      }
+      if ((data.videos || []).length >= 20) { document.getElementById('loadMoreBtn').style.display = 'block'; }
     } catch (e) {
-      if (totalLoaded === 0) {
-        document.getElementById('videoGrid').innerHTML = '<div class="empty">動画の読み込みに失敗しました</div>';
-      }
+      if (totalLoaded === 0) { document.getElementById('videoGrid').innerHTML = '<div class="empty">動画の読み込みに失敗しました</div>'; }
     } finally {
       document.getElementById('loading').style.display = 'none';
       isLoading = false;
     }
   }
-
   function loadMore() { loadVideos(currentPage); }
-
-  // 初期化処理
-  async function init() {
-    // まずリッチなチャンネル情報を取得（失敗しても動画読み込みへ進む）
-    await fetchChannelInfo();
-    // 動画リストを読み込み
-    loadVideos(0);
-  }
-
+  async function init() { await fetchChannelInfo(); loadVideos(0); }
   init();
 </script>
 </body>
@@ -1834,45 +1936,24 @@ app.get("/channel/:channelName", (req, res) => {
 app.get('/stream/inv/:videoId', async (req, res) => {
     const videoId = req.params.videoId;
     const now = Date.now();
-
     if (videoCache.has(videoId)) {
         const cached = videoCache.get(videoId);
-        if (now < cached.expiry) {
-            return res.type('text/plain').send(cached.url);
-        }
+        if (now < cached.expiry) { return res.type('text/plain').send(cached.url); }
     }
-
     const randomUA = userAgents[Math.floor(Math.random() * userAgents.length)];
-    
     try {
         const configRes = await fetch("https://raw.githubusercontent.com/mino-hobby-pro/min-tube-pro-local-txt/refs/heads/main/inv-check.txt");
-        const extraParams = (await configRes.text()).trim(); 
-        
+        const extraParams = (await configRes.text()).trim();
         const targetUrl = `https://yt-comp5.chocolatemoo53.com/companion/latest_version?id=${videoId}${extraParams}`;
-
         const response = await fetch(targetUrl, {
             method: 'GET',
-            headers: {
-                "User-Agent": randomUA,
-                "Accept": "*/*"
-            },
+            headers: { "User-Agent": randomUA, "Accept": "*/*" },
             redirect: 'follow'
         });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
+        if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
         const finalUrl = response.url;
-
-
-        videoCache.set(videoId, {
-            url: finalUrl,
-            expiry: now + 60000
-        });
-
+        videoCache.set(videoId, { url: finalUrl, expiry: now + 60000 });
         res.type('text/plain').send(finalUrl);
-
     } catch (error) {
         console.error('Error fetching the URL:', error.message);
         res.status(500).send('Internal Server Error');
@@ -1884,4 +1965,4 @@ app.use((err, req, res, next) => {
   res.status(500).sendFile(path.join(__dirname, "public", "error.html"));
 });
 
-app.listen(port, () => console.log(`Server is running on port \${port}`));
+app.listen(port, () => console.log(`Server is running on port ${port}`));

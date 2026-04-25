@@ -1447,110 +1447,133 @@ app.get("/channel/:channelName", (req, res) => {
       --text:#f1f1f1; --text-sub:#aaaaaa; --text-sec:#717171;
       --red:#ff0000; --border:#3f3f3f;
       --avatar-bg: ${avatarBg};
+      --nav-h: 56px;
     }
     * { box-sizing:border-box; margin:0; padding:0; }
     body { background:var(--bg); color:var(--text); font-family:'Roboto',Arial,sans-serif; -webkit-font-smoothing:antialiased; }
 
     /* ===== NAVBAR ===== */
     .navbar {
-      position:fixed; top:0; width:100%; height:56px;
+      position:fixed; top:0; width:100%; height:var(--nav-h);
       background:var(--bg); display:flex; align-items:center;
-      padding:0 16px; z-index:1000; gap:12px;
+      padding:0 16px; z-index:1000; gap:8px;
+      border-bottom:1px solid transparent;
     }
-    .nav-logo { display:flex; align-items:center; gap:4px; text-decoration:none; color:var(--text); }
-    .nav-logo-icon { background:var(--red); border-radius:6px; width:34px; height:24px; display:flex; align-items:center; justify-content:center; }
-    .nav-logo-icon svg { width:16px; height:16px; fill:white; }
-    .nav-logo-text { font-size:18px; font-weight:700; letter-spacing:-0.5px; }
-    .nav-logo-sub { font-size:10px; color:var(--text-sub); font-weight:500; margin-left:1px; align-self:flex-end; margin-bottom:4px; }
-    .back-btn {
+    .nav-left { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+    .icon-btn {
       background:none; border:none; color:var(--text); cursor:pointer;
-      width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-      transition:background .15s; font-size:0; flex-shrink:0;
+      width:40px; height:40px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      transition:background .15s; flex-shrink:0;
     }
-    .back-btn:hover { background:rgba(255,255,255,0.1); }
-    .back-btn svg { width:24px; height:24px; fill:var(--text); }
+    .icon-btn:hover { background:rgba(255,255,255,0.1); }
+    .icon-btn svg { width:24px; height:24px; fill:var(--text); }
+    .nav-logo { display:flex; align-items:center; gap:2px; text-decoration:none; color:var(--text); }
+    .nav-logo-icon { background:var(--red); border-radius:6px; width:34px; height:24px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .nav-logo-icon svg { width:16px; height:16px; fill:white; }
+    .nav-logo-text { font-size:18px; font-weight:700; letter-spacing:-0.5px; margin-left:4px; }
+    .nav-logo-sub { font-size:10px; color:var(--text-sub); font-weight:500; margin-left:1px; align-self:flex-end; margin-bottom:4px; }
+    .nav-center {
+      flex:1; display:flex; align-items:center; justify-content:center;
+      max-width:640px; margin:0 auto;
+    }
+    .search-form {
+      display:flex; width:100%; height:40px;
+      border:1px solid var(--border); border-radius:0; overflow:hidden;
+    }
+    .search-form:focus-within { border-color:#1c62b9; }
+    .search-form input {
+      flex:1; background:var(--bg); border:none; color:var(--text);
+      padding:0 16px; outline:none; font-size:16px;
+      font-family:'Roboto',Arial,sans-serif;
+    }
+    .search-btn {
+      background:var(--surface); border:none; border-left:1px solid var(--border);
+      color:var(--text-sub); width:64px; height:100%;
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; font-size:18px; transition:background .1s;
+    }
+    .search-btn:hover { background:var(--hover); }
+    .search-btn svg { width:20px; height:20px; fill:currentColor; }
+    .nav-right { display:flex; align-items:center; gap:4px; margin-left:auto; flex-shrink:0; }
 
     /* ===== BANNER ===== */
     .channel-banner {
-      margin-top:56px; width:100%; height:176px;
+      margin-top:var(--nav-h); width:100%;
+      height:clamp(100px, 18vw, 200px);
       background:linear-gradient(135deg, #1c1c2e 0%, #2d1b4e 40%, #1a2a4a 100%);
       position:relative; overflow:hidden;
     }
     .channel-banner::before {
       content:''; position:absolute; inset:0;
-      background:radial-gradient(ellipse at 20% 60%, ${avatarBg}33 0%, transparent 60%);
+      background:radial-gradient(ellipse at 20% 60%, ${avatarBg}44 0%, transparent 60%);
     }
     .channel-banner::after {
       content:''; position:absolute; inset:0;
-      background:radial-gradient(ellipse at 80% 30%, rgba(255,255,255,0.04) 0%, transparent 50%);
-    }
-    .banner-pattern {
-      position:absolute; inset:0; opacity:0.05;
-      background-image: repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%);
-      background-size:20px 20px;
+      background:radial-gradient(ellipse at 80% 30%, rgba(255,255,255,0.05) 0%, transparent 50%);
     }
 
     /* ===== CHANNEL HEADER ===== */
     .channel-header-wrap {
-      max-width:1284px; margin:0 auto; padding:0 24px;
+      max-width:1284px; margin:0 auto; padding:0 24px 0;
     }
     .channel-header {
-      display:flex; align-items:flex-start; gap:24px;
-      padding:16px 0;
+      display:flex; align-items:center; gap:24px;
+      padding:20px 0 16px;
     }
     .channel-avatar {
-      width:160px; height:160px; border-radius:50%;
+      width:80px; height:80px; border-radius:50%;
       background:var(--avatar-bg);
       display:flex; align-items:center; justify-content:center;
-      font-size:64px; font-weight:700; color:#fff;
+      font-size:36px; font-weight:700; color:#fff;
       flex-shrink:0; overflow:hidden; position:relative;
+      border:3px solid var(--bg);
+    }
+    @media (min-width:600px) {
+      .channel-avatar { width:160px; height:160px; font-size:64px; }
     }
     .channel-avatar img {
-      width:100%; height:100%; object-fit:cover; display:none;
-      position:absolute; inset:0;
+      width:100%; height:100%; object-fit:cover;
+      display:none; position:absolute; inset:0;
     }
     .channel-avatar img.loaded { display:block; }
     .avatar-initial { position:relative; z-index:1; }
 
-    .channel-info { flex:1; min-width:0; padding-top:8px; }
-    .channel-title-container { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+    .channel-info { flex:1; min-width:0; }
+    .channel-title-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
     .channel-title {
-      font-size:36px; font-weight:700; line-height:1.2;
+      font-size:clamp(18px, 4vw, 36px); font-weight:700; line-height:1.2;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     }
-    .verified-badge {
-      fill: var(--text-sub); width: 14px; height: 14px; display:none; margin-top: 4px;
+    .verified-badge { fill:var(--text-sub); width:16px; height:16px; display:none; flex-shrink:0; }
+    .verified-badge.show { display:block; }
+    .channel-meta {
+      font-size:14px; color:var(--text-sub); line-height:1.6;
+      margin-bottom:12px;
     }
-    .verified-badge.show { display: block; }
-    
-    .channel-handle-stats {
-      font-size:14px; color:var(--text-sub); margin-bottom:12px;
-      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-    }
+    .channel-meta span + span::before { content:' • '; }
     .channel-description {
-      font-size:14px; color:var(--text-sub);
+      font-size:14px; color:var(--text-sub); line-height:1.5;
       display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
-      overflow:hidden; margin-bottom:16px; line-height:1.4; max-width: 600px;
+      overflow:hidden; max-width:600px; margin-bottom:16px;
     }
-
-    .channel-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; margin-top: 12px; }
+    .channel-actions { display:flex; align-items:center; gap:8px; }
     .btn-subscribe {
-      background:var(--text); color:var(--bg);
+      background:var(--text); color:#0f0f0f;
       border:none; border-radius:20px;
-      padding:10px 18px; font-size:14px; font-weight:500;
-      cursor:pointer; transition:background .15s, opacity .15s;
+      padding:0 16px; height:36px; font-size:14px; font-weight:500;
+      cursor:pointer; transition:opacity .15s;
       font-family:'Roboto',Arial,sans-serif; white-space:nowrap;
+      display:flex; align-items:center;
     }
     .btn-subscribe:hover { opacity:0.9; }
-    .btn-subscribe.subscribed {
-      background:var(--card); color:var(--text);
-    }
+    .btn-subscribe.subscribed { background:var(--card); color:var(--text); }
     .btn-subscribe.subscribed:hover { background:var(--hover); }
     .btn-notify {
       background:var(--card); border:none; color:var(--text);
-      width:40px; height:40px; border-radius:50%;
+      width:36px; height:36px; border-radius:50%;
       display:none; align-items:center; justify-content:center;
-      cursor:pointer; transition:background .15s; flex-shrink:0;
+      cursor:pointer; transition:background .15s;
     }
     .btn-notify.show { display:flex; }
     .btn-notify:hover { background:var(--hover); }
@@ -1560,53 +1583,68 @@ app.get("/channel/:channelName", (req, res) => {
     .channel-tabs-wrap {
       max-width:1284px; margin:0 auto; padding:0 24px;
       border-bottom:1px solid var(--border);
-      margin-top:0px;
     }
-    .channel-tabs { display:flex; gap:0; overflow-x:auto; scrollbar-width:none; }
+    .channel-tabs { display:flex; overflow-x:auto; scrollbar-width:none; }
     .channel-tabs::-webkit-scrollbar { display:none; }
     .tab {
-      padding:12px 20px; cursor:pointer; font-size:14px; font-weight:500;
+      padding:0 16px; height:48px; cursor:pointer;
+      font-size:14px; font-weight:500; letter-spacing:0.3px;
       color:var(--text-sub); border-bottom:2px solid transparent;
       transition:color .15s, border-color .15s; white-space:nowrap;
-      letter-spacing:0.3px;
+      display:flex; align-items:center;
     }
-    .tab:hover { color:var(--text); }
+    .tab:hover { color:var(--text); background:rgba(255,255,255,0.05); }
     .tab.active { color:var(--text); border-bottom-color:var(--text); }
 
     /* ===== CONTENT ===== */
-    .content { max-width:1284px; margin:24px auto; padding:0 24px; }
+    .content { max-width:1284px; margin:0 auto; padding:20px 24px 60px; }
     .video-grid {
       display:grid;
-      grid-template-columns:repeat(auto-fill, minmax(220px,1fr));
-      gap:16px 16px; row-gap:32px;
+      grid-template-columns:repeat(auto-fill, minmax(240px,1fr));
+      gap:16px; row-gap:40px;
     }
-    .video-card { text-decoration:none; color:inherit; display:block; cursor:pointer; }
-    .thumb { aspect-ratio:16/9; border-radius:12px; overflow:hidden; background:#1a1a1a; position:relative; }
-    .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+    .video-card { text-decoration:none; color:inherit; display:flex; flex-direction:column; }
+    .thumb {
+      width:100%; aspect-ratio:16/9; border-radius:12px;
+      overflow:hidden; background:#1a1a1a; position:relative;
+      margin-bottom:12px;
+    }
+    .thumb img { width:100%; height:100%; object-fit:cover; display:block; transition:border-radius .2s; }
+    .video-card:hover .thumb img { border-radius:0; }
     .duration-badge {
       position:absolute; bottom:6px; right:6px;
       background:rgba(0,0,0,0.85); color:#fff;
-      font-size:12px; font-weight:700; padding:2px 5px;
-      border-radius:4px;
+      font-size:12px; font-weight:700; padding:2px 5px; border-radius:4px;
     }
-    .video-card-meta { margin-top:12px; display:flex; gap:0px; align-items:flex-start; }
+    .card-meta { display:flex; gap:12px; align-items:flex-start; }
+    .card-ch-avatar {
+      width:36px; height:36px; border-radius:50%;
+      background:var(--avatar-bg); flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      font-size:14px; font-weight:700; color:#fff; overflow:hidden;
+    }
+    .card-ch-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
     .card-info { flex:1; min-width:0; }
     .video-title {
       font-size:14px; font-weight:500; line-height:1.4;
       display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
-      overflow:hidden; margin-bottom:4px; color:var(--text);
+      overflow:hidden; color:var(--text); margin-bottom:4px;
     }
-    .video-sub { font-size:12px; color:var(--text-sub); }
+    .video-ch-name { font-size:13px; color:var(--text-sub); margin-bottom:2px; }
+    .video-sub { font-size:13px; color:var(--text-sub); }
 
-    /* ===== LOADING ===== */
-    .loading { display:flex; justify-content:center; align-items:center; padding:60px; }
-    .spinner { border:3px solid #333; border-top-color:var(--red); border-radius:50%; width:40px; height:40px; animation:spin 0.8s linear infinite; }
+    /* ===== LOADING / EMPTY ===== */
+    .loading { display:flex; justify-content:center; padding:60px; }
+    .spinner {
+      border:3px solid #333; border-top-color:var(--red);
+      border-radius:50%; width:40px; height:40px;
+      animation:spin 0.8s linear infinite;
+    }
     @keyframes spin { to { transform:rotate(360deg); } }
-
     .load-more {
-      display:block; margin:32px auto; padding:10px 24px;
+      display:block; margin:32px auto; padding:0 24px; height:36px;
       background:var(--card); border:none; color:var(--text);
-      border-radius:20px; font-size:14px; font-weight:500;
+      border-radius:18px; font-size:14px; font-weight:500;
       cursor:pointer; transition:background .15s;
       font-family:'Roboto',Arial,sans-serif;
     }
@@ -1614,35 +1652,47 @@ app.get("/channel/:channelName", (req, res) => {
     .empty { text-align:center; padding:60px; color:var(--text-sub); font-size:15px; }
 
     /* ===== RESPONSIVE ===== */
-    @media (max-width:768px) {
-      .channel-banner { height:110px; }
-      .channel-header { flex-direction: column; align-items: center; text-align: center; gap: 12px; }
-      .channel-avatar { width:80px; height:80px; font-size:32px; }
-      .channel-title { font-size:24px; }
-      .channel-handle-stats { justify-content: center; }
-      .channel-description { display: none; }
-      .channel-title-container { justify-content: center; }
-      .video-grid { grid-template-columns:repeat(2,1fr); gap:10px; row-gap:24px; }
+    @media (max-width:600px) {
+      .channel-header-wrap { padding:0 16px; }
+      .channel-header { gap:16px; padding:16px 0 12px; }
+      .channel-description { display:none; }
+      .content { padding:16px 16px 80px; }
+      .video-grid { grid-template-columns:repeat(2,1fr); gap:8px; row-gap:24px; }
+      .channel-tabs-wrap { padding:0 16px; }
+      .nav-center { display:none; }
     }
   </style>
 </head>
 <body>
 
 <nav class="navbar">
-  <button class="back-btn" onclick="history.back()" aria-label="戻る">
-    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-  </button>
-  <a href="/" class="nav-logo">
-    <div class="nav-logo-icon">
-      <svg viewBox="0 0 24 24"><path d="M10 15l5.19-3L10 9v6zm11.56-7.83c.13.47.22 1.1.28 1.9.07.8.1 1.49.1 2.09L22 12c0 2.19-.16 3.8-.44 4.83-.25.9-.83 1.48-1.73 1.73-.47.13-1.33.22-2.65.28-1.3.07-2.49.1-3.59.1L12 19c-4.19 0-6.8-.16-7.83-.44-.9-.25-1.48-.83-1.73-1.73-.13-.47-.22-1.1-.28-1.9-.07-.8-.1-1.49-.1-2.09L2 12c0-2.19.16-3.8.44-4.83.25-.9.83-1.48 1.73-1.73.47-.13 1.33-.22 2.65-.28 1.3-.07 2.49-.1 3.59-.1L12 5c4.19 0 6.8.16 7.83.44.9.25 1.48.83 1.73 1.73z"/></svg>
-    </div>
-    <span class="nav-logo-text">MIN-Tube</span><span class="nav-logo-sub">Pro</span>
-  </a>
+  <div class="nav-left">
+    <button class="icon-btn" onclick="history.back()" aria-label="戻る">
+      <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    </button>
+    <a href="/" class="nav-logo">
+      <div class="nav-logo-icon">
+        <svg viewBox="0 0 68 48"><path d="M66.52 7.74c-.78-2.93-2.49-5.41-5.42-6.19C55.79.13 34 0 34 0S12.21.13 6.9 1.55c-2.93.78-4.63 3.26-5.42 6.19C.06 13.05 0 24 0 24s.06 10.95 1.48 16.26c.78 2.93 2.49 5.41 5.42 6.19C12.21 47.87 34 48 34 48s21.79-.13 27.1-1.55c2.93-.78 4.64-3.26 5.42-6.19C67.94 34.95 68 24 68 24s-.06-10.95-1.48-16.26z" fill="#FF0000"/><path d="M45 24 27 14v20" fill="white"/></svg>
+      </div>
+      <span class="nav-logo-text">YouTube</span><span class="nav-logo-sub">Pro</span>
+    </a>
+  </div>
+  <div class="nav-center">
+    <form class="search-form" action="/nothing/search" onsubmit="event.preventDefault(); const q=this.querySelector('input').value.trim(); if(q) window.location.href='/?q='+encodeURIComponent(q);">
+      <input type="text" placeholder="検索" name="q">
+      <button type="submit" class="search-btn">
+        <svg viewBox="0 0 24 24"><path d="M20.87 20.17l-5.59-5.59C16.35 13.35 17 11.75 17 10c0-3.87-3.13-7-7-7s-7 3.13-7 7 3.13 7 7 7c1.75 0 3.35-.65 4.58-1.71l5.59 5.59.7-.71zM10 16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+      </button>
+    </form>
+  </div>
+  <div class="nav-right">
+    <a href="/" class="icon-btn" title="ホーム">
+      <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+    </a>
+  </div>
 </nav>
 
-<div class="channel-banner">
-  <div class="banner-pattern"></div>
-</div>
+<div class="channel-banner"></div>
 
 <div class="channel-header-wrap">
   <div class="channel-header">
@@ -1651,16 +1701,14 @@ app.get("/channel/:channelName", (req, res) => {
       <span class="avatar-initial" id="avatarInitial">${initial}</span>
     </div>
     <div class="channel-info">
-      <div class="channel-title-container">
+      <div class="channel-title-row">
         <div class="channel-title" id="channelTitle">${channelName}</div>
         <svg class="verified-badge" id="verifiedBadge" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zM10 17l-5-5 1.4-1.4 3.6 3.6 7.6-7.6L19 8l-9 9z"/></svg>
       </div>
-      <div class="channel-handle-stats">
+      <div class="channel-meta">
         <span id="channelHandle">@${channelName.toLowerCase().replace(/\s+/g, '')}</span>
-        <span class="channel-stats-dot">•</span>
-        <span id="subCount">読み込み中...</span>
-        <span class="channel-stats-dot">•</span>
-        <span id="videoCountDisplay">動画 0 本</span>
+        <span id="subCount"></span>
+        <span id="videoCountDisplay"></span>
       </div>
       <div class="channel-description" id="channelDescription"></div>
       <div class="channel-actions">
@@ -1758,12 +1806,11 @@ app.get("/channel/:channelName", (req, res) => {
       img.src = bestThumb.url.startsWith('//') ? 'https:' + bestThumb.url : bestThumb.url;
     }
 
-    // 基本情報
     if (data.author) document.getElementById('channelTitle').textContent = data.author;
     if (data.channelHandle) document.getElementById('channelHandle').textContent = data.channelHandle;
     if (data.subCount) {
       const subText = typeof data.subCount === 'number' ? formatSubscribers(data.subCount) : data.subCount;
-      document.getElementById('subCount').textContent = subText + ' のチャンネル登録者';
+      document.getElementById('subCount').textContent = subText + '人のチャンネル登録者';
     }
     if (data.description) document.getElementById('channelDescription').textContent = data.description;
     if (data.authorVerified) document.getElementById('verifiedBadge').classList.add('show');
@@ -1780,12 +1827,15 @@ app.get("/channel/:channelName", (req, res) => {
     const html = videos.map(v => \`
       <a href="/video/\${v.id}" class="video-card">
         <div class="thumb">
-          <img src="https://i.ytimg.com/vi/\${v.id}/mqdefault.jpg" loading="lazy" alt="\${(v.title||'').replace(/"/g,'"')}">
+          <img src="https://i.ytimg.com/vi/\${v.id}/mqdefault.jpg" loading="lazy" alt="\${(v.title||'').replace(/"/g,'&quot;')}">
+          \${v.lengthText ? \`<div class="duration-badge">\${v.lengthText}</div>\` : ''}
         </div>
-        <div class="video-card-meta">
+        <div class="card-meta">
+          <div class="card-ch-avatar">${initial}</div>
           <div class="card-info">
             <div class="video-title">\${v.title || ''}</div>
-            <div class="video-sub">\${formatViews(v.viewCountText) || ''}\${v.publishedTimeText ? ' • '+v.publishedTimeText : ''}</div>
+            <div class="video-ch-name">${channelName}</div>
+            <div class="video-sub">\${formatViews(v.viewCountText) || ''}\${v.viewCountText && v.publishedTimeText ? ' • ' : ''}\${v.publishedTimeText || ''}</div>
           </div>
         </div>
       </a>
@@ -1794,8 +1844,7 @@ app.get("/channel/:channelName", (req, res) => {
     grid.insertAdjacentHTML('beforeend', html);
     totalLoaded += videos.length;
     
-    // フォールバックAPI使用時に動画数だけ更新
-    if (totalLoaded > 0 && document.getElementById('videoCountDisplay').textContent.includes('0')) {
+    if (totalLoaded > 0 && !document.getElementById('videoCountDisplay').textContent) {
         document.getElementById('videoCountDisplay').textContent = '動画 ' + totalLoaded + ' 本以上';
     }
   }

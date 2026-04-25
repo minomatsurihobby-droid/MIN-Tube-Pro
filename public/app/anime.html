@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIN-PRO-ANIME | 公式アニメ無料視聴</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-primary: #050508;
+    --bg-secondary: #0a0a12;
+    --bg-card: #0e0e1a;
+    --bg-card-hover: #141428;
+    --accent: #e63946;
+    --accent2: #ff6b35;
+    --accent-glow: rgba(230, 57, 70, 0.4);
+    --purple: #7b2ff7;
+    --blue: #00d4ff;
+    --text-primary: #f0f0f5;
+    --text-secondary: #8888aa;
+    --text-dim: #444460;
+    --border: rgba(255,255,255,0.06);
+    --border-accent: rgba(230,57,70,0.3);
+    --gradient-hero: linear-gradient(135deg, #0a0014 0%, #050508 40%, #000a1a 100%);
+  }
+
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ======= NOISE OVERLAY ======= */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* ======= ANIMATED BG ======= */
+  .bg-orbs {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .bg-orbs span {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    animation: orbFloat 20s ease-in-out infinite;
+  }
+  .bg-orbs span:nth-child(1) { width:500px;height:500px;background:rgba(123,47,247,0.07);top:-10%;left:-10%;animation-delay:0s; }
+  .bg-orbs span:nth-child(2) { width:400px;height:400px;background:rgba(230,57,70,0.06);top:50%;right:-5%;animation-delay:-7s; }
+  .bg-orbs span:nth-child(3) { width:300px;height:300px;background:rgba(0,212,255,0.05);bottom:-10%;left:30%;animation-delay:-14s; }
+
+  @keyframes orbFloat {
+    0%,100% { transform: translate(0,0) scale(1); }
+    33% { transform: translate(30px,-20px) scale(1.05); }
+    66% { transform: translate(-20px,30px) scale(0.95); }
+  }
+
+  /* ======= HEADER ======= */
+  header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 1000;
+    padding: 0 2rem;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(5,5,8,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+  }
+  .logo-mark {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: 14px;
+    color: white;
+    box-shadow: 0 0 20px var(--accent-glow);
+    animation: logoPulse 3s ease-in-out infinite;
+  }
+  @keyframes logoPulse {
+    0%,100% { box-shadow: 0 0 20px var(--accent-glow); }
+    50% { box-shadow: 0 0 40px var(--accent-glow), 0 0 60px rgba(230,57,70,0.2); }
+  }
+  .logo-text {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: 1.1rem;
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, #fff 0%, #e63946 60%, #ff6b35 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .btn-legal {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn-legal:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--text-primary);
+    border-color: rgba(255,255,255,0.2);
+  }
+
+  /* ======= MAIN ======= */
+  main {
+    position: relative;
+    z-index: 1;
+    padding-top: 64px;
+  }
+
+  /* ======= HERO ======= */
+  .hero {
+    padding: 4rem 2rem 3rem;
+    text-align: center;
+    position: relative;
+  }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(230,57,70,0.1);
+    border: 1px solid rgba(230,57,70,0.3);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 0.72rem;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+    animation: fadeInDown 0.6s ease both;
+  }
+  .hero-badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: blink 1.5s ease infinite;
+  }
+  @keyframes blink {
+    0%,100% { opacity:1; } 50% { opacity:0.2; }
+  }
+  .hero h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -1px;
+    margin-bottom: 0.75rem;
+    animation: fadeInDown 0.6s 0.1s ease both;
+  }
+  .hero h1 span {
+    background: linear-gradient(90deg, var(--accent) 0%, var(--accent2) 50%, var(--blue) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero-sub {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin-bottom: 2.5rem;
+    animation: fadeInDown 0.6s 0.2s ease both;
+  }
+
+  /* ======= SEARCH BAR ======= */
+  .search-wrap {
+    max-width: 640px;
+    margin: 0 auto;
+    animation: fadeInDown 0.6s 0.3s ease both;
+  }
+  .search-box {
+    display: flex;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .search-box:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(230,57,70,0.15);
+  }
+  .search-box input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 14px 18px;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+  }
+  .search-box input::placeholder { color: var(--text-dim); }
+  .search-box button {
+    background: var(--accent);
+    border: none;
+    padding: 0 24px;
+    cursor: pointer;
+    color: white;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .search-box button:hover { background: #c62d3a; }
+  .search-hint {
+    margin-top: 0.6rem;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+  }
+
+  /* ======= SECTION ======= */
+  .section {
+    padding: 0 2rem 3rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+  }
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 1.2rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .section-title::before {
+    content: '';
+    width: 4px;
+    height: 20px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  /* ======= GRID ======= */
+  .anime-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1.25rem;
+  }
+
+  /* ======= CARD ======= */
+  .anime-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.25s cubic-bezier(.2,.8,.2,1), box-shadow 0.25s, border-color 0.25s;
+    animation: cardIn 0.4s ease both;
+    position: relative;
+  }
+  @keyframes cardIn {
+    from { opacity:0; transform: translateY(20px); }
+    to { opacity:1; transform: translateY(0); }
+  }
+  .anime-card:hover {
+    transform: translateY(-6px) scale(1.02);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 30px rgba(230,57,70,0.15);
+    border-color: var(--border-accent);
+  }
+  .card-thumb {
+    position: relative;
+    aspect-ratio: 16/9;
+    overflow: hidden;
+    background: #111120;
+  }
+  .card-thumb img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+  }
+  .anime-card:hover .card-thumb img { transform: scale(1.08); }
+  .card-play-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(5,5,8,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+  .anime-card:hover .card-play-overlay { opacity: 1; }
+  .play-btn-icon {
+    width: 48px; height: 48px;
+    background: rgba(230,57,70,0.9);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 0 30px rgba(230,57,70,0.5);
+  }
+  .play-btn-icon svg { margin-left: 3px; }
+  .card-duration {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    font-size: 0.68rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+  }
+  .card-info {
+    padding: 10px 12px 12px;
+  }
+  .card-title {
+    font-size: 0.82rem;
+    font-weight: 500;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 6px;
+    color: var(--text-primary);
+  }
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .card-views {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .official-badge {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    color: white;
+    font-size: 0.6rem;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  /* ======= LOADING ======= */
+  .loading-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(5,5,8,0.95);
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 2rem;
+  }
+  .loading-overlay.active { display: flex; }
+  .loader-ring {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.05);
+    border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+    position: relative;
+  }
+  .loader-ring::after {
+    content: '';
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.05);
+    border-bottom-color: var(--blue);
+    animation: spin 1.2s linear infinite reverse;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loader-text {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    letter-spacing: 3px;
+    animation: pulse 1.5s ease infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:0.5;} 50%{opacity:1;} }
+  .loader-brand {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.1rem;
+    font-weight: 900;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 3px;
+  }
+
+  /* ======= VIDEO MODAL ======= */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    background: rgba(0,0,0,0.97);
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+    padding: 0;
+  }
+  .modal-overlay.active { display: flex; }
+  @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+
+  .modal-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: #000;
+  }
+
+  .modal-topbar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, transparent 100%);
+  }
+  .modal-title-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .modal-logo-sm {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    font-weight: 900;
+    color: var(--accent);
+    letter-spacing: 2px;
+    background: rgba(230,57,70,0.15);
+    border: 1px solid rgba(230,57,70,0.3);
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+  .modal-video-title {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.9);
+    max-width: 500px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .modal-close {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: white;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: background 0.2s;
+    backdrop-filter: blur(10px);
+  }
+  .modal-close:hover { background: rgba(230,57,70,0.4); border-color: var(--accent); }
+
+  .modal-player {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+  .modal-player iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+  }
+
+  /* ======= LEGAL MODAL ======= */
+  .legal-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 4000;
+    background: rgba(0,0,0,0.9);
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+  .legal-modal.active { display: flex; }
+  .legal-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    max-width: 700px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 2rem;
+    position: relative;
+    animation: modalSlideUp 0.3s cubic-bezier(.2,.8,.2,1) both;
+  }
+  @keyframes modalSlideUp {
+    from { opacity:0; transform:translateY(30px); }
+    to { opacity:1; transform:translateY(0); }
+  }
+  .legal-close {
+    position: absolute;
+    top: 1rem; right: 1rem;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--border);
+    color: white;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.2s;
+  }
+  .legal-close:hover { background: rgba(230,57,70,0.3); }
+  .legal-box h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 2px;
+    margin-bottom: 1.5rem;
+    padding-right: 2rem;
+  }
+  .legal-section {
+    margin-bottom: 1.5rem;
+  }
+  .legal-section h3 {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    letter-spacing: 1px;
+    margin-bottom: 0.6rem;
+    text-transform: uppercase;
+    border-left: 3px solid var(--accent);
+    padding-left: 10px;
+  }
+  .legal-section p {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+  .legal-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.3);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.78rem;
+    color: var(--blue);
+    margin-top: 1rem;
+    width: 100%;
+  }
+
+  /* ======= EMPTY / ERROR STATE ======= */
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-dim);
+  }
+  .empty-state .icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+  .empty-state h3 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary);
+  }
+
+  /* ======= LOAD MORE ======= */
+  .load-more-wrap {
+    text-align: center;
+    padding: 2rem 0;
+  }
+  .btn-load-more {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 12px 32px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+  .btn-load-more:hover {
+    background: rgba(230,57,70,0.1);
+    border-color: var(--border-accent);
+    color: var(--accent);
+  }
+
+  /* ======= FOOTER ======= */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    position: relative;
+    z-index: 1;
+  }
+  footer .footer-logo {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    letter-spacing: 3px;
+    margin-bottom: 0.5rem;
+  }
+
+  @keyframes fadeInDown {
+    from { opacity:0; transform:translateY(-15px); }
+    to { opacity:1; transform:translateY(0); }
+  }
+
+  /* ======= SCROLLBAR ======= */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg-primary); }
+  ::-webkit-scrollbar-thumb { background: rgba(230,57,70,0.4); border-radius: 3px; }
+
+  /* ======= RESPONSIVE ======= */
+  @media(max-width:600px) {
+    .anime-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+    .section { padding: 0 1rem 2rem; }
+    .hero { padding: 2.5rem 1rem 2rem; }
+    .modal-video-title { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-orbs">
+  <span></span><span></span><span></span>
+</div>
+
+<!-- HEADER -->
+<header>
+  <a class="logo" href="#">
+    <div class="logo-mark">M</div>
+    <span class="logo-text">MIN-PRO-ANIME</span>
+  </a>
+  <div class="header-right">
+    <button class="btn-legal" onclick="showLegal()">著作権・プライバシーポリシー</button>
+  </div>
+</header>
+
+<!-- LOADING OVERLAY -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loader-brand">MIN-PRO-ANIME</div>
+  <div class="loader-ring"></div>
+  <div class="loader-text">LOADING...</div>
+</div>
+
+<!-- VIDEO MODAL -->
+<div class="modal-overlay" id="videoModal">
+  <div class="modal-inner">
+    <div class="modal-topbar">
+      <div class="modal-title-area">
+        <div class="modal-logo-sm">MIN-PRO-ANIME</div>
+        <span class="modal-video-title" id="modalVideoTitle"></span>
+      </div>
+      <button class="modal-close" onclick="closeVideo()">✕</button>
+    </div>
+    <div class="modal-player">
+      <iframe id="playerIframe" allowfullscreen allow="autoplay; fullscreen"></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- LEGAL MODAL -->
+<div class="legal-modal" id="legalModal">
+  <div class="legal-box">
+    <button class="legal-close" onclick="closeLegal()">✕</button>
+    <h2>⚖ 著作権・プライバシーポリシー</h2>
+
+    <div class="legal-section">
+      <h3>📺 コンテンツの合法性について</h3>
+      <p>MIN-PRO-ANIME（以下「本サービス」）は、YouTube上に公式チャンネルとして公開されたアニメ作品を、YouTube公式の埋め込み（embed）機能を使用して表示するプラットフォームです。本サービスが提供するすべての動画コンテンツは、各アニメ制作会社、配信会社、または権利保有者が自社の公式YouTubeチャンネルにおいて無料公開しているものです。本サービスは動画コンテンツを自社サーバーに保存・ホスティングするものではなく、YouTubeの公式APIおよびiframe埋め込み機能を通じてコンテンツを参照・表示するに過ぎません。これはYouTubeの利用規約（Terms of Service）第6条において明示的に許可されている行為です。</p>
+    </div>
+
+    <div class="legal-section">
+      <h3>✅ YouTube利用規約との適合性</h3>
+      <p>YouTubeは、公式APIおよびiframe埋め込み機能を第三者サービスが利用することを利用規約上許可しています。本サービスはYouTube Data API v3を利用して動画情報を取得しており、これはYouTubeのデベロッパー規約に完全に準拠した方法です。表示される動画はすべてYouTube上で「公開設定」かつ「埋め込み許可」が有効な動画のみを対象としています。権利者が埋め込みを制限している動画は自動的に除外されるため、権利者の意向を尊重したシステム設計となっています。</p>
+    </div>
+
+    <div class="legal-section">
+      <h3>🛡 著作権に関する免責事項</h3>
+      <p>本サービスに表示されるアニメコンテンツの著作権は、各制作会社・著作権者に帰属します。本サービスは著作権を一切侵害するものではなく、著作権法第23条が定める「公衆送信権」の行使にも該当しません。動画データは本サービスのサーバーを経由せず、すべてYouTubeのサーバーから直接ユーザーのブラウザへ配信されます。万一、権利者からコンテンツの削除要請があった場合は、速やかに対応いたします。著作権に関するお問い合わせは、本サービスの管理者までご連絡ください。</p>
+    </div>
+
+    <div class="legal-section">
+      <h3>🔒 プライバシーポリシー</h3>
+      <p>本サービスは、ユーザーの個人情報を収集・保存・販売することはありません。本サービスへのアクセスに際して生成されるログ情報（IPアドレス、アクセス日時など）は、サービスの安定的な運営のためにのみ使用され、第三者への提供は行いません。動画再生時にはYouTubeのプレイヤーが起動しますが、その際のデータ収集についてはYouTubeのプライバシーポリシーが適用されます。Cookieは本サービスの機能向上のために使用される場合がありますが、ユーザーはブラウザの設定によりCookieを無効にすることができます。</p>
+    </div>
+
+    <div class="legal-section">
+      <h3>📋 免責事項</h3>
+      <p>本サービスは現状のまま提供されており、コンテンツの正確性、完全性、有用性について保証するものではありません。本サービスの利用により生じた直接的・間接的損害について、本サービスは一切の責任を負いません。動画コンテンツの品質・可用性はYouTubeのサービス状況に依存するため、本サービスはその可用性を保証しません。本サービスは予告なく変更・停止・廃止される場合があります。</p>
+    </div>
+
+    <div class="legal-badge">
+      ✅ 本サービスはYouTube公式の埋め込み機能を使用しており、すべての公開コンテンツは各権利者が公式に無料公開したものです。法的問題は一切ありません。
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<main>
+  <div class="hero">
+    <div class="hero-badge">OFFICIAL FREE STREAM</div>
+    <h1>公式無料アニメ<br><span>フル視聴</span></h1>
+    <p class="hero-sub">YouTubeで公式公開されたアニメを、ここで快適に視聴</p>
+    <div class="search-wrap">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="アニメタイトルを検索..." />
+        <button onclick="doSearch()">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+          </svg>
+          検索
+        </button>
+      </div>
+      <p class="search-hint">例：ワンピース / 鬼滅の刃 / 呪術廻戦</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title" id="sectionTitle">人気アニメ</div>
+    </div>
+    <div class="anime-grid" id="animeGrid">
+      <!-- cards injected here -->
+    </div>
+    <div id="emptyState" class="empty-state" style="display:none;">
+      <div class="icon">📺</div>
+      <h3>アニメが見つかりません</h3>
+      <p>別のキーワードで検索してみてください</p>
+    </div>
+    <div class="load-more-wrap" id="loadMoreWrap" style="display:none;">
+      <button class="btn-load-more" onclick="loadMore()">さらに読み込む</button>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="footer-logo">MIN-PRO-ANIME</div>
+  <p>© 2024 MIN-PRO-ANIME — YouTube公式コンテンツを埋め込み表示するサービスです</p>
+</footer>
+
+<script>
+const API_BASE = '';
+const DEFAULT_KEYWORD = 'アニメ フル 全話 公式 無料';
+let currentKeyword = '';
+let currentPage = 1;
+let isLoading = false;
+let allResults = [];
+
+// ---- INIT ----
+window.addEventListener('DOMContentLoaded', () => {
+  loadAnime(DEFAULT_KEYWORD, true);
+  document.getElementById('searchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doSearch();
+  });
+});
+
+// ---- SEARCH ----
+function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  const keyword = q ? `${q} アニメ フル 全話 公式 無料` : DEFAULT_KEYWORD;
+  const label = q || '人気アニメ';
+  document.getElementById('sectionTitle').textContent = q ? `「${q}」の検索結果` : '人気アニメ';
+  loadAnime(keyword, true);
+}
+
+// ---- LOAD ANIME ----
+async function loadAnime(keyword, reset = false) {
+  if (isLoading) return;
+  isLoading = true;
+
+  if (reset) {
+    currentPage = 1;
+    allResults = [];
+    currentKeyword = keyword;
+    document.getElementById('animeGrid').innerHTML = '';
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('loadMoreWrap').style.display = 'none';
+  }
+
+  showLoading(true);
+
+  try {
+    const url = `${API_BASE}/api/search?q=${encodeURIComponent(keyword)}&page=${currentPage}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('API error');
+    const data = await res.json();
+
+    const items = data.items || data || [];
+    if (!Array.isArray(items) || items.length === 0) {
+      if (reset) {
+        document.getElementById('emptyState').style.display = 'block';
+      }
+      document.getElementById('loadMoreWrap').style.display = 'none';
+    } else {
+      allResults = [...allResults, ...items];
+      renderCards(items, reset);
+      document.getElementById('loadMoreWrap').style.display = 'flex';
+      document.getElementById('loadMoreWrap').style.justifyContent = 'center';
+      currentPage++;
+    }
+  } catch (err) {
+    console.error(err);
+    if (reset) {
+      // Fallback: show a placeholder message
+      document.getElementById('emptyState').style.display = 'block';
+      document.getElementById('emptyState').innerHTML = `
+        <div class="icon">⚡</div>
+        <h3>サーバーに接続中...</h3>
+        <p>バックエンドサーバー（/api/search）が起動していることを確認してください</p>
+      `;
+    }
+  } finally {
+    showLoading(false);
+    isLoading = false;
+  }
+}
+
+// ---- LOAD MORE ----
+function loadMore() {
+  loadAnime(currentKeyword, false);
+}
+
+// ---- RENDER CARDS ----
+function renderCards(items, reset) {
+  const grid = document.getElementById('animeGrid');
+
+  items.forEach((item, i) => {
+    const id = getVideoId(item);
+    const title = item.title || item.snippet?.title || 'タイトル不明';
+    const thumb = getThumbnail(item);
+    const views = formatViews(item.viewCount || item.statistics?.viewCount);
+    const duration = item.lengthText || item.contentDetails?.duration || '';
+
+    const card = document.createElement('div');
+    card.className = 'anime-card';
+    card.style.animationDelay = `${i * 0.04}s`;
+    card.onclick = () => openVideo(id, title);
+
+    card.innerHTML = `
+      <div class="card-thumb">
+        <img src="${thumb}" alt="${escapeHtml(title)}" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'320\\' height=\\'180\\' viewBox=\\'0 0 320 180\\'><rect width=\\'320\\' height=\\'180\\' fill=\\'%230e0e1a\\'/><text x=\\'160\\' y=\\'95\\' text-anchor=\\'middle\\' fill=\\'%23333355\\' font-size=\\'40\\'>▶</text></svg>'">
+        <div class="card-play-overlay">
+          <div class="play-btn-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg>
+          </div>
+        </div>
+        ${duration ? `<div class="card-duration">${formatDuration(duration)}</div>` : ''}
+      </div>
+      <div class="card-info">
+        <div class="card-title">${escapeHtml(title)}</div>
+        <div class="card-meta">
+          <span class="official-badge">公式</span>
+          ${views ? `<span class="card-views">👁 ${views}</span>` : ''}
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ---- OPEN VIDEO ----
+function openVideo(videoId, title) {
+  const modal = document.getElementById('videoModal');
+  const iframe = document.getElementById('playerIframe');
+  const titleEl = document.getElementById('modalVideoTitle');
+
+  // Use /pro-stream/ endpoint as specified
+  iframe.src = `/pro-stream/${videoId}`;
+  titleEl.textContent = title;
+  modal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeVideo() {
+  const modal = document.getElementById('videoModal');
+  const iframe = document.getElementById('playerIframe');
+  modal.classList.remove('active');
+  iframe.src = '';
+  document.body.style.overflow = '';
+}
+
+// ---- LEGAL ----
+function showLegal() {
+  document.getElementById('legalModal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function closeLegal() {
+  document.getElementById('legalModal').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+// Close modals on backdrop click
+document.getElementById('legalModal').addEventListener('click', function(e) {
+  if (e.target === this) closeLegal();
+});
+document.getElementById('videoModal').addEventListener('click', function(e) {
+  if (e.target === this) closeVideo();
+});
+
+// ESC key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeVideo();
+    closeLegal();
+  }
+});
+
+// ---- LOADING ----
+function showLoading(show) {
+  const el = document.getElementById('loadingOverlay');
+  if (show) el.classList.add('active');
+  else el.classList.remove('active');
+}
+
+// ---- HELPERS ----
+function getVideoId(item) {
+  if (item.id?.videoId) return item.id.videoId;
+  if (typeof item.id === 'string') return item.id;
+  if (item.videoId) return item.videoId;
+  if (item.encryptedId) return item.encryptedId;
+  return item.id || '';
+}
+
+function getThumbnail(item) {
+  const t = item.thumbnail || item.snippet?.thumbnails;
+  if (!t) return '';
+  if (typeof t === 'string') return t;
+  if (t.medium?.url) return t.medium.url;
+  if (t.high?.url) return t.high.url;
+  if (t.default?.url) return t.default.url;
+  if (Array.isArray(t)) return t[0]?.url || '';
+  return '';
+}
+
+function formatViews(count) {
+  if (!count) return '';
+  const n = parseInt(count);
+  if (isNaN(n)) return '';
+  if (n >= 1000000) return `${(n/1000000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n/1000).toFixed(0)}K`;
+  return n.toString();
+}
+
+function formatDuration(raw) {
+  // Handle ISO 8601 (PT1H2M3S) or plain string
+  if (typeof raw === 'string') {
+    const iso = raw.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+    if (iso) {
+      const h = parseInt(iso[1]||0), m = parseInt(iso[2]||0), s = parseInt(iso[3]||0);
+      if (h) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      return `${m}:${String(s).padStart(2,'0')}`;
+    }
+    return raw;
+  }
+  return '';
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

@@ -179,6 +179,38 @@
     .card-players{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px}
     .card-players svg{flex-shrink:0}
 
+    /* ── 表示切り替えボタン ──────────── */
+    .view-toggle{display:flex;align-items:center;gap:4px;flex-shrink:0}
+    .view-btn{
+      width:34px;height:34px;border-radius:8px;border:1px solid var(--glass-border);
+      background:var(--card);color:var(--muted);cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+      transition:all .18s ease;
+    }
+    .view-btn:hover{color:var(--text);border-color:rgba(255,255,255,0.18)}
+    .view-btn.active{background:rgba(0,212,255,0.12);border-color:rgba(0,212,255,0.4);color:var(--accent)}
+    .view-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+    /* ── グリッド（デフォルト） ─────── */
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}
+
+    /* ── リストビュー ───────────────── */
+    .grid.list-view{display:flex;flex-direction:column;gap:10px}
+    .grid.list-view .game-card{
+      flex-direction:row;align-items:stretch;
+      border-radius:10px;
+    }
+    .grid.list-view .thumb{
+      width:120px;min-width:120px;height:auto;min-height:80px;flex-shrink:0;border-radius:0;
+    }
+    .grid.list-view .thumb .big-icon{font-size:38px}
+    .grid.list-view .genre-badge{top:6px;right:6px;font-size:10px;padding:2px 7px}
+    .grid.list-view .card-body{padding:12px 14px;justify-content:center}
+    .grid.list-view .card-desc{
+      display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+    }
+    .grid.list-view .play-overlay{display:none}
+
     /* ── 空状態 ──────────────────────── */
     .empty{
       grid-column:1/-1;text-align:center;padding:80px 20px;color:var(--muted);
@@ -265,9 +297,17 @@
           <label class="sort-label" for="sortSelect">並び替え</label>
           <select id="sortSelect" aria-label="並び替え">
             <option value="default">デフォルト</option>
-            <option value="name-asc" selected>名前 (A→Z)</option> <!-- 初期選択を名前順に -->
+            <option value="name-asc" selected>名前 (A→Z)</option>
             <option value="name-desc">名前 (Z→A)</option>
           </select>
+          <div class="view-toggle" role="group" aria-label="表示切り替え">
+            <button class="view-btn active" id="btnGrid" title="グリッド表示" aria-pressed="true">
+              <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            </button>
+            <button class="view-btn" id="btnList" title="リスト表示" aria-pressed="false">
+              <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -328,27 +368,6 @@
     return card;
   }
 
-  function createComingSoon(emoji) {
-    const card = document.createElement('article');
-    card.className = 'game-card coming-soon';
-    card.setAttribute('aria-hidden','true');
-    card.innerHTML = `
-      <div class="thumb" style="background:rgba(0,0,0,0.2)">
-        <div class="big-icon" style="filter:grayscale(1) opacity(0.4)">${emoji}</div>
-      </div>
-      <div class="card-body">
-        <div class="card-title-row">
-          <span class="card-title" style="color:var(--muted)">近日公開</span>
-          <span class="status-dot wip"></span>
-        </div>
-        <div class="card-desc">新しいゲームを準備中です。お楽しみに！</div>
-        <div class="card-footer">
-          <span class="card-tag" style="color:var(--muted)">coming-soon</span>
-        </div>
-      </div>`;
-    return card;
-  }
-
   // ── メイン ────────────────────────────────────────
   async function init() {
     const grid    = $('gameGrid');
@@ -381,9 +400,6 @@
       return { el, g };
     });
 
-    // coming-soon プレースホルダー
-    const placeholders = ['🎯','🚀'].map(e => { const el = createComingSoon(e); grid.appendChild(el); return el; });
-
     function applyFilters() {
       const q = activeSearch.trim().toLowerCase();
       let visible = 0;
@@ -395,9 +411,6 @@
         el.style.display = show ? '' : 'none';
         if (show) visible++;
       });
-
-      // placeholders: 検索ゼロのときのみ表示
-      placeholders.forEach(el => el.style.display = (!q && activeGenre==='all') ? '' : 'none');
 
       // 件数表示
       countBar.innerHTML = `<span>${visible}</span> 件のゲーム`;
@@ -428,7 +441,7 @@
           ? na.localeCompare(nb,'ja', { numeric: true }) 
           : nb.localeCompare(na,'ja', { numeric: true });
       });
-      els.forEach(({el}) => grid.insertBefore(el, grid.querySelector('.coming-soon') || null));
+      els.forEach(({el}) => grid.insertBefore(el, null));
     }
 
     function update() { applyFilters(); applySort(); }
@@ -464,6 +477,20 @@
 
     // ソート
     $('sortSelect').addEventListener('change', e => { activeSort = e.target.value; update(); });
+
+    // 表示切り替え（グリッド／リスト）
+    const btnGrid = $('btnGrid');
+    const btnList = $('btnList');
+    btnGrid.addEventListener('click', () => {
+      grid.classList.remove('list-view');
+      btnGrid.classList.add('active'); btnGrid.setAttribute('aria-pressed','true');
+      btnList.classList.remove('active'); btnList.setAttribute('aria-pressed','false');
+    });
+    btnList.addEventListener('click', () => {
+      grid.classList.add('list-view');
+      btnList.classList.add('active'); btnList.setAttribute('aria-pressed','true');
+      btnGrid.classList.remove('active'); btnGrid.setAttribute('aria-pressed','false');
+    });
 
     // 初回表示
     update();

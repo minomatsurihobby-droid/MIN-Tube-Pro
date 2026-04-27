@@ -4,6 +4,7 @@ const yts = require("youtube-search-api");
 const fetch = require("node-fetch");
 const cookieParser = require("cookie-parser");
 const https = require("https");
+const fs = require('fs');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -28,6 +29,8 @@ const keys = [
   process.env.RAPIDAPI_KEY_2 || 'ece95806fdmshe322f47bce30060p1c3411jsn41a3d4820039',
   process.env.RAPIDAPI_KEY_3 || '41c9265bc6msha0fa7dfc1a63eabp18bf7cjsne6ef10b79b38'
 ];
+
+const ABYSS_DIR = path.join(__dirname, 'abyss');
 
 app.use(express.static(path.join(__dirname, "public")));
 app.use(cookieParser());
@@ -90,6 +93,18 @@ app.use(async (req, res, next) => {
   }
   next();
 });
+
+app.use('/abyss', express.static(ABYSS_DIR));
+app.use((req, res, next) => {
+  const expectedPath = path.join(ABYSS_DIR, req.path);
+
+  if (fs.existsSync(expectedPath) && fs.lstatSync(expectedPath).isFile()) {
+    return res.sendFile(expectedPath);
+  }
+  
+  next();
+});
+
 
 // --- API ENDPOINTS ---
 

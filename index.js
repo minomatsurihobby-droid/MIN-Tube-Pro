@@ -1391,7 +1391,7 @@ app.get("/api/channel", async (req, res) => {
 app.get('/api/inv/channel/:name', async (req, res) => {
   const channelName = req.params.name;
 
-  const url = `https://inv.vern.cc/api/v1/search?q=${encodeURIComponent(
+  const url = `https://yt.chocolatemoo53.com/api/v1/search?q=${encodeURIComponent(
     channelName
   )}&type=channel`;
 

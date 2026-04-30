@@ -31,6 +31,8 @@ const keys = [
 ];
 
 const ABYSS_DIR = path.join(__dirname, 'abyss');
+const NOVA_DIR = path.join(__dirname, 'nova');
+
 
 app.use(express.static(path.join(__dirname, "public")));
 app.use(cookieParser());
@@ -105,6 +107,16 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use('/nova', express.static(NOVA_DIR));
+app.use((req, res, next) => {
+  const expectedPath = path.join(NOVA_DIR, req.path);
+
+  if (fs.existsSync(expectedPath) && fs.lstatSync(expectedPath).isFile()) {
+    return res.sendFile(expectedPath);
+  }
+  
+  next();
+});
 
 // --- API ENDPOINTS ---
 

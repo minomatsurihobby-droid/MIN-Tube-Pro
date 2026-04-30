@@ -230,74 +230,63 @@ app.get("/api/recommendations", async (req, res) => {
 });
 
 app.get("/video/:id", async (req, res, next) => {
-const videoId = req.params.id;
-try {
-let videoData = null;
-let commentsData = { commentCount: 0, comments: [] };
-let successfulApi = null;
-
-const protocol = req.headers['x-forwarded-proto'] || 'http';
-const host = req.headers.host;
-
-for (const apiBase of apiListCache) {
+  const videoId = req.params.id;
   try {
-    videoData = await Promise.any([
-      fetchWithTimeout(`${apiBase}/api/video/${videoId}`, {}, 5000)
-        .then(res => res.ok ? res.json() : Promise.reject())
-        .then(data => data.stream_url ? data : Promise.reject()),
-      fetchWithTimeout(`${protocol}://${host}/sia-dl/${videoId}`, {}, 5000)
-        .then(res => res.ok ? res.json() : Promise.reject())
-        .then(data => data.stream_url ? data : Promise.reject()),
+    let videoData = null;
+    let commentsData = { commentCount: 0, comments: [] };
+    let successfulApi = null;
 
-      new Promise((resolve, reject) => {
-        setTimeout(() => {
-          fetchWithTimeout(`${protocol}://${host}/ai-fetch/${videoId}`, {}, 5000)
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host;
+
+    // --- メタデータとストリームURLの取得ロジック（標準と共通） ---
+    for (const apiBase of apiListCache) {
+      try {
+        videoData = await Promise.any([
+          fetchWithTimeout(`${apiBase}/api/video/${videoId}`, {}, 5000)
             .then(res => res.ok ? res.json() : Promise.reject())
-            .then(data => data.stream_url ? resolve(data) : reject())
-            .catch(reject);
-        }, 2000);
-      })
-    ]);
+            .then(data => data.stream_url ? data : Promise.reject()),
+          fetchWithTimeout(`${protocol}://${host}/sia-dl/${videoId}`, {}, 5000)
+            .then(res => res.ok ? res.json() : Promise.reject())
+            .then(data => data.stream_url ? data : Promise.reject()),
+          new Promise((resolve, reject) => {
+            setTimeout(() => {
+              fetchWithTimeout(`${protocol}://${host}/ai-fetch/${videoId}`, {}, 5000)
+                .then(res => res.ok ? res.json() : Promise.reject())
+                .then(data => data.stream_url ? resolve(data) : reject())
+                .catch(reject);
+            }, 2000);
+          })
+        ]);
 
-
-    try {
-      const cRes = await fetchWithTimeout(`${apiBase}/api/comments/${videoId}`, {}, 3000);
-      if (cRes.ok) commentsData = await cRes.json();
-    } catch (e) {}
-
-    successfulApi = apiBase;
-    break;
-
-  } catch (e) {
-    try {
-      const rapidRes = await fetchWithTimeout(`${protocol}://${host}/rapid/${videoId}`, {}, 5000);
-      if (rapidRes.ok) {
-        const rapidData = await rapidRes.json();
-        if (rapidData.stream_url) {
-          videoData = rapidData;
-          
-          try {
-            const cRes = await fetchWithTimeout(`${apiBase}/api/comments/${videoId}`, {}, 3000);
-            if (cRes.ok) commentsData = await cRes.json();
-          } catch (e) {}
-
-          successfulApi = apiBase; 
-          break; 
-        }
+        try {
+          const cRes = await fetchWithTimeout(`${apiBase}/api/comments/${videoId}`, {}, 3000);
+          if (cRes.ok) commentsData = await cRes.json();
+        } catch (e) {}
+        successfulApi = apiBase;
+        break;
+      } catch (e) {
+        try {
+          const rapidRes = await fetchWithTimeout(`${protocol}://${host}/rapid/${videoId}`, {}, 5000);
+          if (rapidRes.ok) {
+            const rapidData = await rapidRes.json();
+            if (rapidData.stream_url) {
+              videoData = rapidData;
+              break; 
+            }
+          }
+        } catch (rapidErr) {}
+        continue;
       }
-    } catch (rapidErr) {}
-    continue;
-  }
-}
+    }
 
-if (!videoData) {
-  videoData = { videoTitle: "再生できない動画", stream_url: "youtube-nocookie" };
-}
+    if (!videoData) {
+      videoData = { videoTitle: "再生できない動画", stream_url: "youtube-nocookie", channelName: "Unknown" };
+    }
 
-console.log(commentsData)
     const isShortForm = videoData.videoTitle.includes('#');
 
-
+    
     if (isShortForm) {
       const shortsHtml = `
 <!DOCTYPE html>
@@ -312,22 +301,12 @@ console.log(commentsData)
         .shorts-wrapper { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: #000; }
         .video-container { position: relative; height: 94vh; aspect-ratio: 9/16; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10; }
         @media (max-width: 600px) { .video-container { height: 100%; width: 100%; border-radius: 0; } }
-        
-        #playerWrapper { width: 100%; height: 100%; position: relative; z-index: 11; }
+        #playerWrapper { width: 100%; height: 100%; position: relative; z-index: 11; background: #000; }
         video, iframe { width: 100%; height: 100%; object-fit: cover; border: none; display: block; }
-
-    
-        .video-loading-overlay { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0, 0, 0, 0.8); z-index: 150; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            color: white; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; 
-            backdrop-filter: blur(4px); 
-        }
+        .video-loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 150; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; backdrop-filter: blur(4px); }
         .video-loading-overlay.active { opacity: 1; pointer-events: auto; }
         .spinner { border: 4px solid rgba(255, 255, 255, 0.1); width: 40px; height: 40px; border-radius: 50%; border-top-color: #ff0000; animation: spin 1s ease-in-out infinite; margin-bottom: 15px; }
         @keyframes spin { to { transform: rotate(360deg); } }
-
         .progress-container { position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; background: rgba(255,255,255,0.2); z-index: 25; }
         .progress-bar { height: 100%; background: #ff0000; width: 0%; transition: width 0.1s linear; }
         .bottom-overlay { position: absolute; bottom: 0; left: 0; width: 100%; padding: 100px 16px 24px; background: linear-gradient(transparent, rgba(0,0,0,0.8)); z-index: 20; pointer-events: none; }
@@ -335,18 +314,15 @@ console.log(commentsData)
         .channel-info { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
         .channel-info img { width: 32px; height: 32px; border-radius: 50%; }
         .channel-name { font-weight: 500; font-size: 15px; }
-        .subscribe-btn { background: #fff; color: #000; border: none; padding: 6px 12px; border-radius: 18px; font-size: 12px; font-weight: bold; cursor: pointer; margin-left: 8px; }
+        .subscribe-btn { background: #fff; color: #000; border: none; padding: 6px 12px; border-radius: 18px; font-size: 12px; font-weight: bold; cursor: pointer; }
         .video-title { font-size: 14px; line-height: 1.4; margin-bottom: 8px; font-weight: 400; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .side-bar { position: absolute; right: 8px; bottom: 80px; display: flex; flex-direction: column; gap: 16px; align-items: center; z-index: 30; }
         .action-btn { display: flex; flex-direction: column; align-items: center; cursor: pointer; }
         .btn-icon { width: 44px; height: 44px; background: rgba(255,255,255,0.12); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; transition: 0.2s; margin-bottom: 4px; }
-        
         .server-menu { display: none; position: absolute; right: 60px; bottom: 80px; background: #212121; border-radius: 8px; overflow: hidden; z-index: 200; min-width: 180px; border: 1px solid #333; }
         .server-menu.show { display: block; }
         .server-option { padding: 12px 16px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #333; }
-        .server-option:last-child { border: none; }
         .server-option.active { color: #ff0000; font-weight: bold; }
-
         .top-nav { position: absolute; top: 16px; left: 16px; z-index: 35; display: flex; align-items: center; color: white; text-decoration: none; }
     </style>
 </head>
@@ -354,26 +330,17 @@ console.log(commentsData)
     <div class="shorts-wrapper">
         <div class="video-container">
             <a href="/" class="top-nav"><i class="fas fa-arrow-left"></i></a>
-            
             <div id="playerWrapper"></div>
-
-            <div id="videoLoadingOverlay" class="video-loading-overlay active">
+            <div id="videoLoadingOverlay" class="video-loading-overlay">
                 <div class="spinner"></div>
-                <div style="font-size: 14px; font-weight: bold;">読み込み中...</div>
+                <div style="font-size: 14px; font-weight: bold;">接続中...</div>
             </div>
-            
             <div class="progress-container"><div id="progressBar" class="progress-bar"></div></div>
-            
             <div class="side-bar">
-                <div class="action-btn" onclick="toggleServerMenu()">
-                    <div class="btn-icon"><i class="fas fa-server"></i></div>
-                    <span>サーバー</span>
-                </div>
+                <div class="action-btn" onclick="toggleServerMenu()"><div class="btn-icon"><i class="fas fa-server"></i></div><span>サーバー</span></div>
                 <div class="action-btn"><div class="btn-icon"><i class="fas fa-thumbs-up"></i></div><span>${videoData.likeCount || '評価'}</span></div>
                 <div class="action-btn"><div class="btn-icon"><i class="fas fa-comment-dots"></i></div><span>${commentsData.commentCount || 0}</span></div>
-                <div class="action-btn"><div class="btn-icon"><i class="fas fa-share"></i></div><span>共有</span></div>
             </div>
-
             <div id="serverMenu" class="server-menu">
                 <div class="server-option" onclick="changeServer('googlevideo', '', event)">Googlevideo</div>
                 <div class="server-option" onclick="changeServer('youtube-nocookie', '/nocookie/${videoId}', event)">Youtube-nocookie</div>
@@ -382,7 +349,6 @@ console.log(commentsData)
                 <div class="server-option" onclick="changeServer('YoutubeEdu-Scratch', '/scratch-edu/${videoId}', event)">YoutubeEdu-Scratch</div>
                 <div class="server-option" onclick="changeServer('Youtube-Pro', '/pro-stream/${videoId}', event)">Youtube-Pro</div>
             </div>
-
             <div class="bottom-overlay">
                 <div class="channel-info">
                     <img src="${videoData.channelImage || ''}" onerror="this.src='https://ui-avatars.com/api/?name=C&background=555&color=fff'">
@@ -393,7 +359,6 @@ console.log(commentsData)
             </div>
         </div>
     </div>
-
     <script>
         const progressBar = document.getElementById('progressBar');
         const playerWrapper = document.getElementById('playerWrapper');
@@ -408,9 +373,9 @@ console.log(commentsData)
                 const options = document.querySelectorAll('.server-option');
                 options.forEach(opt => opt.classList.remove('active'));
                 event.currentTarget.classList.add('active');
+                localStorage.setItem('playbackMode', serverName);
             }
 
-            // オーバーレイを表示
             overlay.classList.add('active');
             googlevideoReloaded = false;
 
@@ -426,28 +391,20 @@ console.log(commentsData)
                     newUrl = await res.text();
                 }
 
-                const isIframe = ['YoutubeEdu-Kahoot', 'YoutubeEdu-Scratch', 'Youtube-Pro', 'youtube-nocookie'].includes(serverName) || newUrl.includes('embed');
+                const forceIframe = ['YoutubeEdu-Kahoot', 'YoutubeEdu-Scratch', 'Youtube-Pro', 'youtube-nocookie'].includes(serverName);
+                const isIframe = forceIframe || newUrl.includes('embed');
 
                 if (isIframe) {
-                    playerWrapper.innerHTML = \`<iframe id="mainIframe" src="\${newUrl}" allow="autoplay; fullscreen" style="width:100%; height:100%;"></iframe>\`;
-                    // iframeの場合はロード完了で隠す
-                    document.getElementById('mainIframe').onload = () => {
-                        setTimeout(() => overlay.classList.remove('active'), 500);
-                    };
+                    playerWrapper.innerHTML = \`<iframe id="mainPlayer" src="\${newUrl}" allow="autoplay; fullscreen" style="width:100%; height:100%;"></iframe>\`;
+                    document.getElementById('mainPlayer').onload = () => setTimeout(() => overlay.classList.remove('active'), 800);
                 } else {
-                    playerWrapper.innerHTML = \`<video id="mainPlayer" playsinline loop autoplay style="width:100%; height:100%; object-fit:cover;"><source src="\${newUrl}" type="video/mp4"></video>\`;
+                    playerWrapper.innerHTML = \`<video id="mainPlayer" playsinline loop autoplay style="width:100%; height:100%; object-fit:cover; background:#000;"><source src="\${newUrl}" type="video/mp4"></video>\`;
                     const v = document.getElementById('mainPlayer');
-                    
-                    v.oncanplay = () => {
-                        // googlevideo以外、またはリロード済みの場合は隠す
-                        if (serverName !== 'googlevideo' || googlevideoReloaded) {
-                            setTimeout(() => overlay.classList.remove('active'), 500);
-                        }
-                    };
-
+                    v.oncanplay = () => { if (serverName !== 'googlevideo' || googlevideoReloaded) overlay.classList.remove('active'); };
                     v.ontimeupdate = () => { progressBar.style.width = (v.currentTime / v.duration) * 100 + '%'; };
-                    
-                    // --- 通常動画の「数秒後に見れるようになる」ロジックの移植 ---
+                    v.onerror = () => { overlay.classList.remove('active'); console.error("Playback error"); };
+
+                    // 標準動画と同じ2秒後リロードハック
                     if (serverName === 'googlevideo') {
                         setTimeout(() => {
                             if (v && !googlevideoReloaded) {
@@ -455,12 +412,9 @@ console.log(commentsData)
                                 const t = v.currentTime;
                                 v.load();
                                 v.currentTime = t;
-                                v.play().then(() => {
-                                    // リロードして再生が始まったら隠す
-                                    overlay.classList.remove('active');
-                                }).catch(()=>{ overlay.classList.remove('active'); });
+                                v.play().then(() => overlay.classList.remove('active')).catch(() => overlay.classList.remove('active'));
                             }
-                        }, 2000); // 2秒間読み込み画面を維持
+                        }, 2000);
                     }
                 }
             } catch (error) {
@@ -472,23 +426,14 @@ console.log(commentsData)
         window.onload = () => {
             const savedMode = localStorage.getItem('playbackMode') || 'googlevideo';
             const serverEndpoints = {
-                'googlevideo':        '',
-                'youtube-nocookie':   '/nocookie/${videoId}',
-                'DL-Pro':             '/360/${videoId}',
-                'YoutubeEdu-Kahoot':  '/kahoot-edu/${videoId}',
-                'YoutubeEdu-Scratch': '/scratch-edu/${videoId}',
-                'Youtube-Pro':        '/pro-stream/${videoId}'
+                'googlevideo': '', 'youtube-nocookie': '/nocookie/${videoId}', 'DL-Pro': '/360/${videoId}',
+                'YoutubeEdu-Kahoot': '/kahoot-edu/${videoId}', 'YoutubeEdu-Scratch': '/scratch-edu/${videoId}', 'Youtube-Pro': '/pro-stream/${videoId}'
             };
-            
             const serverName = serverEndpoints.hasOwnProperty(savedMode) ? savedMode : 'googlevideo';
             const endpointPath = serverEndpoints[serverName];
-
             const options = document.querySelectorAll('.server-option');
             let targetOpt = options[0];
-            options.forEach(opt => {
-                if(opt.getAttribute('onclick').includes("'" + serverName + "'")) targetOpt = opt;
-            });
-
+            options.forEach(opt => { if(opt.getAttribute('onclick').includes("'" + serverName + "'")) targetOpt = opt; });
             changeServer(serverName, endpointPath, { currentTarget: targetOpt });
         };
     </script>
@@ -497,9 +442,7 @@ console.log(commentsData)
       return res.send(shortsHtml);
     }
 
-
-    // --- STANDARD VIDEO MODE HTML ---
-    // playerWrapper は空にして、クライアント側JSが localStorage.playbackMode に基づいて初期化する
+    
 const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;"><div class="spinner"></div></div>`;
 
     const html = `

@@ -375,116 +375,166 @@ const shortsHtml = `
         </div>
     </div>
     <script>
-        let startY = 0;
-        const loader = document.getElementById('loader');
-        const commentsPanel = document.getElementById('commentsPanel');
-        const swipeHint = document.getElementById('swipeHint');
-        const progressBar = document.getElementById('progressBar');
+    let startY = 0;
+    const loader = document.getElementById('loader');
+    const commentsPanel = document.getElementById('commentsPanel');
+    const swipeHint = document.getElementById('swipeHint');
+    const progressBar = document.getElementById('progressBar');
 
-        window.onload = async () => {
-            // 設定から保存された再生方法を取得
-            const savedMode = localStorage.getItem('playbackMode') || 'googlevideo';
+    // --- 追加：ユーザーが操作した時に再生を開始する関数 ---
+    function forcePlay() {
+        const videoEl = document.getElementById('videoPlayer');
+        if (videoEl) {
+            videoEl.muted = false; // ミュート解除
+            videoEl.play().catch(e => console.log("再生失敗:", e));
+        }
+        // 一度実行したらイベントを削除
+        document.removeEventListener('click', forcePlay);
+        document.removeEventListener('touchstart', forcePlay);
 
-            async function initShortsPlayer() {
-                const videoEl = document.getElementById('videoPlayer');
-                const iframeEl = document.getElementById('videoIframe');
+        // ローダーを消す
+        loader.classList.add('fade');
+    }
 
-                if (savedMode === 'youtube-nocookie') {
-                    // youtube-nocookie: video要素があればiframeに差し替え
-                    const targetIframe = iframeEl || document.createElement('iframe');
-                    if (!iframeEl) {
-                        targetIframe.id = 'videoIframe';
-                        targetIframe.setAttribute('allow', 'autoplay');
-                        targetIframe.setAttribute('allowfullscreen', '');
-                        targetIframe.style.cssText = 'width:100%; height:100%; object-fit:cover; border:none; position:relative; z-index:11;';
-                        if (videoEl) videoEl.replaceWith(targetIframe);
-                        else document.querySelector('.video-container').insertBefore(targetIframe, document.querySelector('.progress-container'));
-                    }
-                    targetIframe.src = \`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&controls=0&loop=1&playlist=${videoId}&modestbranding=1&rel=0\`;
-                    targetIframe.style.visibility = 'visible';
+    window.onload = async () => {
+        // 設定から保存された再生方法を取得
+        const savedMode = localStorage.getItem('playbackMode') || 'googlevideo';
 
-                } else if (savedMode !== 'googlevideo' && videoEl) {
-                    // DL-Pro などその他のモード: エンドポイントからURLを取得して再生
-                    const endpointMap = { 'DL-Pro': '/360/${videoId}' };
-                    const endpoint = endpointMap[savedMode];
-                    if (endpoint) {
-                        try {
-                            const res = await fetch(endpoint);
-                            if (res.ok) {
-                                const url = await res.text();
-                                videoEl.src = url;
-                                videoEl.style.visibility = 'visible';
-                                videoEl.play().catch(() => {});
-                                videoEl.ontimeupdate = () => { const p = (videoEl.currentTime / videoEl.duration) * 100; progressBar.style.width = p + '%'; };
-                                return;
-                            }
-                        } catch (e) {
-                            console.warn('ショート: エンドポイント取得失敗、googlevideoにフォールバック', e);
+        // 画面のどこかをクリック/タップしたら forcePlay を実行
+        document.addEventListener('click', forcePlay);
+        document.addEventListener('touchstart', forcePlay);
+
+        async function initShortsPlayer() {
+            const videoEl = document.getElementById('videoPlayer');
+            const iframeEl = document.getElementById('videoIframe');
+
+            // ローダーに「画面をタップして再生」と表示（親切設計）
+            loader.innerHTML = '<div style="text-align:center;"><i class="fas fa-play fa-2x"></i><p style="margin-top:10px;">タップして再生</p></div>';
+
+            if (savedMode === 'youtube-nocookie') {
+                // youtube-nocookie: video要素があればiframeに差し替え
+                const targetIframe = iframeEl || document.createElement('iframe');
+                if (!iframeEl) {
+                    targetIframe.id = 'videoIframe';
+                    targetIframe.setAttribute('allow', 'autoplay');
+                    targetIframe.setAttribute('allowfullscreen', '');
+                    targetIframe.style.cssText = 'width:100%; height:100%; object-fit:cover; border:none; position:relative; z-index:11;';
+                    if (videoEl) videoEl.replaceWith(targetIframe);
+                    else document.querySelector('.video-container').insertBefore(targetIframe, document.querySelector('.progress-container'));
+                }
+                targetIframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&controls=0&loop=1&playlist=${videoId}&modestbranding=1&rel=0`;
+                targetIframe.style.visibility = 'visible';
+                // iframeの場合はローダーをすぐ消してもOK
+                setTimeout(() => loader.classList.add('fade'), 1000);
+
+            } else if (savedMode !== 'googlevideo' && videoEl) {
+                // DL-Pro などその他のモード: エンドポイントからURLを取得して再生
+                const endpointMap = { 'DL-Pro': `/360/${videoId}` };
+                const endpoint = endpointMap[savedMode];
+                if (endpoint) {
+                    try {
+                        const res = await fetch(endpoint);
+                        if (res.ok) {
+                            const url = await res.text();
+                            videoEl.src = url;
+                            videoEl.muted = true; // 最初はミュート（ブラウザ制限回避用）
+                            videoEl.style.visibility = 'visible';
+                            videoEl.load();
+                            videoEl.play().catch(() => {});
+                            videoEl.ontimeupdate = () => { const p = (videoEl.currentTime / videoEl.duration) * 100; progressBar.style.width = p + '%'; };
+                            return;
                         }
-                    }
-                    // フォールバック: googlevideo
-                    if (videoEl.dataset.src) {
-                        videoEl.src = videoEl.dataset.src;
-                        videoEl.style.visibility = 'visible';
-                        videoEl.play().catch(() => {});
-                        videoEl.ontimeupdate = () => { const p = (videoEl.currentTime / videoEl.duration) * 100; progressBar.style.width = p + '%'; };
-                    }
-
-                } else {
-                    // デフォルト: googlevideo (またはサーバーがnocookieを返した場合はiframe)
-                    if (videoEl && videoEl.dataset.src) {
-                        videoEl.src = videoEl.dataset.src;
-                        videoEl.style.visibility = 'visible';
-                        videoEl.play().catch(() => {});
-                        videoEl.ontimeupdate = () => { const p = (videoEl.currentTime / videoEl.duration) * 100; progressBar.style.width = p + '%'; };
-                    }
-                    if (iframeEl && iframeEl.dataset.src) {
-                        iframeEl.src = iframeEl.dataset.src;
-                        iframeEl.style.visibility = 'visible';
+                    } catch (e) {
+                        console.warn('ショート: エンドポイント取得失敗、googlevideoにフォールバック', e);
                     }
                 }
+                // フォールバック: googlevideo
+                if (videoEl.dataset && videoEl.dataset.src) {
+                    videoEl.src = videoEl.dataset.src;
+                    videoEl.muted = true;
+                    videoEl.style.visibility = 'visible';
+                    videoEl.load();
+                    videoEl.play().catch(() => {});
+                    videoEl.ontimeupdate = () => { const p = (videoEl.currentTime / videoEl.duration) * 100; progressBar.style.width = p + '%'; };
+                }
+
+            } else {
+                // デフォルト: googlevideo (またはサーバーがnocookieを返した場合はiframe)
+                if (videoEl && videoEl.dataset && videoEl.dataset.src) {
+                    videoEl.src = videoEl.dataset.src;
+                    videoEl.muted = true; // 最初はミュート（ブラウザ制限回避用）
+                    videoEl.style.visibility = 'visible';
+                    videoEl.load();
+
+                    // 自動再生を試みるが、失敗しても forcePlay でカバー
+                    videoEl.play().then(() => {
+                        // 自動再生に成功した場合はローダーを消す
+                        loader.classList.add('fade');
+                    }).catch(() => {
+                        console.log("自動再生ブロック: ユーザーの操作待ち");
+                    });
+
+                    videoEl.ontimeupdate = () => { const p = (videoEl.currentTime / videoEl.duration) * 100; progressBar.style.width = p + '%'; };
+                }
+                if (iframeEl && iframeEl.dataset && iframeEl.dataset.src) {
+                    iframeEl.src = iframeEl.dataset.src;
+                    iframeEl.style.visibility = 'visible';
+                }
             }
+        }
 
-            await initShortsPlayer();
-            loader.classList.add('fade');
-            swipeHint.classList.add('show');
-            setTimeout(() => { swipeHint.classList.remove('show'); }, 1500);
-        };
+        await initShortsPlayer();
+        loader.classList.add('fade');
+        swipeHint.classList.add('show');
+        setTimeout(() => { swipeHint.classList.remove('show'); }, 1500);
+    };
 
-        function toggleComments() { commentsPanel.classList.toggle('open'); }
-        // チャンネル登録機能（ショート）
-        const SHORT_CHANNEL = "${videoData.channelName || ''}";
-        const SHORT_SUB_KEY = 'subscribed_' + SHORT_CHANNEL;
-        const shortSubBtn = document.getElementById('shortSubBtn');
-        function updateShortSubBtn() {
-          const isSub = localStorage.getItem(SHORT_SUB_KEY) === 'true';
-          shortSubBtn.textContent = isSub ? '登録済み' : '登録';
-          shortSubBtn.style.background = isSub ? 'rgba(255,255,255,0.3)' : '#fff';
-          shortSubBtn.style.color = isSub ? '#fff' : '#000';
+    function toggleComments() { commentsPanel.classList.toggle('open'); }
+
+    // チャンネル登録機能（ショート）
+    const SHORT_CHANNEL = "${videoData.channelName || ''}";
+    const SHORT_SUB_KEY = 'subscribed_' + SHORT_CHANNEL;
+    const shortSubBtn = document.getElementById('shortSubBtn');
+    function updateShortSubBtn() {
+      if (!shortSubBtn) return;
+      const isSub = localStorage.getItem(SHORT_SUB_KEY) === 'true';
+      shortSubBtn.textContent = isSub ? '登録済み' : '登録';
+      shortSubBtn.style.background = isSub ? 'rgba(255,255,255,0.3)' : '#fff';
+      shortSubBtn.style.color = isSub ? '#fff' : '#000';
+    }
+    function toggleShortSub() {
+      const isSub = localStorage.getItem(SHORT_SUB_KEY) === 'true';
+      if (isSub) localStorage.removeItem(SHORT_SUB_KEY);
+      else localStorage.setItem(SHORT_SUB_KEY, 'true');
+      updateShortSubBtn();
+    }
+    updateShortSubBtn();
+
+    async function loadNextShort() {
+        if (commentsPanel.classList.contains('open')) return;
+        loader.classList.remove('fade');
+        try {
+            const params = new URLSearchParams({ title: "${videoData.videoTitle}", channel: "${videoData.channelName}", id: "${videoId}" });
+            const res = await fetch(`/api/recommendations?${params.toString()}`);
+            const data = await res.json();
+            const nextShort = data.items.find(item => item.title.includes('#')) || data.items[0];
+            if (nextShort) { window.location.href = '/video/' + nextShort.id; } else { window.location.href = '/'; }
+        } catch (e) { window.location.href = '/'; }
+    }
+
+    // スワイプやホイールで次のショートへ
+    window.addEventListener('touchstart', e => startY = e.touches[0].pageY);
+    window.addEventListener('touchend', e => { const endY = e.changedTouches[0].pageY; if (startY - endY > 100) loadNextShort(); });
+    window.addEventListener('wheel', e => { if (e.deltaY > 50) loadNextShort(); }, { passive: true });
+
+    // コメントパネル外クリックで閉じる
+    document.addEventListener('click', (e) => {
+        if (commentsPanel.classList.contains('open') && !commentsPanel.contains(e.target) && !e.target.closest('.action-btn')) {
+            toggleComments();
         }
-        function toggleShortSub() {
-          const isSub = localStorage.getItem(SHORT_SUB_KEY) === 'true';
-          if (isSub) localStorage.removeItem(SHORT_SUB_KEY);
-          else localStorage.setItem(SHORT_SUB_KEY, 'true');
-          updateShortSubBtn();
-        }
-        updateShortSubBtn();
-        async function loadNextShort() {
-            if (commentsPanel.classList.contains('open')) return;
-            loader.classList.remove('fade');
-            try {
-                const params = new URLSearchParams({ title: "${videoData.videoTitle}", channel: "${videoData.channelName}", id: "${videoId}" });
-                const res = await fetch(\`/api/recommendations?\${params.toString()}\`);
-                const data = await res.json();
-                const nextShort = data.items.find(item => item.title.includes('#')) || data.items[0];
-                if (nextShort) { window.location.href = '/video/' + nextShort.id; } else { window.location.href = '/'; }
-            } catch (e) { window.location.href = '/'; }
-        }
-        window.addEventListener('touchstart', e => startY = e.touches[0].pageY);
-        window.addEventListener('touchend', e => { const endY = e.changedTouches[0].pageY; if (startY - endY > 100) loadNextShort(); });
-        window.addEventListener('wheel', e => { if (e.deltaY > 50) loadNextShort(); }, { passive: true });
-        document.addEventListener('click', (e) => { if (commentsPanel.classList.contains('open') && !commentsPanel.contains(e.target) && !e.target.closest('.action-btn')) { toggleComments(); } });
-    </script>
+    });
+</script>
+
 </body>
 </html>`;
       return res.send(shortsHtml);

@@ -297,7 +297,7 @@ if (!videoData) {
 console.log(commentsData)
     const isShortForm = videoData.videoTitle.includes('#');
 
-    // --- SHORTS MODE HTML (修正版) ---
+
     if (isShortForm) {
       const shortsHtml = `
 <!DOCTYPE html>
@@ -313,17 +313,21 @@ console.log(commentsData)
         .video-container { position: relative; height: 94vh; aspect-ratio: 9/16; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10; }
         @media (max-width: 600px) { .video-container { height: 100%; width: 100%; border-radius: 0; } }
         
-        /* プレイヤー外枠 */
         #playerWrapper { width: 100%; height: 100%; position: relative; z-index: 11; }
         video, iframe { width: 100%; height: 100%; object-fit: cover; border: none; display: block; }
 
-        /* ローディングオーバーレイ (通常動画から移植) */
-        .video-loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 150; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; backdrop-filter: blur(2px); }
+    
+        .video-loading-overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0, 0, 0, 0.8); z-index: 150; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            color: white; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; 
+            backdrop-filter: blur(4px); 
+        }
         .video-loading-overlay.active { opacity: 1; pointer-events: auto; }
-        .spinner { border: 4px solid rgba(255, 255, 255, 0.1); width: 40px; height: 40px; border-radius: 50%; border-top-color: #ff0000; animation: spin 1s ease-in-out infinite; margin-bottom: 10px; }
+        .spinner { border: 4px solid rgba(255, 255, 255, 0.1); width: 40px; height: 40px; border-radius: 50%; border-top-color: #ff0000; animation: spin 1s ease-in-out infinite; margin-bottom: 15px; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* UIパーツ */
         .progress-container { position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; background: rgba(255,255,255,0.2); z-index: 25; }
         .progress-bar { height: 100%; background: #ff0000; width: 0%; transition: width 0.1s linear; }
         .bottom-overlay { position: absolute; bottom: 0; left: 0; width: 100%; padding: 100px 16px 24px; background: linear-gradient(transparent, rgba(0,0,0,0.8)); z-index: 20; pointer-events: none; }
@@ -337,7 +341,6 @@ console.log(commentsData)
         .action-btn { display: flex; flex-direction: column; align-items: center; cursor: pointer; }
         .btn-icon { width: 44px; height: 44px; background: rgba(255,255,255,0.12); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; transition: 0.2s; margin-bottom: 4px; }
         
-        /* サーバー切り替えメニュー (Shorts用に調整) */
         .server-menu { display: none; position: absolute; right: 60px; bottom: 80px; background: #212121; border-radius: 8px; overflow: hidden; z-index: 200; min-width: 180px; border: 1px solid #333; }
         .server-menu.show { display: block; }
         .server-option { padding: 12px 16px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #333; }
@@ -352,29 +355,25 @@ console.log(commentsData)
         <div class="video-container">
             <a href="/" class="top-nav"><i class="fas fa-arrow-left"></i></a>
             
-            <!-- 動画プレイヤー用コンテナ -->
             <div id="playerWrapper"></div>
 
-            <!-- 読み込み中オーバーレイ -->
-            <div id="videoLoadingOverlay" class="video-loading-overlay">
+            <div id="videoLoadingOverlay" class="video-loading-overlay active">
                 <div class="spinner"></div>
+                <div style="font-size: 14px; font-weight: bold;">読み込み中...</div>
             </div>
             
             <div class="progress-container"><div id="progressBar" class="progress-bar"></div></div>
             
-            <!-- サイドバー -->
             <div class="side-bar">
-                <!-- サーバー切り替えボタンを追加 -->
                 <div class="action-btn" onclick="toggleServerMenu()">
                     <div class="btn-icon"><i class="fas fa-server"></i></div>
                     <span>サーバー</span>
                 </div>
                 <div class="action-btn"><div class="btn-icon"><i class="fas fa-thumbs-up"></i></div><span>${videoData.likeCount || '評価'}</span></div>
-                <div class="action-btn" onclick="toggleComments()"><div class="btn-icon"><i class="fas fa-comment-dots"></i></div><span>${commentsData.commentCount || 0}</span></div>
+                <div class="action-btn"><div class="btn-icon"><i class="fas fa-comment-dots"></i></div><span>${commentsData.commentCount || 0}</span></div>
                 <div class="action-btn"><div class="btn-icon"><i class="fas fa-share"></i></div><span>共有</span></div>
             </div>
 
-            <!-- サーバーメニュー -->
             <div id="serverMenu" class="server-menu">
                 <div class="server-option" onclick="changeServer('googlevideo', '', event)">Googlevideo</div>
                 <div class="server-option" onclick="changeServer('youtube-nocookie', '/nocookie/${videoId}', event)">Youtube-nocookie</div>
@@ -399,10 +398,10 @@ console.log(commentsData)
         const progressBar = document.getElementById('progressBar');
         const playerWrapper = document.getElementById('playerWrapper');
         const overlay = document.getElementById('videoLoadingOverlay');
+        let googlevideoReloaded = false;
 
         function toggleServerMenu() { document.getElementById('serverMenu').classList.toggle('show'); }
 
-        // --- 通常動画から移植した changeServer ロジック ---
         async function changeServer(serverName, endpointPath, event) {
             if(event) {
                 document.getElementById('serverMenu').classList.remove('show');
@@ -411,12 +410,13 @@ console.log(commentsData)
                 event.currentTarget.classList.add('active');
             }
 
+            // オーバーレイを表示
             overlay.classList.add('active');
+            googlevideoReloaded = false;
 
             try {
                 let newUrl = '';
                 if (serverName === 'googlevideo') {
-                    // 通常動画と同じく stream_url が nocookie の場合は embed へ
                     newUrl = "${videoData.stream_url}" === "youtube-nocookie" ? \`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1\` : "${videoData.stream_url}";
                 } else if (serverName === 'Youtube-Pro') {
                     newUrl = endpointPath;
@@ -430,27 +430,41 @@ console.log(commentsData)
 
                 if (isIframe) {
                     playerWrapper.innerHTML = \`<iframe id="mainIframe" src="\${newUrl}" allow="autoplay; fullscreen" style="width:100%; height:100%;"></iframe>\`;
+                    // iframeの場合はロード完了で隠す
+                    document.getElementById('mainIframe').onload = () => {
+                        setTimeout(() => overlay.classList.remove('active'), 500);
+                    };
                 } else {
                     playerWrapper.innerHTML = \`<video id="mainPlayer" playsinline loop autoplay style="width:100%; height:100%; object-fit:cover;"><source src="\${newUrl}" type="video/mp4"></video>\`;
                     const v = document.getElementById('mainPlayer');
+                    
+                    v.oncanplay = () => {
+                        // googlevideo以外、またはリロード済みの場合は隠す
+                        if (serverName !== 'googlevideo' || googlevideoReloaded) {
+                            setTimeout(() => overlay.classList.remove('active'), 500);
+                        }
+                    };
+
                     v.ontimeupdate = () => { progressBar.style.width = (v.currentTime / v.duration) * 100 + '%'; };
                     
-                    // Googlevideoの2秒後リロード処理も移植
-                    if (serverName === 'googlevideo' && !window.googlevideoReloaded) {
-                        window.googlevideoReloaded = true;
+                    // --- 通常動画の「数秒後に見れるようになる」ロジックの移植 ---
+                    if (serverName === 'googlevideo') {
                         setTimeout(() => {
-                            if (v) {
+                            if (v && !googlevideoReloaded) {
+                                googlevideoReloaded = true;
                                 const t = v.currentTime;
                                 v.load();
                                 v.currentTime = t;
-                                v.play().catch(()=>{});
+                                v.play().then(() => {
+                                    // リロードして再生が始まったら隠す
+                                    overlay.classList.remove('active');
+                                }).catch(()=>{ overlay.classList.remove('active'); });
                             }
-                        }, 2000);
+                        }, 2000); // 2秒間読み込み画面を維持
                     }
                 }
             } catch (error) {
                 console.error(error);
-            } finally {
                 overlay.classList.remove('active');
             }
         }
@@ -469,7 +483,6 @@ console.log(commentsData)
             const serverName = serverEndpoints.hasOwnProperty(savedMode) ? savedMode : 'googlevideo';
             const endpointPath = serverEndpoints[serverName];
 
-            // メニューの初期状態を反映
             const options = document.querySelectorAll('.server-option');
             let targetOpt = options[0];
             options.forEach(opt => {
@@ -478,16 +491,6 @@ console.log(commentsData)
 
             changeServer(serverName, endpointPath, { currentTarget: targetOpt });
         };
-
-        // スワイプ移動等の既存ロジック
-        let startY = 0;
-        window.addEventListener('touchstart', e => startY = e.touches[0].pageY);
-        window.addEventListener('touchend', e => { 
-            const endY = e.changedTouches[0].pageY; 
-            if (startY - endY > 100) { /* 次の動画へ移動の処理をここに */ 
-                location.href = '/'; // 簡易的に戻る
-            } 
-        });
     </script>
 </body>
 </html>`;

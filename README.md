@@ -1,4 +1,4 @@
-なんかnova proxyエラー起きる　誰か直してください。。。。。   4/30<br>nova/active/baremux/index.mjsなどが読み込めていない状態
+vercel垢死亡しました…<br>なんかnova proxyエラー起きる　誰か直してください。。。。。   4/30<br>nova/active/baremux/index.mjsなどが読み込めていない状態
 
 # ver1.3.5
 - Abyss V5と統合

@@ -1,4 +1,10 @@
-vercel垢死亡しました…<br>なんかnova proxyエラー起きる　誰か直してください。。。。。   4/30<br>nova/active/baremux/index.mjsなどが読み込めていない状態
+# ver1.4.0
+Elixir-Networkと統合。
+# Elixir-Networkについて
+rhenrywが作成したembeddrという静的なプロキシです。UVのbareサーバーは使わず、ランマーヘッドやScamjetに近いWispというサーバーを使っています。多くのサーバーを経由するため落ちる心配がありません（今のところは）
+サーバー　wss://wisp.rhw.one/　で接続出来た場合のみYoutubeの動画を再生することができます。
+エンドポイント /embed.html#URL　（/proxy/embed.html#URL)であらゆるウェブサイトの検閲からのがれることができます。
+
 
 # ver1.3.5
 - Abyss V5と統合

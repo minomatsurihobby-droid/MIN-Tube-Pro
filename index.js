@@ -32,6 +32,7 @@ const keys = [
 
 const ABYSS_DIR = path.join(__dirname, 'abyss');
 const NOVA_DIR = path.join(__dirname, 'nova');
+const PROXY_DIR = path.join(__dirname, 'proxy');
 
 
 app.use(express.static(path.join(__dirname, "public")));
@@ -93,28 +94,6 @@ app.use(async (req, res, next) => {
       }
     }
   }
-  next();
-});
-
-app.use('/abyss', express.static(ABYSS_DIR));
-app.use((req, res, next) => {
-  const expectedPath = path.join(ABYSS_DIR, req.path);
-
-  if (fs.existsSync(expectedPath) && fs.lstatSync(expectedPath).isFile()) {
-    return res.sendFile(expectedPath);
-  }
-  
-  next();
-});
-
-app.use('/nova', express.static(NOVA_DIR));
-app.use((req, res, next) => {
-  const expectedPath = path.join(NOVA_DIR, req.path);
-
-  if (fs.existsSync(expectedPath) && fs.lstatSync(expectedPath).isFile()) {
-    return res.sendFile(expectedPath);
-  }
-  
   next();
 });
 
@@ -2079,6 +2058,30 @@ app.get("/img/:videoId", (req, res) => {
 app.get("/abyss.png", (req, res) => {
   const filePath = path.join(__dirname, "img", "abyss.png");
   res.sendFile(filePath);
+});
+
+const PROXY_ENDPOINTS = [
+  'prxy',
+  'baremux',
+  'epoxy',
+  'libcurl',
+  'register-sw.mjs',
+  'uv'
+];
+app.use('/proxy', express.static(PROXY_DIR));
+
+app.use((req, res, next) => {
+  const fileName = req.path.replace(/^\//, '');
+
+  if (PROXY_ENDPOINTS.includes(fileName)) {
+    const targetPath = path.join(PROXY_DIR, fileName);
+
+    if (fs.existsSync(targetPath) && fs.lstatSync(targetPath).isFile()) {
+      return res.sendFile(targetPath);
+    }
+  }
+
+  next();
 });
 
 

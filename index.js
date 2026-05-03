@@ -2058,28 +2058,34 @@ app.get("/abyss.png", (req, res) => {
   res.sendFile(filePath);
 });
 
-const PROXY_ENDPOINTS = [
-  'prxy',
-  'baremux',
-  'epoxy',
-  'libcurl',
-  'register-sw.mjs',
-  'uv'
-];
+/**
+ * PROXY_DIR/
+ * ├── uv/ (sw.js, uv.bundle.js, etc.)
+ * └── prxy/
+ *     ├── baremux/ (index.js, worker.js, etc.)
+ *     ├── epoxy/ (index.js, etc.)
+ *     ├── libcurl/ (index.js, etc.)
+ *     └── register-sw.mjs
+ */
 app.use('/proxy', express.static(PROXY_DIR));
 
 app.use((req, res, next) => {
-  const fileName = req.path.replace(/^\//, '');
+    const targetPath = path.join(PROXY_DIR, req.path);
 
-  if (PROXY_ENDPOINTS.includes(fileName)) {
-    const targetPath = path.join(PROXY_DIR, fileName);
-
-    if (fs.existsSync(targetPath) && fs.lstatSync(targetPath).isFile()) {
-      return res.sendFile(targetPath);
+    const normalizedPath = path.normalize(targetPath);
+    if (!normalizedPath.startsWith(PROXY_DIR)) {
+        return next();
     }
-  }
 
-  next();
+    try {
+        if (fs.existsSync(targetPath) && fs.lstatSync(targetPath).isFile()) {
+            return res.sendFile(targetPath);
+        }
+    } catch (err) {
+        console.error(`File access error: ${err}`);
+    }
+
+    next();
 });
 
 

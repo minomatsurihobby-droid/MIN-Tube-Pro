@@ -478,6 +478,8 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${videoData.videoTitle} - YouTube Pro</title>
+    <!-- <head> 内の既存のlinkタグなどの後に追加 -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root { --bg-main: #0f0f0f; --bg-secondary: #272727; --bg-hover: #3f3f3f; --text-main: #f1f1f1; --text-sub: #aaaaaa; --yt-red: #ff0000; }
@@ -649,71 +651,76 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
     }
     updateSubBtnUI();
 
-    async function changeServer(serverName, endpointPath, event) {
-        // --- 修正箇所：サーバー名を localStorage に保存 ---
-        localStorage.setItem('playbackMode', serverName);
+   async function changeServer(serverName, endpointPath, event) {
+    localStorage.setItem('playbackMode', serverName);
+    document.getElementById('serverMenu').classList.remove('show');
+    const options = document.querySelectorAll('.server-option');
+    options.forEach(opt => opt.classList.remove('active'));
+    
+    if (event && event.currentTarget) {
+        event.currentTarget.classList.add('active');
+    }
 
-        document.getElementById('serverMenu').classList.remove('show');
-        const options = document.querySelectorAll('.server-option');
-        options.forEach(opt => opt.classList.remove('active'));
-        
-        // メニュー上の active 状態を同期
-        if (event && event.currentTarget) {
-            event.currentTarget.classList.add('active');
+    const overlay = document.getElementById('videoLoadingOverlay');
+    overlay.classList.add('active');
+
+    try {
+        let newUrl = '';
+        if (serverName === 'googlevideo') {
+            newUrl = "${videoData.stream_url}" === "youtube-nocookie" ? `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1` : "${videoData.stream_url}";
+        } else if (serverName === 'Youtube-Pro') {
+            newUrl = endpointPath;
         } else {
-            // 自動起動時などは文字列検索で active を付与
-            options.forEach(opt => {
-               if (opt.getAttribute('onclick').includes("'" + serverName + "'")) opt.classList.add('active');
-            });
+            const res = await fetch(endpointPath);
+            if (!res.ok) throw new Error("サーバーエラー");
+            newUrl = await res.text();
         }
 
-        const overlay = document.getElementById('videoLoadingOverlay');
-        overlay.classList.add('active');
+        const playerContainer = document.getElementById('playerWrapper');
+        
+        // --- HLS(ライブ配信)の判定 ---
+        const isHls = newUrl.includes('.m3u8') || newUrl.includes('manifest/hls_variant');
+        const forceIframe = ['YoutubeEdu-Kahoot', 'YoutubeEdu-Scratch', 'Youtube-Pro', 'youtube-nocookie'].includes(serverName);
 
-        try {
-            let newUrl = '';
-            if (serverName === 'googlevideo') {
-                newUrl = "${videoData.stream_url}" === "youtube-nocookie" ? \`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1\` : "${videoData.stream_url}";
-            } else if (serverName === 'Youtube-Pro') {
-                newUrl = endpointPath;
+        if (forceIframe && !isHls) {
+            playerContainer.innerHTML = `<iframe id="mainIframe" src="${newUrl}" frameborder="0" allowfullscreen style="width:100%; height:100%; position:relative; z-index:10;"></iframe>`;
+        } else {
+            playerContainer.innerHTML = `<video id="mainPlayer" controls autoplay style="width:100%; height:100%; position:relative; z-index:10; background:#000;"></video>`;
+            const video = document.getElementById('mainPlayer');
+
+            if (isHls) {
+                // HLS.jsを使用してライブ再生
+                if (Hls.isSupported()) {
+                    const hls = new Hls();
+                    hls.loadSource(newUrl);
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(e => {}));
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = newUrl; // Safari用
+                }
             } else {
-                const res = await fetch(endpointPath);
-                if (!res.ok) throw new Error("サーバーエラー");
-                newUrl = await res.text();
-            }
+                // 通常のMP4再生
+                video.src = newUrl;
+                video.load();
+                video.play().catch(e => console.log("Auto play blocked"));
 
-            const playerContainer = document.getElementById('playerWrapper');
-            const forceIframe = ['YoutubeEdu-Kahoot', 'YoutubeEdu-Scratch', 'Youtube-Pro', 'youtube-nocookie'].includes(serverName);
-            const isIframe = forceIframe || newUrl.includes('embed');
-
-            let playerHtml = '';
-            if (isIframe) {
-                playerHtml = \`<iframe id="mainIframe" src="\${newUrl}" frameborder="0" allowfullscreen style="width:100%; height:100%; position:relative; z-index:10;"></iframe>\`;
-            } else {
-                playerHtml = \`<video id="mainPlayer" controls autoplay style="width:100%; height:100%; position:relative; z-index:10; background:#000;"><source src="\${newUrl}" type="video/mp4"></video>\`;
-            }
-            playerContainer.innerHTML = playerHtml;
-            const newVideo = document.getElementById('mainPlayer');
-            if (newVideo) { 
-                newVideo.load(); 
-                newVideo.play().catch(e => console.log("Auto")); 
-
+                // 既存のgooglevideo用再読み込みバグ対策
                 if (serverName === 'googlevideo' && !window.googlevideoReloaded) {
                     window.googlevideoReloaded = true;
                     setTimeout(() => {
-                        const vid = document.getElementById('mainPlayer');
-                        if (vid) {
-                            const currentTime = vid.currentTime;
-                            const isPlaying = !vid.paused;
-                            vid.load();
-                            vid.currentTime = currentTime;
-                            if (isPlaying) vid.play().catch(e => {});
+                        if (video) {
+                            const currentTime = video.currentTime;
+                            const isPlaying = !video.paused;
+                            video.load();
+                            video.currentTime = currentTime;
+                            if (isPlaying) video.play().catch(e => {});
                         }
                     }, 2000);
                 }
             }
-        } catch (error) { console.error(error); } finally { overlay.classList.remove('active'); }
-    }
+        }
+    } catch (error) { console.error(error); } finally { overlay.classList.remove('active'); }
+}
 
     async function loadRecommendations() {
         const params = new URLSearchParams({ title: "${videoData.videoTitle}", channel: "${videoData.channelName}", id: "${videoId}" });
@@ -1208,7 +1215,6 @@ frame.addEventListener('click', ()=> {
 </body>
 </html>`);
 });
-
 app.get('/sia-dl/:videoId', async (req, res) => {
     const videoId = req.params.videoId;
     const protocol = req.protocol;
@@ -1220,9 +1226,18 @@ app.get('/sia-dl/:videoId', async (req, res) => {
         if (!metaResponse.ok) throw new Error('Metadata API response was not ok');
         const data = await metaResponse.json();
 
-        const streamInfoUrl = `${protocol}://${host}/360/${videoId}`;
-        const streamResponse = await fetch(streamInfoUrl);
-        const rawStreamUrl = streamResponse.ok ? await streamResponse.text() : "";
+        // --- ライブ判定とストリームURLの取得ロジック ---
+        let rawStreamUrl = "";
+        
+        // 1. メタデータにHLS URL（ライブ用）があるか確認
+        if ((data.live_now || data.isLive) && data.hlsUrl) {
+            rawStreamUrl = data.hlsUrl;
+        } else {
+            // 2. ライブでない、またはHLSがない場合は従来の360p取得を試みる
+            const streamInfoUrl = `${protocol}://${host}/360/${videoId}`;
+            const streamResponse = await fetch(streamInfoUrl);
+            rawStreamUrl = streamResponse.ok ? await streamResponse.text() : "";
+        }
 
         const parseCount = (str) => {
             if (!str) return 0;

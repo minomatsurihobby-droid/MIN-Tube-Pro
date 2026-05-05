@@ -215,8 +215,6 @@ let successfulApi = null;
 
 const protocol = req.headers['x-forwarded-proto'] || 'http';
 const host = req.headers.host;
-// --- app.get("/video/:id", ...) 内の修正箇所 ---
-// 既存のループの中で metadata から hlsUrl を探すように強化
 
 for (const apiBase of apiListCache) {
   try {
@@ -661,20 +659,14 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
 
 
 
-// 2. changeServer関数を以下に差し替え
 async function changeServer(serverName, endpointPath, event) {
     localStorage.setItem('playbackMode', serverName);
     document.getElementById('serverMenu').classList.remove('show');
+    
+    // UIのactive管理(既存通り)
     const options = document.querySelectorAll('.server-option');
     options.forEach(opt => opt.classList.remove('active'));
-    
-    if (event && event.currentTarget) {
-        event.currentTarget.classList.add('active');
-    } else {
-        options.forEach(opt => {
-           if (opt.getAttribute('onclick').includes("'" + serverName + "'")) opt.classList.add('active');
-        });
-    }
+    if (event && event.currentTarget) event.currentTarget.classList.add('active');
 
     const overlay = document.getElementById('videoLoadingOverlay');
     overlay.classList.add('active');
@@ -682,75 +674,71 @@ async function changeServer(serverName, endpointPath, event) {
     try {
         let newUrl = '';
         
-        // --- サーバーごとのURL取得ロジック (Googlevideo含む) ---
+        // --- URL取得ロジック ---
         if (serverName === 'googlevideo') {
-            // 初回読み込み時のURLを使用
+            // サーバーからEJS経由で渡された stream_url を使う
             newUrl = "${videoData.stream_url}";
-            if (newUrl === "youtube-nocookie") {
+            // もし値が空か "youtube-nocookie" ならフォールバック
+            if (!newUrl || newUrl === "youtube-nocookie") {
                 newUrl = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1`;
             }
         } else if (serverName === 'Youtube-Pro') {
             newUrl = endpointPath;
         } else {
-            // DL-Pro, Scratch-EduなどのエンドポイントからURLを取得
+            // その他のサーバー(DL-Pro, Scratch-Edu等)
             const res = await fetch(endpointPath);
-            if (!res.ok) throw new Error("サーバーエラー");
+            if (!res.ok) throw new Error("Fetch Error");
             newUrl = await res.text();
         }
 
         const playerContainer = document.getElementById('playerWrapper');
         
-        // --- ★ライブ(HLS)判定ロジック ---
-        // URLに m3u8 または Googlevideoのライブマニフェストキーワードが含まれているか
+        // ★ m3u8(ライブ) かどうかの判定
         const isHls = newUrl.includes('.m3u8') || newUrl.includes('manifest/hls_variant');
-        
-        // iframeを使うべきか（ライブでなく、かつ教育用などのiframe専用サーバーの場合）
         const forceIframe = ['YoutubeEdu-Kahoot', 'YoutubeEdu-Scratch', 'Youtube-Pro', 'youtube-nocookie'].includes(serverName);
-        const isIframe = !isHls && (forceIframe || newUrl.includes('embed'));
 
-        if (isIframe) {
-            playerContainer.innerHTML = `<iframe id="mainIframe" src="${newUrl}" frameborder="0" allowfullscreen style="width:100%; height:100%; position:relative; z-index:10;"></iframe>`;
+        if (forceIframe && !isHls) {
+            // 教育用などはiframe
+            playerContainer.innerHTML = `<iframe id="mainIframe" src="\${newUrl}" frameborder="0" allowfullscreen style="width:100%; height:100%; position:relative; z-index:10;"></iframe>`;
         } else {
             // videoタグでの再生（通常のMP4 または HLSライブ）
             playerContainer.innerHTML = `<video id="mainPlayer" controls autoplay style="width:100%; height:100%; position:relative; z-index:10; background:#000;"></video>`;
             const video = document.getElementById('mainPlayer');
 
             if (isHls) {
-                // --- HLS再生モード ---
+                // --- HLS(ライブ)再生 ---
                 if (Hls.isSupported()) {
                     const hls = new Hls();
                     hls.loadSource(newUrl);
                     hls.attachMedia(video);
-                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                        video.play().catch(e => console.log("再生がブロックされました"));
-                    });
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(e=>{}));
                 } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     video.src = newUrl;
                 }
             } else {
-                // --- 通常の動画(MP4)再生モード ---
+                // --- 通常再生 ---
                 video.src = newUrl;
                 video.load();
                 video.play().catch(e => console.log("Auto play blocked"));
 
-                // 既存のgooglevideo用再読み込みバグ対策
+                // googlevideo用再読み込み修正(既存通り)
                 if (serverName === 'googlevideo' && !window.googlevideoReloaded) {
                     window.googlevideoReloaded = true;
                     setTimeout(() => {
                         const vid = document.getElementById('mainPlayer');
                         if (vid) {
-                            const currentTime = vid.currentTime;
-                            const isPlaying = !vid.paused;
+                            const ct = vid.currentTime;
+                            const ip = !vid.paused;
                             vid.load();
-                            vid.currentTime = currentTime;
-                            if (isPlaying) vid.play().catch(e => {});
+                            vid.currentTime = ct;
+                            if (ip) vid.play().catch(e => {});
                         }
                     }, 2000);
                 }
             }
         }
     } catch (error) { 
-        console.error("サーバー切り替えエラー:", error); 
+        console.error(error); 
     } finally { 
         overlay.classList.remove('active'); 
     }
@@ -1260,14 +1248,16 @@ app.get('/sia-dl/:videoId', async (req, res) => {
         if (!metaResponse.ok) throw new Error('Metadata API response was not ok');
         const data = await metaResponse.json();
 
-        // --- ライブ判定とストリームURLの取得ロジック ---
+   
         let rawStreamUrl = "";
         
-        // 1. メタデータにHLS URL（ライブ用）があるか確認
+        // ① メタデータにライブURL(m3u8)があるかチェック
         if ((data.live_now || data.isLive) && data.hlsUrl) {
             rawStreamUrl = data.hlsUrl;
-        } else {
-            // 2. ライブでない、またはHLSがない場合は従来の360p取得を試みる
+        } 
+        
+        // ② ライブでない、またはURLが空なら従来の360p(googlevideo)を取得
+        if (!rawStreamUrl) {
             const streamInfoUrl = `${protocol}://${host}/360/${videoId}`;
             const streamResponse = await fetch(streamInfoUrl);
             rawStreamUrl = streamResponse.ok ? await streamResponse.text() : "";
@@ -1279,27 +1269,22 @@ app.get('/sia-dl/:videoId', async (req, res) => {
         };
 
         const formattedResponse = {
-            stream_url: rawStreamUrl.trim(),
-            highstreamUrl: rawStreamUrl.trim(), 
-            audioUrl: "", 
-            
+            stream_url: rawStreamUrl.trim(), 
+            highstreamUrl: rawStreamUrl.trim(),
             videoId: data.id,
-            channelId: data.author?.id || "",
             channelName: data.author?.name || "",
             channelImage: data.author?.thumbnail || "",
             videoTitle: data.title,
             videoDes: data.description?.text || "",
-            
             videoViews: parseCount(data.views || data.extended_stats?.views_original),
-            
             likeCount: parseCount(data.likes)
         };
 
         res.json(formattedResponse);
 
     } catch (error) {
-        console.error('Error fetching data:', error);
-        res.status(500).json({ error: 'Internal Server Error', message: error.message });
+        console.error('sia-dl error:', error);
+        res.status(500).json({ error: 'Internal Error' });
     }
 });
 

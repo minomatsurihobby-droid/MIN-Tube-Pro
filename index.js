@@ -556,6 +556,17 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
         .short-thumb { aspect-ratio: 9/16; border-radius: 8px; overflow: hidden; background: #222; }
         .short-thumb img { width: 100%; height: 100%; object-fit: cover; }
         .short-info { margin-top: 8px; }
+
+        .live-badge {
+            background: #ff0000;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
         .short-title { font-size: 14px; font-weight: 500; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .short-views { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
         .server-dropdown-container { position: relative; display: inline-block; margin-left: 12px; }
@@ -597,7 +608,8 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
                 <div style="font-weight: bold; font-size: 16px;">動画サーバーに接続中...</div>
             </div>
         </div>
-        <h1 class="video-title">${videoData.videoTitle}</h1>
+        <h1 class="video-title">${videoData.videoTitle} ${isLive ? '<span class="live-badge">LIVE</span>' : ''} 
+            ${videoData.videoTitle}</h1>
         <div class="owner-row">
             <div class="owner-info">
                 <a href="/channel/${encodeURIComponent(videoData.channelName)}" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;">

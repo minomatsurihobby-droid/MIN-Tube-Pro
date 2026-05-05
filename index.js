@@ -30,12 +30,9 @@ const keys = [
   process.env.RAPIDAPI_KEY_3 || '41c9265bc6msha0fa7dfc1a63eabp18bf7cjsne6ef10b79b38'
 ];
 
-const PROXY_DIR = path.join(__dirname, 'proxy');
+const ABYSS_DIR = path.join(__dirname, 'abyss');
+const NOVA_DIR = path.join(__dirname, 'nova');
 
-// 1. 先頭に追加
-const { execFile } = require("child_process");
-const YT_DLP_PATH = "./yt-dlp"; // バイナリのパス
-const YT_PROXY = "http://ytproxy-siawaseok.duckdns.org:3007";
 
 app.use(express.static(path.join(__dirname, "public")));
 app.use(cookieParser());
@@ -57,25 +54,6 @@ async function updateApiListCache() {
   }
 }
 
-// 2. getM3U8関数を追加
-function getM3U8(videoId) {
-  return new Promise((resolve) => {
-    const url = `https://www.youtube.com/watch?v=${videoId}`;
-    execFile(
-      YT_DLP_PATH,
-      ["--proxy", YT_PROXY, "-J", "--skip-download", "--no-playlist", "--flat-playlist", "--no-check-certificates", url],
-      { maxBuffer: 1024 * 1024 * 10 },
-      (error, stdout) => {
-        if (error) return resolve(null);
-        try {
-          const data = JSON.parse(stdout);
-          const formats = (data.formats || []).filter(f => f.url && f.url.includes(".m3u8"));
-          resolve(formats.length > 0 ? formats[formats.length - 1].url : null);
-        } catch (e) { resolve(null); }
-      }
-    );
-  });
-}
 updateApiListCache();
 setInterval(updateApiListCache, 1000 * 60 * 10);
 
@@ -115,6 +93,28 @@ app.use(async (req, res, next) => {
       }
     }
   }
+  next();
+});
+
+app.use('/abyss', express.static(ABYSS_DIR));
+app.use((req, res, next) => {
+  const expectedPath = path.join(ABYSS_DIR, req.path);
+
+  if (fs.existsSync(expectedPath) && fs.lstatSync(expectedPath).isFile()) {
+    return res.sendFile(expectedPath);
+  }
+  
+  next();
+});
+
+app.use('/nova', express.static(NOVA_DIR));
+app.use((req, res, next) => {
+  const expectedPath = path.join(NOVA_DIR, req.path);
+
+  if (fs.existsSync(expectedPath) && fs.lstatSync(expectedPath).isFile()) {
+    return res.sendFile(expectedPath);
+  }
+  
   next();
 });
 
@@ -244,17 +244,11 @@ for (const apiBase of apiListCache) {
     videoData = await Promise.any([
       fetchWithTimeout(`${apiBase}/api/video/${videoId}`, {}, 5000)
         .then(res => res.ok ? res.json() : Promise.reject())
-        .then(data => (data.stream_url || data.hlsUrl) ? data : Promise.reject()), // hlsUrlも許可
-      
-      // 合体させた sia-dl のロジック
+        .then(data => data.stream_url ? data : Promise.reject()),
       fetchWithTimeout(`${protocol}://${host}/sia-dl/${videoId}`, {}, 5000)
         .then(res => res.ok ? res.json() : Promise.reject())
-    ]);
+        .then(data => data.stream_url ? data : Promise.reject()),
 
-    // もしライブ配信用のURLがあれば、stream_urlとして扱う
-    if (videoData.hlsUrl && !videoData.stream_url) {
-      videoData.stream_url = videoData.hlsUrl;
-    }
       new Promise((resolve, reject) => {
         setTimeout(() => {
           fetchWithTimeout(`${protocol}://${host}/ai-fetch/${videoId}`, {}, 5000)
@@ -507,8 +501,6 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${videoData.videoTitle} - YouTube Pro</title>
-    <!-- <head> 内の既存のlinkタグなどの後に追加 -->
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root { --bg-main: #0f0f0f; --bg-secondary: #272727; --bg-hover: #3f3f3f; --text-main: #f1f1f1; --text-sub: #aaaaaa; --yt-red: #ff0000; }
@@ -680,92 +672,71 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
     }
     updateSubBtnUI();
 
+    async function changeServer(serverName, endpointPath, event) {
+        // --- 修正箇所：サーバー名を localStorage に保存 ---
+        localStorage.setItem('playbackMode', serverName);
 
-
-async function changeServer(serverName, endpointPath, event) {
-    localStorage.setItem('playbackMode', serverName);
-    document.getElementById('serverMenu').classList.remove('show');
-    
-    // UIのactive管理(既存通り)
-    const options = document.querySelectorAll('.server-option');
-    options.forEach(opt => opt.classList.remove('active'));
-    if (event && event.currentTarget) event.currentTarget.classList.add('active');
-
-    const overlay = document.getElementById('videoLoadingOverlay');
-    overlay.classList.add('active');
-
-    try {
-        let newUrl = '';
+        document.getElementById('serverMenu').classList.remove('show');
+        const options = document.querySelectorAll('.server-option');
+        options.forEach(opt => opt.classList.remove('active'));
         
-        // --- URL取得ロジック ---
-        if (serverName === 'googlevideo') {
-            // サーバーからEJS経由で渡された stream_url を使う
-            newUrl = "${videoData.stream_url}";
-            // もし値が空か "youtube-nocookie" ならフォールバック
-            if (!newUrl || newUrl === "youtube-nocookie") {
-                newUrl = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1`;
-            }
-        } else if (serverName === 'Youtube-Pro') {
-            newUrl = endpointPath;
+        // メニュー上の active 状態を同期
+        if (event && event.currentTarget) {
+            event.currentTarget.classList.add('active');
         } else {
-            // その他のサーバー(DL-Pro, Scratch-Edu等)
-            const res = await fetch(endpointPath);
-            if (!res.ok) throw new Error("Fetch Error");
-            newUrl = await res.text();
+            // 自動起動時などは文字列検索で active を付与
+            options.forEach(opt => {
+               if (opt.getAttribute('onclick').includes("'" + serverName + "'")) opt.classList.add('active');
+            });
         }
 
-        const playerContainer = document.getElementById('playerWrapper');
-        
-        // ★ m3u8(ライブ) かどうかの判定
-        const isHls = newUrl.includes('.m3u8') || newUrl.includes('manifest/hls_variant');
-        const forceIframe = ['YoutubeEdu-Kahoot', 'YoutubeEdu-Scratch', 'Youtube-Pro', 'youtube-nocookie'].includes(serverName);
+        const overlay = document.getElementById('videoLoadingOverlay');
+        overlay.classList.add('active');
 
-        if (forceIframe && !isHls) {
-            // 教育用などはiframe
-            playerContainer.innerHTML = `<iframe id="mainIframe" src="\${newUrl}" frameborder="0" allowfullscreen style="width:100%; height:100%; position:relative; z-index:10;"></iframe>`;
-        } else {
-            // videoタグでの再生（通常のMP4 または HLSライブ）
-            playerContainer.innerHTML = `<video id="mainPlayer" controls autoplay style="width:100%; height:100%; position:relative; z-index:10; background:#000;"></video>`;
-            const video = document.getElementById('mainPlayer');
-
-            if (isHls) {
-                // --- HLS(ライブ)再生 ---
-                if (Hls.isSupported()) {
-                    const hls = new Hls();
-                    hls.loadSource(newUrl);
-                    hls.attachMedia(video);
-                    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(e=>{}));
-                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                    video.src = newUrl;
-                }
+        try {
+            let newUrl = '';
+            if (serverName === 'googlevideo') {
+                newUrl = "${videoData.stream_url}" === "youtube-nocookie" ? \`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1\` : "${videoData.stream_url}";
+            } else if (serverName === 'Youtube-Pro') {
+                newUrl = endpointPath;
             } else {
-                // --- 通常再生 ---
-                video.src = newUrl;
-                video.load();
-                video.play().catch(e => console.log("Auto play blocked"));
+                const res = await fetch(endpointPath);
+                if (!res.ok) throw new Error("サーバーエラー");
+                newUrl = await res.text();
+            }
 
-                // googlevideo用再読み込み修正(既存通り)
+            const playerContainer = document.getElementById('playerWrapper');
+            const forceIframe = ['YoutubeEdu-Kahoot', 'YoutubeEdu-Scratch', 'Youtube-Pro', 'youtube-nocookie'].includes(serverName);
+            const isIframe = forceIframe || newUrl.includes('embed');
+
+            let playerHtml = '';
+            if (isIframe) {
+                playerHtml = \`<iframe id="mainIframe" src="\${newUrl}" frameborder="0" allowfullscreen style="width:100%; height:100%; position:relative; z-index:10;"></iframe>\`;
+            } else {
+                playerHtml = \`<video id="mainPlayer" controls autoplay style="width:100%; height:100%; position:relative; z-index:10; background:#000;"><source src="\${newUrl}" type="video/mp4"></video>\`;
+            }
+            playerContainer.innerHTML = playerHtml;
+            const newVideo = document.getElementById('mainPlayer');
+            if (newVideo) { 
+                newVideo.load(); 
+                newVideo.play().catch(e => console.log("Auto")); 
+
                 if (serverName === 'googlevideo' && !window.googlevideoReloaded) {
                     window.googlevideoReloaded = true;
                     setTimeout(() => {
                         const vid = document.getElementById('mainPlayer');
                         if (vid) {
-                            const ct = vid.currentTime;
-                            const ip = !vid.paused;
+                            const currentTime = vid.currentTime;
+                            const isPlaying = !vid.paused;
                             vid.load();
-                            vid.currentTime = ct;
-                            if (ip) vid.play().catch(e => {});
+                            vid.currentTime = currentTime;
+                            if (isPlaying) vid.play().catch(e => {});
                         }
                     }, 2000);
                 }
             }
-        }
-    } catch (error) { 
-        console.error(error); 
-    } finally { 
-        overlay.classList.remove('active'); 
+        } catch (error) { console.error(error); } finally { overlay.classList.remove('active'); }
     }
-}
 
     async function loadRecommendations() {
         const params = new URLSearchParams({ title: "${videoData.videoTitle}", channel: "${videoData.channelName}", id: "${videoId}" });
@@ -1260,37 +1231,50 @@ frame.addEventListener('click', ()=> {
 </body>
 </html>`);
 });
+
 app.get('/sia-dl/:videoId', async (req, res) => {
     const videoId = req.params.videoId;
     const protocol = req.protocol;
     const host = req.get('host');
+
     try {
         const metadataUrl = `https://siawaseok.duckdns.org/api/video2/${videoId}?depth=1`;
         const metaResponse = await fetch(metadataUrl);
-        const data = metaResponse.ok ? await metaResponse.json() : {};
+        if (!metaResponse.ok) throw new Error('Metadata API response was not ok');
+        const data = await metaResponse.json();
 
-        let rawStreamUrl = "";
-        // ライブ中なら yt-dlp で m3u8 を取得
-        if (data.live_now || data.isLive) {
-            rawStreamUrl = await getM3U8(videoId);
-        }
-        // ライブでない、または取得失敗時は従来の360pを取得
-        if (!rawStreamUrl) {
-            const streamResponse = await fetch(`${protocol}://${host}/360/${videoId}`);
-            rawStreamUrl = streamResponse.ok ? await streamResponse.text() : "";
-        }
+        const streamInfoUrl = `${protocol}://${host}/360/${videoId}`;
+        const streamResponse = await fetch(streamInfoUrl);
+        const rawStreamUrl = streamResponse.ok ? await streamResponse.text() : "";
 
-        res.json({
+        const parseCount = (str) => {
+            if (!str) return 0;
+            return parseInt(str.replace(/[^0-9]/g, '')) || 0;
+        };
+
+        const formattedResponse = {
             stream_url: rawStreamUrl.trim(),
-            videoId: data.id || videoId,
+            highstreamUrl: rawStreamUrl.trim(), 
+            audioUrl: "", 
+            
+            videoId: data.id,
+            channelId: data.author?.id || "",
             channelName: data.author?.name || "",
             channelImage: data.author?.thumbnail || "",
-            videoTitle: data.title || "Video",
+            videoTitle: data.title,
             videoDes: data.description?.text || "",
-            videoViews: parseInt(String(data.views || 0).replace(/[^0-9]/g, '')) || 0,
-            likeCount: parseInt(String(data.likes || 0).replace(/[^0-9]/g, '')) || 0
-        });
-    } catch (error) { res.status(500).json({ error: 'Internal Error' }); }
+            
+            videoViews: parseCount(data.views || data.extended_stats?.views_original),
+            
+            likeCount: parseCount(data.likes)
+        };
+
+        res.json(formattedResponse);
+
+    } catch (error) {
+        console.error('Error fetching data:', error);
+        res.status(500).json({ error: 'Internal Server Error', message: error.message });
+    }
 });
 
 app.get('/ai-fetch/:videoId', async (req, res) => {
@@ -1477,9 +1461,6 @@ app.get("/games.json", (req, res) => {
 
 app.get("/easy", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "proxy/easy.html"));
-});
-app.get("/ram", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "app/rammer.html"));
 });
 
 app.get("/urls", (req, res) => {
@@ -2098,33 +2079,6 @@ app.get("/img/:videoId", (req, res) => {
 app.get("/abyss.png", (req, res) => {
   const filePath = path.join(__dirname, "img", "abyss.png");
   res.sendFile(filePath);
-});
-
-/**
- * PROXY_DIR/
- * ├── uv/ (sw.js, uv.bundle.js, etc.)
- * └── prxy/
- *     ├── baremux/ (index.js, worker.js, etc.)
- *     ├── epoxy/ (index.js, etc.)
- *     ├── libcurl/ (index.js, etc.)
- *     └── register-sw.mjs
- */
-app.use('/proxy', express.static(PROXY_DIR));
-app.use((req, res, next) => {
-    if (res.headersSent) return next();
-
-    const targetPath = path.join(PROXY_DIR, req.path);
-    const normalizedPath = path.normalize(targetPath);
-
-    if (!normalizedPath.startsWith(PROXY_DIR)) {
-        return next();
-    }
-
-    if (fs.existsSync(targetPath) && fs.lstatSync(targetPath).isFile()) {
-        return res.sendFile(targetPath);
-    }
-
-    next();
 });
 
 

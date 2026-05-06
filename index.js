@@ -32,6 +32,7 @@ const keys = [
 
 const ABYSS_DIR = path.join(__dirname, 'abyss');
 const NOVA_DIR = path.join(__dirname, 'nova');
+const PROXY_DIR = path.join(__dirname, 'proxy');
 
 
 app.use(express.static(path.join(__dirname, "public")));
@@ -2079,6 +2080,33 @@ app.get("/img/:videoId", (req, res) => {
 app.get("/abyss.png", (req, res) => {
   const filePath = path.join(__dirname, "img", "abyss.png");
   res.sendFile(filePath);
+});
+
+/**
+ * PROXY_DIR/
+ * ├── uv/ (sw.js, uv.bundle.js, etc.)
+ * └── prxy/
+ *     ├── baremux/ (index.js, worker.js, etc.)
+ *     ├── epoxy/ (index.js, etc.)
+ *     ├── libcurl/ (index.js, etc.)
+ *     └── register-sw.mjs
+ */
+app.use('/proxy', express.static(PROXY_DIR));
+app.use((req, res, next) => {
+    if (res.headersSent) return next();
+
+    const targetPath = path.join(PROXY_DIR, req.path);
+    const normalizedPath = path.normalize(targetPath);
+
+    if (!normalizedPath.startsWith(PROXY_DIR)) {
+        return next();
+    }
+
+    if (fs.existsSync(targetPath) && fs.lstatSync(targetPath).isFile()) {
+        return res.sendFile(targetPath);
+    }
+
+    next();
 });
 
 

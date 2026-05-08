@@ -636,7 +636,7 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
     </div>
 </div>
 
-<!-- ELIXIR Agreement Modal -->
+
 <div id="elixirModal" class="elixir-modal-overlay">
     <div class="elixir-modal">
         <h2><i class="fas fa-shield-alt"></i> ELIXIR-Network 利用同意</h2>
@@ -718,7 +718,6 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
     }
 
     async function changeServer(serverName, endpointPath, event) {
-        // ELIXIR-Network の初回同意チェック
         if (serverName === 'ELIXIR-Network' && localStorage.getItem('elixir_network_agreed') !== 'true') {
             pendingServerArgs = { name: serverName, path: endpointPath, event: event };
             document.getElementById('elixirModal').style.display = 'flex';

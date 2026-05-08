@@ -690,7 +690,7 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
             if (isIframe) {
                 playerHtml = \`<iframe id="mainIframe" src="\${newUrl}" frameborder="0" allowfullscreen style="width:100%; height:100%; position:relative; z-index:10;"></iframe>\`;
             } else {
-                playerHtml = \`<video id="mainPlayer" controls autoplay style="width:100%; height:100%; position:relative; z-index:10; background:#000;"><source src="\${newUrl}" type="video/mp4"></video>\`;
+                playerHtml = \`<video id="mainPlayer" controls autoplay loop style="width:100%; height:100%; position:relative; z-index:10; background:#000;"><source src="\${newUrl}" type="video/mp4"></video>\`;
             }
             playerContainer.innerHTML = playerHtml;
             const newVideo = document.getElementById('mainPlayer');

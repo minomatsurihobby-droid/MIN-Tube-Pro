@@ -2058,6 +2058,15 @@ app.get("/img/:videoId", (req, res) => {
     });
 });
 
+app.get('/stream-network/:videoId', async (req, res) => {
+    const videoId = req.params.videoId;
+    const protocol = req.protocol; 
+
+    const responseText = `${protocol}/proxy/embed.html#https://www.youtube-nocookie.com/embed/${videoId}`;
+
+    res.send(responseText);
+});
+
 app.get("/abyss.png", (req, res) => {
   const filePath = path.join(__dirname, "img", "abyss.png");
   res.sendFile(filePath);

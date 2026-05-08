@@ -590,15 +590,6 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
                     </div>
                 </div>
             </div>
-            <!-- 既存のサーバーボタンのすぐ後ろに配置 -->
-<div class="server-dropdown-container" id="qualityDropdownContainer" style="display:none; margin-left:8px;">
-    <button class="btn-server" onclick="toggleQualityMenu()">
-        <i class="fas fa-high-definition"></i> 画質: <span id="currentQualityText">360p</span> <i class="fas fa-chevron-down" style="font-size: 10px; margin-left:4px;"></i>
-    </button>
-    <div id="qualityMenu" class="server-menu">
-        <!-- JSで動的に生成 -->
-    </div>
-</div>
             <div style="display:flex; gap:8px;"><button class="action-btn">👍 ${videoData.likeCount || 0}</button><button class="action-btn">共有</button></div>
         </div>
         <div class="description-box" id="descriptionBox" onclick="toggleDescription(event)">
@@ -658,127 +649,71 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
     }
     updateSubBtnUI();
 
-    // --- 追加する変数と関数 ---
-let availableQualities = {}; 
+    async function changeServer(serverName, endpointPath, event) {
+        // --- 修正箇所：サーバー名を localStorage に保存 ---
+        localStorage.setItem('playbackMode', serverName);
 
-function toggleQualityMenu() { 
-    document.getElementById('qualityMenu').classList.toggle('show'); 
-}
-
-// 画質を選択した時の処理
-function selectQuality(label, url) {
-    document.getElementById('qualityMenu').classList.remove('show');
-    document.getElementById('currentQualityText').textContent = label;
-    
-    const playerContainer = document.getElementById('playerWrapper');
-    const overlay = document.getElementById('videoLoadingOverlay');
-    overlay.classList.add('active');
-
-    // 動画を差し替え（音声なしラベルを表示）
-    playerContainer.innerHTML = `
-        <video id="mainPlayer" controls autoplay style="width:100%; height:100%; position:relative; z-index:10; background:#000;">
-            <source src="${url}" type="video/mp4">
-        </video>
-        <div id="noAudioLabel" style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.7); color:white; padding:4px 8px; border-radius:4px; font-size:12px; z-index:11; pointer-events:none; border:1px solid rgba(255,255,255,0.2);">
-            <i class="fas fa-volume-mute"></i> 映像のみ（音声なし）
-        </div>
-    `;
-    
-    const v = document.getElementById('mainPlayer');
-    v.load();
-    v.play().finally(() => overlay.classList.remove('active'));
-}
-
-// --- 既存の changeServer をアップデート ---
-async function changeServer(serverName, endpointPath, event) {
-    localStorage.setItem('playbackMode', serverName);
-
-    // Googlevideo以外の時は画質選択を隠す
-    const qContainer = document.getElementById('qualityDropdownContainer');
-    if (serverName === 'googlevideo') {
-        qContainer.style.display = 'inline-block';
-    } else {
-        qContainer.style.display = 'none';
-        document.getElementById('currentQualityText').textContent = '360p'; // リセット
-    }
-
-    document.getElementById('serverMenu').classList.remove('show');
-    const options = document.querySelectorAll('.server-option');
-    options.forEach(opt => opt.classList.remove('active'));
-    
-    if (event && event.currentTarget) {
-        event.currentTarget.classList.add('active');
-    }
-
-    const overlay = document.getElementById('videoLoadingOverlay');
-    overlay.classList.add('active');
-
-    try {
-        let newUrl = '';
-        if (serverName === 'googlevideo') {
-            newUrl = "${videoData.stream_url}" === "youtube-nocookie" ? `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1` : "${videoData.stream_url}";
-        } else if (serverName === 'Youtube-Pro') {
-            newUrl = endpointPath;
-        } else {
-            const res = await fetch(endpointPath);
-            if (!res.ok) throw new Error("サーバーエラー");
-            newUrl = await res.text();
-        }
-
-        const playerContainer = document.getElementById('playerWrapper');
-        const forceIframe = ['YoutubeEdu-Kahoot', 'YoutubeEdu-Scratch', 'Youtube-Pro', 'youtube-nocookie'].includes(serverName);
-        const isIframe = forceIframe || newUrl.includes('embed');
-
-        let playerHtml = '';
-        if (isIframe) {
-            playerHtml = `<iframe id="mainIframe" src="${newUrl}" frameborder="0" allowfullscreen style="width:100%; height:100%; position:relative; z-index:10;"></iframe>`;
-        } else {
-            playerHtml = `<video id="mainPlayer" controls autoplay style="width:100%; height:100%; position:relative; z-index:10; background:#000;"><source src="${newUrl}" type="video/mp4"></video>`;
-        }
-        playerContainer.innerHTML = playerHtml;
+        document.getElementById('serverMenu').classList.remove('show');
+        const options = document.querySelectorAll('.server-option');
+        options.forEach(opt => opt.classList.remove('active'));
         
-        const newVideo = document.getElementById('mainPlayer');
-        if (newVideo) { 
-            newVideo.load(); 
-            newVideo.play().catch(e => console.log("Auto")); 
-        }
-    } catch (error) { console.error(error); } finally { overlay.classList.remove('active'); }
-}
-
-// --- window.onload に画質リスト取得処理を追加 ---
-window.onload = () => {
-    loadRecommendations();
-
-    const savedMode = localStorage.getItem('playbackMode') || 'googlevideo';
-    const serverEndpoints = {
-        'googlevideo':        '',
-        'youtube-nocookie':   '/nocookie/${videoId}',
-        'DL-Pro':             '/360/${videoId}',
-        'YoutubeEdu-Kahoot':  '/kahoot-edu/${videoId}',
-        'YoutubeEdu-Scratch': '/scratch-edu/${videoId}',
-        'Youtube-Pro':        '/pro-stream/${videoId}'
-    };
-    const serverName = serverEndpoints.hasOwnProperty(savedMode) ? savedMode : 'googlevideo';
-    const endpointPath = serverEndpoints[serverName];
-
-    changeServer(serverName, endpointPath, null);
-
-    // --- 高画質リストの取得 (Googlevideo用) ---
-    fetch(`/rapid/${videoId}`).then(res => res.json()).then(data => {
-        if (data.qualities) {
-            availableQualities = data.qualities;
-            const menu = document.getElementById('qualityMenu');
-            let html = `<div class="server-option" onclick="location.reload()" style="border-bottom:1px solid #444;">360p (音声あり)</div>`;
-            
-            // 降順（高画質順）に並び替えて表示
-            const labels = Object.keys(availableQualities).sort((a, b) => parseInt(b) - parseInt(a));
-            labels.forEach(label => {
-                html += `<div class="server-option" onclick="selectQuality('${label}', '${availableQualities[label]}')">${label} (音声なし)</div>`;
+        // メニュー上の active 状態を同期
+        if (event && event.currentTarget) {
+            event.currentTarget.classList.add('active');
+        } else {
+            // 自動起動時などは文字列検索で active を付与
+            options.forEach(opt => {
+               if (opt.getAttribute('onclick').includes("'" + serverName + "'")) opt.classList.add('active');
             });
-            menu.innerHTML = html;
         }
-    }).catch(e => console.log("Quality Fetch Error"));
-};
+
+        const overlay = document.getElementById('videoLoadingOverlay');
+        overlay.classList.add('active');
+
+        try {
+            let newUrl = '';
+            if (serverName === 'googlevideo') {
+                newUrl = "${videoData.stream_url}" === "youtube-nocookie" ? \`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1\` : "${videoData.stream_url}";
+            } else if (serverName === 'Youtube-Pro') {
+                newUrl = endpointPath;
+            } else {
+                const res = await fetch(endpointPath);
+                if (!res.ok) throw new Error("サーバーエラー");
+                newUrl = await res.text();
+            }
+
+            const playerContainer = document.getElementById('playerWrapper');
+            const forceIframe = ['YoutubeEdu-Kahoot', 'YoutubeEdu-Scratch', 'Youtube-Pro', 'youtube-nocookie'].includes(serverName);
+            const isIframe = forceIframe || newUrl.includes('embed');
+
+            let playerHtml = '';
+            if (isIframe) {
+                playerHtml = \`<iframe id="mainIframe" src="\${newUrl}" frameborder="0" allowfullscreen style="width:100%; height:100%; position:relative; z-index:10;"></iframe>\`;
+            } else {
+                playerHtml = \`<video id="mainPlayer" controls autoplay style="width:100%; height:100%; position:relative; z-index:10; background:#000;"><source src="\${newUrl}" type="video/mp4"></video>\`;
+            }
+            playerContainer.innerHTML = playerHtml;
+            const newVideo = document.getElementById('mainPlayer');
+            if (newVideo) { 
+                newVideo.load(); 
+                newVideo.play().catch(e => console.log("Auto")); 
+
+                if (serverName === 'googlevideo' && !window.googlevideoReloaded) {
+                    window.googlevideoReloaded = true;
+                    setTimeout(() => {
+                        const vid = document.getElementById('mainPlayer');
+                        if (vid) {
+                            const currentTime = vid.currentTime;
+                            const isPlaying = !vid.paused;
+                            vid.load();
+                            vid.currentTime = currentTime;
+                            if (isPlaying) vid.play().catch(e => {});
+                        }
+                    }, 2000);
+                }
+            }
+        } catch (error) { console.error(error); } finally { overlay.classList.remove('active'); }
+    }
 
     async function loadRecommendations() {
         const params = new URLSearchParams({ title: "${videoData.videoTitle}", channel: "${videoData.channelName}", id: "${videoId}" });
@@ -904,10 +839,10 @@ app.get("/nothing/*", (req, res) => {
 app.post("/api/save-history", express.json(), (req, res) => {
   res.json({ success: true });
 });
-// app.get('/rapid/:id', ...) の中身を以下に置き換え
 app.get('/rapid/:id', async (req, res) => {
   const videoId = req.params.id;
   const selectedKey = keys[Math.floor(Math.random() * keys.length)];
+
   const url = `https://${RAPID_API_HOST}/dl?id=${videoId}`;
   const options = {
     method: 'GET',
@@ -926,27 +861,25 @@ app.get('/rapid/:id', async (req, res) => {
       return res.status(400).json({ error: "Failed to fetch video data" });
     }
 
-    // --- 映像のみ(adaptive)のURLを抽出 ---
-    const qualityMap = {};
-    if (data.adaptiveFormats) {
-      data.adaptiveFormats.forEach(f => {
-        if (f.mimeType.includes('video') && f.qualityLabel) {
-          // 既に同じ画質があれば無視、なければ追加
-          if (!qualityMap[f.qualityLabel]) qualityMap[f.qualityLabel] = f.url;
-        }
-      });
-    }
-
+    // --- 多分取得できないから消してもいい ---
     let channelImageUrl = data.channelThumbnail?.[0]?.url || data.author?.thumbnails?.[0]?.url;
+
+    // 2. アバターURLを作成
     if (!channelImageUrl) {
       const name = encodeURIComponent(data.channelTitle || 'Youtube Channel');
+      // UI Avatars を使用
       channelImageUrl = `https://ui-avatars.com/api/?name=${name}&background=random&color=fff&size=128`;
     }
 
+    const highResStream = data.adaptiveFormats?.find(f => f.qualityLabel === '1080p') || data.adaptiveFormats?.[0];
+    const audioStream = data.adaptiveFormats?.find(f => f.mimeType.includes('audio')) || data.adaptiveFormats?.[data.adaptiveFormats?.length - 1];
+
     const formattedResponse = {
       stream_url: data.formats?.[0]?.url || "",
-      qualities: qualityMap, // 追加：{"1080p": "...", "720p": "..."}
+      highstreamUrl: highResStream?.url || "",
+      audioUrl: audioStream?.url || "",
       videoId: data.id,
+      channelId: data.channelId,
       channelName: data.channelTitle,
       channelImage: channelImageUrl, 
       videoTitle: data.title,
@@ -956,11 +889,14 @@ app.get('/rapid/:id', async (req, res) => {
     };
 
     res.json(formattedResponse);
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+
 app.get('/streams', (req, res) => {
     const cacheData = Object.fromEntries(videoCache);
     res.json(cacheData);

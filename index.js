@@ -541,6 +541,22 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
         .video-loading-overlay.active { opacity: 1; pointer-events: auto; }
         .spinner { border: 4px solid rgba(255, 255, 255, 0.1); width: 50px; height: 50px; border-radius: 50%; border-top-color: var(--yt-red); animation: spin 1s ease-in-out infinite; margin-bottom: 16px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* ELIXIR Modal Styles */
+        .elixir-modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; display:none; align-items:center; justify-content:center; backdrop-filter: blur(8px); }
+        .elixir-modal { background: #1e1e1e; width: 90%; max-width: 600px; border-radius: 16px; border: 1px solid #333; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
+        .elixir-modal h2 { margin-top: 0; color: #fff; font-size: 22px; display: flex; align-items: center; gap: 10px; }
+        .elixir-modal h2 i { color: #00d4ff; }
+        .elixir-policy-box { height: 300px; overflow-y: auto; background: #121212; border-radius: 8px; padding: 16px; font-size: 13px; color: #ccc; line-height: 1.6; border: 1px solid #222; margin: 16px 0; }
+        .elixir-policy-box h3 { color: #fff; font-size: 15px; margin-top: 16px; }
+        .elixir-footer { display: flex; flex-direction: column; gap: 16px; }
+        .elixir-agree-label { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 14px; color: #fff; }
+        .elixir-agree-label input { width: 18px; height: 18px; margin-top: 2px; }
+        .elixir-btn-group { display: flex; justify-content: flex-end; gap: 12px; }
+        .btn-elixir-cancel { background: transparent; color: #aaa; border: none; cursor: pointer; font-weight: bold; }
+        .btn-elixir-confirm { background: #fff; color: #000; border: none; padding: 10px 24px; border-radius: 20px; font-weight: bold; cursor: pointer; transition: opacity 0.2s; }
+        .btn-elixir-confirm:disabled { opacity: 0.3; cursor: not-allowed; }
+
         @media (max-width: 1000px) { .container { flex-direction: column; padding: 0; } .sidebar { width: 100%; padding: 16px; box-sizing: border-box; } .player-container { border-radius: 0; } .main-content { padding: 16px; } }
     </style>
 </head>
@@ -587,6 +603,7 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
                         <div class="server-option" onclick="changeServer('YoutubeEdu-Kahoot', '/kahoot-edu/${videoId}', event)">YoutubeEdu-Kahoot</div>
                         <div class="server-option" onclick="changeServer('YoutubeEdu-Scratch', '/scratch-edu/${videoId}', event)">YoutubeEdu-Scratch</div>
                         <div class="server-option" onclick="changeServer('Youtube-Pro', '/pro-stream/${videoId}', event)">Youtube-Pro</div>
+                        <div class="server-option" style="color:#00d4ff;" onclick="changeServer('ELIXIR-Network', '/embed#https://www.youtube-nocookie.com/embed/${videoId}', event)">ELIXIR-Network</div>
                     </div>
                 </div>
             </div>
@@ -615,6 +632,42 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
                 Shorts
             </div>
             <div id="shortsGrid" class="shorts-grid"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ELIXIR Agreement Modal -->
+<div id="elixirModal" class="elixir-modal-overlay">
+    <div class="elixir-modal">
+        <h2><i class="fas fa-shield-alt"></i> ELIXIR-Network 利用同意</h2>
+        <div class="elixir-policy-box">
+            <p>ELIXIR-Network（以下「本サーバー」）を利用する前に、以下の法的通達および利用条件を注意深く読み、同意する必要があります。</p>
+            
+            <h3>1. 法律上の判断と法的ステータス</h3>
+            <p><strong>視聴の合法性:</strong> 日本の現行の著作権法および関連法規に基づき、インターネット上で公開されているコンテンツを、プロキシ、VPN、または本ネットワークのような最適化レイヤーを介して「視聴のみ」行う行為は合法です。本サーバーはコンテンツを複製して保持するものではなく、データ転送の最適化を目的とした動的エンドポイントを提供します。したがって、本サーバーを介したストリーミング視聴自体によってユーザーが逮捕または処罰される法的根拠はありません。</p>
+            
+            <h3>2. 禁止事項および刑事責任の所在</h3>
+            <p>ユーザーは以下の行為が刑事罰の対象となることを明確に認識し、これを行わないことを誓約するものとします。</p>
+            <ul>
+                <li><strong>違法アップロード物のダウンロード:</strong> 違法にアップロードされた有償の著作物（映画、アニメ、音楽等）であることを知りながら、本サーバーを介してローカルデバイスに保存（ダウンロード）する行為。これは著作権法違反となり、2年以下の懲役または200万円以下の罰金に処せられる可能性があります。</li>
+                <li><strong>再配布および公衆送信:</strong> 本サーバーを介して取得したデータを、他のサイトやプラットフォームへ転載、アップロード、または二次配信する行為。これは明白な著作権侵害であり、厳重な処罰の対象となります。</li>
+            </ul>
+
+            <h3>3. プラットフォーム規約に対する正当化</h3>
+            <p>本ネットワークは、YouTubeの利用規約を回避することを主目的としたものではありません。本サーバーの技術的役割は、パケットロスの低減、およびトラフィックの分散によるネットワーク負荷の最適化にあります。これはユーザーの通信環境におけるQoS（Quality of Service）の向上を目指すものであり、プラットフォームの提供するAPIおよび埋め込み機能を技術的に再構成した「高効率ネットワーク・プロキシ・ソリューション」として定義されます。コンテンツの改ざんや広告システムの意図的な破壊は行わず、あくまで通信プロトコルの透過的な変換を提供するものです。</p>
+
+            <h3>4. 免責事項</h3>
+            <p>本サーバーの利用により生じた直接的、間接的損害について、運営側は一切の責任を負いません。法的解釈は常に利用時点の最新の法令に基づき、ユーザー自身の責任において判断されるものとします。</p>
+        </div>
+        <div class="elixir-footer">
+            <label class="elixir-agree-label">
+                <input type="checkbox" id="elixirCheck" onchange="document.getElementById('confirmElixirBtn').disabled = !this.checked">
+                <span>上記の法的通達を理解し、自己責任においてELIXIR-Networkを利用することに同意します。</span>
+            </label>
+            <div class="elixir-btn-group">
+                <button class="btn-elixir-cancel" onclick="closeElixirModal()">キャンセル</button>
+                <button id="confirmElixirBtn" class="btn-elixir-confirm" disabled onclick="handleElixirAgreement()">同意して接続</button>
+            </div>
         </div>
     </div>
 </div>
@@ -649,21 +702,44 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
     }
     updateSubBtnUI();
 
-    async function changeServer(serverName, endpointPath, event) {
-        // --- 修正箇所：サーバー名を localStorage に保存 ---
-        localStorage.setItem('playbackMode', serverName);
+    let pendingServerArgs = null;
 
-        document.getElementById('serverMenu').classList.remove('show');
+    function closeElixirModal() {
+        document.getElementById('elixirModal').style.display = 'none';
+        pendingServerArgs = null;
+    }
+
+    function handleElixirAgreement() {
+        localStorage.setItem('elixir_network_agreed', 'true');
+        document.getElementById('elixirModal').style.display = 'none';
+        if (pendingServerArgs) {
+            executeChangeServer(pendingServerArgs.name, pendingServerArgs.path, pendingServerArgs.event);
+        }
+    }
+
+    async function changeServer(serverName, endpointPath, event) {
+        // ELIXIR-Network の初回同意チェック
+        if (serverName === 'ELIXIR-Network' && localStorage.getItem('elixir_network_agreed') !== 'true') {
+            pendingServerArgs = { name: serverName, path: endpointPath, event: event };
+            document.getElementById('elixirModal').style.display = 'flex';
+            return;
+        }
+        executeChangeServer(serverName, endpointPath, event);
+    }
+
+    async function executeChangeServer(serverName, endpointPath, event) {
+        localStorage.setItem('playbackMode', serverName);
+        const menu = document.getElementById('serverMenu');
+        if(menu) menu.classList.remove('show');
+        
         const options = document.querySelectorAll('.server-option');
         options.forEach(opt => opt.classList.remove('active'));
         
-        // メニュー上の active 状態を同期
         if (event && event.currentTarget) {
             event.currentTarget.classList.add('active');
         } else {
-            // 自動起動時などは文字列検索で active を付与
             options.forEach(opt => {
-               if (opt.getAttribute('onclick').includes("'" + serverName + "'")) opt.classList.add('active');
+               if (opt.getAttribute('onclick') && opt.getAttribute('onclick').includes("'" + serverName + "'")) opt.classList.add('active');
             });
         }
 
@@ -676,6 +752,9 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
                 newUrl = "${videoData.stream_url}" === "youtube-nocookie" ? \`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1\` : "${videoData.stream_url}";
             } else if (serverName === 'Youtube-Pro') {
                 newUrl = endpointPath;
+            } else if (serverName === 'ELIXIR-Network') {
+                // /embed#URL の形式を解析
+                newUrl = endpointPath.split('#')[1];
             } else {
                 const res = await fetch(endpointPath);
                 if (!res.ok) throw new Error("サーバーエラー");
@@ -683,7 +762,7 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
             }
 
             const playerContainer = document.getElementById('playerWrapper');
-            const forceIframe = ['YoutubeEdu-Kahoot', 'YoutubeEdu-Scratch', 'Youtube-Pro', 'youtube-nocookie'].includes(serverName);
+            const forceIframe = ['YoutubeEdu-Kahoot', 'YoutubeEdu-Scratch', 'Youtube-Pro', 'youtube-nocookie', 'ELIXIR-Network'].includes(serverName);
             const isIframe = forceIframe || newUrl.includes('embed');
 
             let playerHtml = '';
@@ -749,7 +828,6 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
     window.onload = () => {
         loadRecommendations();
 
-        // --- 修正箇所：保存された再生方法を即座に反映 ---
         const savedMode = localStorage.getItem('playbackMode') || 'googlevideo';
         const serverEndpoints = {
             'googlevideo':        '',
@@ -757,13 +835,13 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
             'DL-Pro':             '/360/${videoId}',
             'YoutubeEdu-Kahoot':  '/kahoot-edu/${videoId}',
             'YoutubeEdu-Scratch': '/scratch-edu/${videoId}',
-            'Youtube-Pro':        '/pro-stream/${videoId}'
+            'Youtube-Pro':        '/pro-stream/${videoId}',
+            'ELIXIR-Network':     '/embed#https://www.youtube-nocookie.com/embed/${videoId}'
         };
         const serverName = serverEndpoints.hasOwnProperty(savedMode) ? savedMode : 'googlevideo';
         const endpointPath = serverEndpoints[serverName];
 
-        // 初期サーバー選択で起動
-        changeServer(serverName, endpointPath, null);
+        executeChangeServer(serverName, endpointPath, null);
     };
 
     const searchInput = document.getElementById('searchInput');

@@ -30,8 +30,6 @@ const keys = [
   process.env.RAPIDAPI_KEY_3 || '41c9265bc6msha0fa7dfc1a63eabp18bf7cjsne6ef10b79b38'
 ];
 
-const ABYSS_DIR = path.join(__dirname, 'abyss');
-const NOVA_DIR = path.join(__dirname, 'nova');
 const PROXY_DIR = path.join(__dirname, 'proxy');
 
 
@@ -94,28 +92,6 @@ app.use(async (req, res, next) => {
       }
     }
   }
-  next();
-});
-
-app.use('/abyss', express.static(ABYSS_DIR));
-app.use((req, res, next) => {
-  const expectedPath = path.join(ABYSS_DIR, req.path);
-
-  if (fs.existsSync(expectedPath) && fs.lstatSync(expectedPath).isFile()) {
-    return res.sendFile(expectedPath);
-  }
-  
-  next();
-});
-
-app.use('/nova', express.static(NOVA_DIR));
-app.use((req, res, next) => {
-  const expectedPath = path.join(NOVA_DIR, req.path);
-
-  if (fs.existsSync(expectedPath) && fs.lstatSync(expectedPath).isFile()) {
-    return res.sendFile(expectedPath);
-  }
-  
   next();
 });
 

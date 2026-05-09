@@ -586,6 +586,7 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
                         <div class="server-option" onclick="changeServer('YoutubeEdu-Kahoot', '/kahoot-edu/${videoId}', event)">YoutubeEdu-Kahoot</div>
                         <div class="server-option" onclick="changeServer('YoutubeEdu-Scratch', '/scratch-edu/${videoId}', event)">YoutubeEdu-Scratch</div>
                         <div class="server-option" onclick="changeServer('Youtube-Pro', '/pro-stream/${videoId}', event)">Youtube-Pro</div>
+                        <div class="server-option" onclick="changeServer('Elixir-Network', '/stream-network/${videoId}', event)">Elixir-Network</div>
                     </div>
                 </div>
             </div>
@@ -682,7 +683,7 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
             }
 
             const playerContainer = document.getElementById('playerWrapper');
-            const forceIframe = ['YoutubeEdu-Kahoot', 'YoutubeEdu-Scratch', 'Youtube-Pro', 'youtube-nocookie'].includes(serverName);
+            const forceIframe = ['YoutubeEdu-Kahoot', 'YoutubeEdu-Scratch', 'Youtube-Pro', 'youtube-nocookie', 'Elixir-Network'].includes(serverName);
             const isIframe = forceIframe || newUrl.includes('embed');
 
             let playerHtml = '';
@@ -756,7 +757,8 @@ const streamEmbedPlaceholder = `<div style="width:100%;height:100%;display:flex;
             'DL-Pro':             '/360/${videoId}',
             'YoutubeEdu-Kahoot':  '/kahoot-edu/${videoId}',
             'YoutubeEdu-Scratch': '/scratch-edu/${videoId}',
-            'Youtube-Pro':        '/pro-stream/${videoId}'
+            'Youtube-Pro':        '/pro-stream/${videoId}',
+            'Elixir-Network': '/elixir-stream/${videoId}'
         };
         const serverName = serverEndpoints.hasOwnProperty(savedMode) ? savedMode : 'googlevideo';
         const endpointPath = serverEndpoints[serverName];

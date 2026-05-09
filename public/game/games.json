@@ -14,6 +14,21 @@
     "status": "done"
   },
   {
+    "key": "Minecraft",
+    "name": "Minecraft",
+    "emoji": "",
+    "sub": "ストラテジー · 1人プレイ",
+    "file": "fun/minecraft.html",
+     "image": "img/minecraft.jpeg",
+    "desc": "本物のマイクラができます、偽物ではありません",
+    "genre": "action",
+    "genreLabel": "アクション",
+    "players": "1人プレイ",
+    "tags": ["アクション"],
+    "isNew": false,
+    "status": "done"
+  },
+  {
     "key": "brick-breaker",
     "name": "Brick Breaker",
     "emoji": "🧱",

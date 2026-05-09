@@ -1461,13 +1461,13 @@ app.get("/k-tube", (req, res) => {
 });
 
 
-// --- チャンネル動画API ---
 app.get("/api/channel", async (req, res) => {
   const channelName = req.query.name || req.query.id;
   const page = parseInt(req.query.page) || 0;
   if (!channelName) return res.status(400).json({ error: "name required" });
   try {
-    const results = await yts.GetListByKeyword(channelName, false, 30, page);
+    // 取得件数を20に設定
+    const results = await yts.GetListByKeyword(channelName, false, 20, page);
     const videos = (results.items || []).filter(item => item.type === 'video');
     res.json({ channelName, videos, nextPage: page + 1 });
   } catch (err) {
@@ -1812,174 +1812,129 @@ app.get("/channel/:channelName", (req, res) => {
 
 <script>
   const CHANNEL_NAME = ${JSON.stringify(channelName)};
-  const AVATAR_INITIAL = ${JSON.stringify(initial)};
+  const initial = ${JSON.stringify(initial)};
   let currentPage = 0;
   let isLoading = false;
+  let isEnd = false;
   let totalLoaded = 0;
-  let isSubscribed = false;
 
-  // ローカルストレージでチャンネル登録状態を管理
+  // 既存：チャンネル登録管理
   const SUB_KEY = 'subscribed_' + CHANNEL_NAME;
-  if (localStorage.getItem(SUB_KEY) === 'true') {
-    isSubscribed = true;
-    updateSubscribeUI();
-  }
-
-  function toggleSubscribe() {
-    isSubscribed = !isSubscribed;
-    localStorage.setItem(SUB_KEY, isSubscribed ? 'true' : 'false');
-    updateSubscribeUI();
-  }
-
   function updateSubscribeUI() {
+    const isSub = localStorage.getItem(SUB_KEY) === 'true';
     const btn = document.getElementById('subscribeBtn');
     const notifyBtn = document.getElementById('notifyBtn');
-    if (isSubscribed) {
+    if (isSub) {
       btn.textContent = '登録済み';
       btn.classList.add('subscribed');
-      notifyBtn.classList.add('show');
+      if(notifyBtn) notifyBtn.classList.add('show');
     } else {
       btn.textContent = 'チャンネル登録';
       btn.classList.remove('subscribed');
-      notifyBtn.classList.remove('show');
+      if(notifyBtn) notifyBtn.classList.remove('show');
     }
   }
+  function toggleSubscribe() {
+    localStorage.setItem(SUB_KEY, localStorage.getItem(SUB_KEY) !== 'true');
+    updateSubscribeUI();
+  }
 
+  // 既存：フォーマット関数
   function formatViews(v) {
     if (!v) return '';
-    const n = parseInt(String(v).replace(/[^0-9]/g, ''));
-    if (isNaN(n)) return v;
-    if (n >= 100000000) return Math.floor(n/100000000) + '億回視聴';
-    if (n >= 10000) return Math.floor(n/10000) + '万回視聴';
-    if (n >= 1000) return (n/1000).toFixed(1) + '千回視聴';
-    return n.toLocaleString() + '回視聴';
+    return v.replace('views', '回視聴').replace('ago', '前');
   }
-
   function formatSubscribers(n) {
     if (!n) return 'チャンネル';
-    if (typeof n === 'string' && n.includes('人')) return n;
-    const num = parseInt(String(n).replace(/[^0-9]/g, ''));
-    if (isNaN(num)) return n;
-    if (num >= 100000000) return (num/100000000).toFixed(1) + '億人';
-    if (num >= 10000) return Math.floor(num/10000) + '万人';
-    if (num >= 1000) return (num/1000).toFixed(1) + '千人';
-    return num.toLocaleString() + '人';
+    return n;
   }
 
-  // チャンネル情報を反映
-  function updateChannelMetadata(data) {
-    if (!data) return;
-    
-    // アバター
-    if (data.authorThumbnails && data.authorThumbnails.length > 0) {
-      const bestThumb = data.authorThumbnails.sort((a,b) => b.width - a.width)[0];
-      const img = document.getElementById('channelAvatarImg');
-      img.onload = () => {
-        img.classList.add('loaded');
-        document.getElementById('avatarInitial').style.display = 'none';
-      };
-      img.src = bestThumb.url.startsWith('//') ? 'https:' + bestThumb.url : bestThumb.url;
-    }
-
-    if (data.author) document.getElementById('channelTitle').textContent = data.author;
-    if (data.channelHandle) document.getElementById('channelHandle').textContent = data.channelHandle;
-    if (data.subCount) {
-      const subText = typeof data.subCount === 'number' ? formatSubscribers(data.subCount) : data.subCount;
-      document.getElementById('subCount').textContent = subText + '人のチャンネル登録者';
-    }
-    if (data.description) document.getElementById('channelDescription').textContent = data.description;
-    if (data.authorVerified) document.getElementById('verifiedBadge').classList.add('show');
-    if (data.videoCount !== undefined) document.getElementById('videoCountDisplay').textContent = '動画 ' + data.videoCount + ' 本';
-  }
-
+  // 動画描画
   function renderVideos(videos) {
     const grid = document.getElementById('videoGrid');
     if (videos.length === 0 && totalLoaded === 0) {
       grid.innerHTML = '<div class="empty">動画が見つかりませんでした</div>';
       return;
     }
-
     const html = videos.map(v => \`
       <a href="/video/\${v.id}" class="video-card">
         <div class="thumb">
-          <img src="https://i.ytimg.com/vi/\${v.id}/mqdefault.jpg" loading="lazy" alt="\${(v.title||'').replace(/"/g,'&quot;')}">
+          <img src="https://i.ytimg.com/vi/\${v.id}/mqdefault.jpg" loading="lazy">
           \${v.lengthText ? \`<div class="duration-badge">\${v.lengthText}</div>\` : ''}
         </div>
         <div class="card-meta">
-          <div class="card-ch-avatar">${initial}</div>
+          <div class="card-ch-avatar">\${initial}</div>
           <div class="card-info">
             <div class="video-title">\${v.title || ''}</div>
-            <div class="video-ch-name">${channelName}</div>
-            <div class="video-sub">\${formatViews(v.viewCountText) || ''}\${v.viewCountText && v.publishedTimeText ? ' • ' : ''}\${v.publishedTimeText || ''}</div>
+            <div class="video-ch-name">\${CHANNEL_NAME}</div>
+            <div class="video-sub">\${formatViews(v.viewCountText) || ''}</div>
           </div>
         </div>
       </a>
     \`).join('');
-
     grid.insertAdjacentHTML('beforeend', html);
     totalLoaded += videos.length;
-    
-    if (totalLoaded > 0 && !document.getElementById('videoCountDisplay').textContent) {
-        document.getElementById('videoCountDisplay').textContent = '動画 ' + totalLoaded + ' 本以上';
-    }
+    const countDisp = document.getElementById('videoCountDisplay');
+    if (countDisp) countDisp.textContent = '動画 ' + totalLoaded + ' 本';
   }
 
-  async function fetchChannelInfo() {
-    // 3秒でタイムアウトするfetch
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
-
-    try {
-      const res = await fetch(\`/api/inv/channel/\${encodeURIComponent(CHANNEL_NAME)}\`, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      const data = await res.json();
-      
-
-      const channelData = Array.isArray(data) ? data.find(c => c.type === 'channel') || data[0] : data;
-      if (channelData) {
-        updateChannelMetadata(channelData);
-        return true;
-      }
-    } catch (e) {
-      console.warn('API /api/inv/channel failed or timed out, falling back.', e);
-    }
-    return false;
-  }
-
-  async function loadVideos(page) {
-    if (isLoading) return;
+  // 動画取得コア関数
+  async function loadVideos() {
+    if (isLoading || isEnd) return;
     isLoading = true;
     document.getElementById('loading').style.display = 'flex';
-    document.getElementById('loadMoreBtn').style.display = 'none';
     
     try {
-      const res = await fetch(\`/api/channel?name=\${encodeURIComponent(CHANNEL_NAME)}&page=\${page}\`);
+      const res = await fetch(\`/api/channel?name=\${encodeURIComponent(CHANNEL_NAME)}&page=\${currentPage}\`);
       const data = await res.json();
-      renderVideos(data.videos || []);
-      currentPage = data.nextPage;
-      if ((data.videos || []).length >= 20) {
-        document.getElementById('loadMoreBtn').style.display = 'block';
+      if (!data.videos || data.videos.length === 0) {
+        isEnd = true;
+        document.getElementById('loading').innerHTML = '<p style="color:var(--text-sub);padding:20px;">すべての動画を読み込みました</p>';
+      } else {
+        renderVideos(data.videos);
+        currentPage = data.nextPage;
       }
     } catch (e) {
-      if (totalLoaded === 0) {
-        document.getElementById('videoGrid').innerHTML = '<div class="empty">動画の読み込みに失敗しました</div>';
-      }
+      isEnd = true;
     } finally {
-      document.getElementById('loading').style.display = 'none';
       isLoading = false;
+      if (!isEnd) document.getElementById('loading').style.display = 'none';
     }
   }
 
-  function loadMore() { loadVideos(currentPage); }
-
-  // 初期化処理
-  async function init() {
-    // まずリッチなチャンネル情報を取得（失敗しても動画読み込みへ進む）
-    await fetchChannelInfo();
-    // 動画リストを読み込み
-    loadVideos(0);
+  // 追加：無限スクロール監視 (Intersection Observer)
+  function initInfiniteScroll() {
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) loadVideos();
+    }, { rootMargin: '400px' });
+    observer.observe(document.getElementById('loading'));
   }
 
+  // 既存：チャンネル情報取得
+  async function fetchChannelInfo() {
+    try {
+      const res = await fetch(\`/api/inv/channel/\${encodeURIComponent(CHANNEL_NAME)}\`);
+      const data = await res.json();
+      const c = Array.isArray(data) ? data[0] : data;
+      if (c) {
+        if (c.authorThumbnails?.length) {
+          const img = document.getElementById('channelAvatarImg');
+          img.src = c.authorThumbnails[c.authorThumbnails.length-1].url;
+          img.onload = () => { img.classList.add('loaded'); document.getElementById('avatarInitial').style.display='none'; };
+        }
+        if (c.description) document.getElementById('channelDescription').textContent = c.description;
+        if (c.subCount) document.getElementById('subCount').textContent = c.subCount + ' 人の登録者';
+      }
+    } catch(e) {}
+  }
+
+  // 初期化
+  async function init() {
+    updateSubscribeUI();
+    await fetchChannelInfo();
+    await loadVideos(); // 初回20件
+    initInfiniteScroll(); // 以降自動
+  }
   init();
 </script>
 </body>

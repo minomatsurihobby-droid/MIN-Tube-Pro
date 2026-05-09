@@ -275,7 +275,6 @@ console.log(commentsData)
     const isShortForm = videoData.videoTitle.includes('#');
 
     if (isShortForm) {
-      // --- SHORTS MODE HTML ---
 const shortsHtml = `
 <!DOCTYPE html>
 <html lang="ja">

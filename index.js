@@ -1431,6 +1431,9 @@ app.get("/use-api", (req, res) => {
 app.get("/version", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "raw/version.json"));
 });
+app.get("/ai", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "app/aibot.html"));
+});
 
 app.get("/games.json", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "game/game.json"));

@@ -2017,11 +2017,13 @@ app.get("/img/:videoId", (req, res) => {
     });
 });
 
-app.get('/stream-network/:videoId', async (req, res) => {
-    const videoId = req.params.videoId;
-    const protocol = req.protocol; 
+app.get('/stream-network/:videoId', (req, res) => {
 
-    const responseText = `${protocol}/proxy/embed.html#https://www.youtube-nocookie.com/embed/${videoId}`;
+    const videoId = req.params.videoId;
+
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+
+    const responseText = `${baseUrl}/proxy/embed.html#https://www.youtube-nocookie.com/embed/${videoId}`;
 
     res.send(responseText);
 });

@@ -197,44 +197,102 @@
 
     /* Settings panel */
     .settings-wrapper { position: relative; }
-    .settings-panel {
-      position: absolute; top: calc(100% + 8px); right: 0;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 8px 0;
-      min-width: 220px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-      z-index: 2000;
-      display: none;
-      flex-direction: column;
-    }
-    .settings-panel.open { display: flex; }
-    .settings-panel-title {
-      font-size: 11px; font-weight: 700; color: var(--text-muted);
-      letter-spacing: 0.8px; text-transform: uppercase;
-      padding: 8px 16px 4px;
-    }
-    .theme-radio-label {
-      display: flex; align-items: center; gap: 12px;
-      cursor: pointer; font-size: 14px; color: var(--text);
-      padding: 10px 16px; transition: background 0.1s;
-    }
-    .theme-radio-label:hover { background: rgba(255,255,255,0.08); }
-    body.light-mode .theme-radio-label:hover { background: rgba(0,0,0,0.05); }
-    .theme-radio-label input { accent-color: var(--accent); width: 16px; height: 16px; }
-    .theme-radio-label.selected { background: rgba(255,255,255,0.06); }
-    body.light-mode .theme-radio-label.selected { background: rgba(0,0,0,0.04); }
-    .settings-divider { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
-    .settings-select-group { padding: 8px 16px; display: flex; flex-direction: column; gap: 6px; }
-    .settings-select-label { font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px; text-transform: uppercase; }
-    .settings-select {
-      background: var(--bg); color: var(--text); border: 1px solid var(--border);
-      border-radius: 4px; padding: 6px 8px; font-size: 13px; cursor: pointer; outline: none;
-      appearance: none; width: 100%;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-      background-repeat: no-repeat; background-position: right 8px center; padding-right: 24px;
-    }
+  /* --- 設定パネルの洗練されたデザイン --- */
+.settings-panel {
+    position: fixed;
+    top: 0;
+    right: -100%;
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    z-index: 9999;
+    transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+    color: var(--text);
+}
+.settings-panel.open { right: 0; }
+
+.settings-header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+}
+.close-settings {
+    background: none; border: none; color: var(--text);
+    font-size: 24px; cursor: pointer; margin-right: 20px;
+    display: flex; align-items: center;
+}
+
+.settings-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    max-width: 600px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.settings-group {
+    background: var(--surface);
+    border-radius: 16px;
+    margin-bottom: 24px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.setting-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s;
+}
+.setting-item:last-child { border-bottom: none; }
+.setting-item:hover { background: rgba(255,255,255,0.02); }
+
+.setting-label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.setting-title { font-size: 16px; font-weight: 500; }
+.setting-desc { font-size: 12px; color: var(--text-muted); }
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 46px;
+    height: 26px;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+    position: absolute; cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #333;
+    transition: .4s; border-radius: 34px;
+}
+.slider:before {
+    position: absolute; content: "";
+    height: 20px; width: 20px;
+    left: 3px; bottom: 3px;
+    background-color: white;
+    transition: .4s; border-radius: 50%;
+}
+input:checked + .slider { background-color: var(--red); }
+input:checked + .slider:before { transform: translateX(20px); }
+
+.modern-select {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    border-radius: 10px;
+    outline: none;
+    font-size: 14px;
+}
     .playback-hint { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
 
     /* ===== SIDEBAR ===== */
@@ -778,45 +836,58 @@
     </div>
 
     <div class="header-right">
-      <div class="settings-wrapper">
-        <button class="icon-btn" id="settingsBtn" title="設定" aria-label="設定">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
-        </button>
-        <div class="settings-panel" id="settingsPanel">
-          <div class="settings-panel-title">外観</div>
-          <label class="theme-radio-label" id="darkLabel">
-            <input type="radio" name="themeMode" id="themeDark" value="dark" checked>
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
-            ダークモード
-          </label>
-          <label class="theme-radio-label" id="lightLabel">
-            <input type="radio" name="themeMode" id="themeLight" value="light">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/></svg>
-            ライトモード
-          </label>
-          <hr class="settings-divider">
-          <div class="settings-select-group">
-            <div class="settings-select-label">🎬 再生方法</div>
-            <select id="playbackMode" class="settings-select">
-              <option value="googlevideo">Googlevideo（デフォルト）</option>
-              <option value="youtube-nocookie">Youtube-nocookie</option>
-              <option value="DL-Pro">DL-Pro</option>
-              <option value="YoutubeEdu-Kahoot">YoutubeEdu-Kahoot</option>
-              <option value="YoutubeEdu-Scratch">YoutubeEdu-Scratch</option>
-              <option value="Youtube-Pro">Youtube-Pro</option>
-            </select>
-            <div class="playback-hint" id="playbackHint">Googlevideoのストリームで再生します。</div>
-          </div>
-          <hr class="settings-divider">
-          <div class="settings-select-group">
-            <div class="settings-select-label">🖼️ サムネイルサーバー</div>
-            <select id="thumbServer" class="settings-select">
-              <option value="default">デフォルト (YouTube)</option>
-              <option value="custom">カスタムサーバー (/img/)</option>
-            </select>
-          </div>
+      <div class="settings-panel" id="settingsPanel">
+  <div class="settings-header">
+    <button class="close-settings" id="closeSettingsBtn">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    </button>
+    <div style="font-size: 18px; font-weight: 700;">設定</div>
+  </div>
+
+  <div class="settings-body">
+    <div class="settings-panel-title" style="margin-bottom:12px; font-size:13px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">表示・外観</div>
+    <div class="settings-group">
+      <div class="setting-item">
+        <div class="setting-label">
+          <span class="setting-title">ダークテーマ</span>
+          <span class="setting-desc">画面の配色を暗くします</span>
         </div>
+        <label class="switch">
+          <input type="checkbox" id="themeToggle">
+          <span class="slider"></span>
+        </label>
       </div>
+      <div class="setting-item">
+        <div class="setting-label">
+          <span class="setting-title">Google偽装 (ステルス)</span>
+          <span class="setting-desc">タブ名とアイコンをGoogleに変えます</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="stealthToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="settings-panel-title" style="margin-bottom:12px; font-size:13px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">再生設定</div>
+    <div class="settings-group">
+      <div class="setting-item">
+        <div class="setting-label">
+          <span class="setting-title">デフォルトサーバー</span>
+          <span class="setting-desc">動画再生時に優先する接続先</span>
+        </div>
+        <select id="globalPlaybackMode" class="modern-select">
+          <option value="googlevideo">Googlevideo</option>
+          <option value="youtube-nocookie">Youtube-nocookie</option>
+          <option value="DL-Pro">DL-Pro</option>
+          <option value="YoutubeEdu-Kahoot">YoutubeEdu-Kahoot</option>
+          <option value="YoutubeEdu-Scratch">YoutubeEdu-Scratch</option>
+          <option value="Youtube-Pro">Youtube-Pro</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
 
       <div id="appVersion" class="version-badge"><span class="version-badge-text"></span></div>
 
@@ -1765,7 +1836,61 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       a.download = `playlist_${pl.name.replace(/\s+/g,'_')}.json`;
       a.click();
     }
+// --- 設定パネル制御 ---
+const settingsPanel = document.getElementById('settingsPanel');
+const openSettings = document.getElementById('settingsBtn'); // 元のギアアイコン
+const closeSettings = document.getElementById('closeSettingsBtn');
 
+openSettings.onclick = () => settingsPanel.classList.add('open');
+closeSettings.onclick = () => settingsPanel.classList.remove('open');
+
+// --- Google偽装 (ステルスモード) ---
+const stealthToggle = document.getElementById('stealthToggle');
+function updateStealthUI(enabled) {
+    if (enabled) {
+        document.title = "Google";
+        let link = document.querySelector("link[rel~='icon']") || document.createElement('link');
+        link.rel = 'icon';
+        link.href = 'https://www.google.com/favicon.ico';
+        document.getElementsByTagName('head')[0].appendChild(link);
+    } else {
+        document.title = "YouTube Pro";
+        let link = document.querySelector("link[rel~='icon']");
+        if (link) link.href = "/min-img.png";
+    }
+}
+
+stealthToggle.onchange = (e) => {
+    localStorage.setItem('stealthMode', e.target.checked);
+    updateStealthUI(e.target.checked);
+};
+
+// --- テーマ切り替え ---
+const themeToggle = document.getElementById('themeToggle');
+themeToggle.onchange = (e) => {
+    const isLight = !e.target.checked; // ONでダーク、OFFでライト
+    applyTheme(isLight); // 既存のテーマ適用関数を呼び出す
+};
+
+// --- 再生サーバー ---
+const globalPlayback = document.getElementById('globalPlaybackMode');
+globalPlayback.onchange = (e) => {
+    localStorage.setItem('playbackMode', e.target.value);
+    showToast(`デフォルトサーバーを ${e.target.value} に変更しました`);
+};
+
+// --- ページ読み込み時の初期化 ---
+window.addEventListener('DOMContentLoaded', () => {
+    const isStealth = localStorage.getItem('stealthMode') === 'true';
+    stealthToggle.checked = isStealth;
+    updateStealthUI(isStealth);
+
+    const currentTheme = localStorage.getItem('theme') || 'dark';
+    themeToggle.checked = (currentTheme === 'dark');
+
+    const currentServer = localStorage.getItem('playbackMode') || 'googlevideo';
+    globalPlayback.value = currentServer;
+});
     // --- Toast ---
     let _toastTimer;
     function showToast(msg) {

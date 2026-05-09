@@ -1,4 +1,7 @@
-
+# ver1.4.1
+課金版のclaudeが使えるように変更<br>
+portable版のマイクラを追加<br>
+shortの視聴を埋め込みで可能に変更、これによってショートの閲覧ができます
 # ver1.4.0
 Elixir-Networkと統合。
 # Elixir-Networkについて

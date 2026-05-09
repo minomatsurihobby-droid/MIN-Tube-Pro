@@ -1388,6 +1388,10 @@ app.get("/unblockers", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "app/search.html"));
 });
 
+app.get("/settings", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "app/settings.html"));
+});
+
 app.get("/labo5", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "app/html-tube.html"));
 });

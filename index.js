@@ -2020,13 +2020,15 @@ app.get("/img/:videoId", (req, res) => {
 });
 
 app.get('/stream-network/:videoId', (req, res) => {
-
     const videoId = req.params.videoId;
-
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-
+    
+    const host = req.get('host');
+    
+    // 強制的にhttpsURLスキームを返すためhttpしか対応していないとエラーを返します。。
+    const baseUrl = `https://${host}`;
+    
     const responseText = `${baseUrl}/proxy/embed.html#https://www.youtube-nocookie.com/embed/${videoId}`;
-
+    
     res.send(responseText);
 });
 

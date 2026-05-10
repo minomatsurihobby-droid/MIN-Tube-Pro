@@ -21,463 +21,824 @@
 <meta property="og:title" content="MIN-Tube-Pro" />
 <meta property="og:description" content="アプリランチャー — すばやく、快適に" />
 <meta property="og:image" content="/img/min-tube-pro.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+
 <style>
-  :root{
-    --bg1:#0f1724;
-    --bg2:#071029;
-    --accent:#00d4ff;
-    --glass: rgba(255,255,255,0.06);
-    --card: rgba(255,255,255,0.03);
-    --glass-border: rgba(255,255,255,0.08);
-    --radius:14px;
-    --glass-blur:10px;
-    --text:#e6f7ff;
-    --muted:#9fb7c9;
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0;font-family:Inter, "Noto Sans JP", system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;background:linear-gradient(135deg,var(--bg1),var(--bg2));color:var(--text);-webkit-font-smoothing:antialiased}
-  .wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:48px 20px;gap:28px}
-  .hero{
-    width:100%;max-width:1100px;display:flex;align-items:center;justify-content:space-between;gap:20px;
-    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-    border-radius:var(--radius);padding:22px;border:1px solid var(--glass-border);backdrop-filter: blur(var(--glass-blur));
-    box-shadow: 0 8px 30px rgba(2,6,23,0.6);
-  }
-  .hero-left{display:flex;flex-direction:column;gap:8px}
-  .brand{display:flex;align-items:center;gap:14px}
-  .logo-img{width:64px;height:64px;border-radius:12px;object-fit:cover;box-shadow:0 6px 18px rgba(0,0,0,0.5);background:linear-gradient(135deg,#00d4ff,#6a00ff)}
-  .title{font-size:20px;font-weight:700;letter-spacing:0.2px}
-  .subtitle{color:var(--muted);font-size:13px}
-  .welcome{margin-top:6px;font-size:18px;font-weight:600;color:var(--accent);display:flex;align-items:center;gap:12px}
-  .welcome .spark{width:10px;height:10px;border-radius:50%;background:linear-gradient(90deg,#fff,#00d4ff);box-shadow:0 0 18px #00d4ff;animation: pulse 2s infinite}
-  @keyframes pulse{0%{transform:scale(0.9);opacity:0.8}50%{transform:scale(1.2);opacity:1}100%{transform:scale(0.9);opacity:0.8}}
-  .typewriter{font-family:monospace;background:linear-gradient(90deg,var(--accent),#9bfffe);-webkit-background-clip:text;background-clip:text;color:transparent}
-  .hero-right{position:relative;width:220px;height:80px;display:flex;align-items:center;justify-content:center}
-  .orb{position:absolute;border-radius:50%;filter:blur(28px);opacity:0.18}
-  .orb.a{width:160px;height:160px;background:linear-gradient(90deg,#00d4ff,#6a00ff);left:-20px;top:-40px;animation: floatA 8s ease-in-out infinite}
-  .orb.b{width:120px;height:120px;background:linear-gradient(90deg,#ff7ab6,#ffd36a);right:-10px;bottom:-20px;animation: floatB 10s ease-in-out infinite}
-  @keyframes floatA{0%{transform:translateY(0)}50%{transform:translateY(-12px)}100%{transform:translateY(0)}}
-  @keyframes floatB{0%{transform:translateY(0)}50%{transform:translateY(10px)}100%{transform:translateY(0)}}
-  .grid{width:100%;max-width:1100px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
-  .card{
-    background:var(--card);border-radius:12px;padding:16px;border:1px solid var(--glass-border);cursor:pointer;transition:transform .18s ease, box-shadow .18s ease;
-    display:flex;flex-direction:column;gap:10px;min-height:120px;
-  }
-  .card:hover{transform:translateY(-8px);box-shadow:0 18px 40px rgba(2,6,23,0.6)}
-  .card .row{display:flex;align-items:center;gap:12px}
-  .icon{width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02));display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:inset 0 -6px 18px rgba(0,0,0,0.25)}
-
-  .app-title{font-weight:700;font-size:15px;display:flex;align-items:center;gap:6px}
-  .status-dot{
-    display:inline-block;
-    width:9px;height:9px;
-    border-radius:50%;
-    flex-shrink:0;
-    position:relative;
-    top:0px;
-  }
-  .status-dot.done{
-    background:#22c55e;
-    box-shadow:0 0 6px rgba(34,197,94,0.7);
-  }
-  .status-dot.done::after{
-    content:'';position:absolute;inset:0;border-radius:50%;
-    background:#22c55e;opacity:0.4;
-    animation:ping 2s ease-in-out infinite;
-  }
-  .status-dot.wip{
-    background:#ef4444;
-    box-shadow:0 0 6px rgba(239,68,68,0.6);
-  }
-  @keyframes ping{
-    0%{transform:scale(1);opacity:0.6}
-    70%{transform:scale(2.2);opacity:0}
-    100%{transform:scale(2.2);opacity:0}
-  }
-  .app-title-wrap{position:relative;display:inline-flex;align-items:center;gap:6px}
-  .app-title-wrap .tooltip{
-    display:none;position:absolute;top:-26px;left:0;
-    font-size:11px;font-weight:400;color:#fff;
-    background:rgba(0,0,0,0.7);padding:3px 8px;border-radius:6px;white-space:nowrap;pointer-events:none;
-  }
-  .app-title-wrap:hover .tooltip{display:block}
-  .app-desc{color:var(--muted);font-size:13px;line-height:1.35}
-  .endpoint{font-family:monospace;font-size:12px;color:#bfefff;background:rgba(0,0,0,0.12);padding:6px 8px;border-radius:8px;display:inline-block}
-  .badge{margin-left:auto;font-size:12px;color:var(--muted)}
-  .footer{max-width:1100px;color:var(--muted);font-size:13px;text-align:center;padding:8px 12px;border-radius:10px}
-  .legend{display:flex;align-items:center;gap:16px;font-size:12px;color:var(--muted)}
-  .legend-item{display:flex;align-items:center;gap:5px}
-  .legend-dot{width:9px;height:9px;border-radius:50%}
-  .legend-dot.done{background:#22c55e}
-  .legend-dot.wip{background:#ef4444}
-  @media (max-width:640px){
-    .hero{flex-direction:column;align-items:flex-start}
-    .hero-right{width:100%;height:60px}
+  :root {
+    --bg1: #080e1a;
+    --bg2: #04091a;
+    --accent: #00d4ff;
+    --accent2: #7b61ff;
+    --accent3: #ff6fd8;
+    --glass: rgba(255,255,255,0.055);
+    --glass-hover: rgba(255,255,255,0.09);
+    --card: rgba(10,20,45,0.7);
+    --card-hover: rgba(14,28,60,0.85);
+    --glass-border: rgba(255,255,255,0.09);
+    --glass-border-hover: rgba(0,212,255,0.35);
+    --radius: 18px;
+    --radius-sm: 10px;
+    --glass-blur: 16px;
+    --text: #dff0f8;
+    --text-strong: #ffffff;
+    --muted: #7a9eb5;
+    --muted2: #5a7d96;
+    --green: #22c55e;
+    --red: #f43f5e;
+    --shadow-card: 0 4px 24px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.04) inset;
+    --shadow-hover: 0 16px 48px rgba(0,212,255,0.12), 0 4px 16px rgba(0,0,0,0.6);
   }
 
-  /* ── Safe-area (ノッチ/ホームバー対応) ── */
-  .wrap{
-    padding-top: calc(48px + env(safe-area-inset-top));
-    padding-bottom: calc(60px + env(safe-area-inset-bottom));
-    padding-left: calc(20px + env(safe-area-inset-left));
-    padding-right: calc(20px + env(safe-area-inset-right));
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    font-family: 'Syne', 'Noto Sans JP', system-ui, -apple-system, 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+    background: var(--bg2);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
 
+  /* ── Background mesh ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 10% -10%, rgba(0,212,255,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 90% 110%, rgba(123,97,255,0.08) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 40% at 50% 50%, rgba(255,111,216,0.03) 0%, transparent 70%),
+      linear-gradient(160deg, #080e1a 0%, #04091a 60%, #060c1e 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Grid noise texture ── */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpath d='M0 0h60v60H0z' fill='none'/%3E%3Cpath d='M0 0h1v1H0z' fill='rgba(255,255,255,0.012)'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: calc(44px + env(safe-area-inset-top)) calc(24px + env(safe-area-inset-right)) calc(64px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
+    gap: 32px;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    background: linear-gradient(135deg, rgba(0,212,255,0.04), rgba(123,97,255,0.03));
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(var(--glass-blur));
+    box-shadow: var(--shadow-card), 0 0 0 1px rgba(0,212,255,0.04) inset;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.4), rgba(123,97,255,0.3), transparent);
+  }
+
+  .hero-left { display: flex; flex-direction: column; gap: 14px; }
+
+  .brand { display: flex; align-items: center; gap: 18px; }
+
+  .logo-img {
+    width: 68px;
+    height: 68px;
+    border-radius: 16px;
+    object-fit: cover;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,212,255,0.2);
+    background: linear-gradient(135deg, #00d4ff, #7b61ff);
+    flex-shrink: 0;
+  }
+
+  .brand-text { display: flex; flex-direction: column; gap: 4px; }
+
+  .title {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-strong);
+    letter-spacing: -0.3px;
+    line-height: 1;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 0.2px;
+  }
+
+  .welcome {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent);
+    min-height: 22px;
+  }
+
+  .spark {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent), 0 0 4px var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(0.85); opacity: 0.7; }
+    50% { transform: scale(1.25); opacity: 1; }
+  }
+
+  .typewriter {
+    font-family: 'Syne', monospace;
+    background: linear-gradient(90deg, var(--accent) 0%, #a0f0ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-weight: 700;
+  }
+
+  /* ── Orb decorations ── */
+  .hero-right {
+    position: relative;
+    width: 180px;
+    height: 100px;
+    flex-shrink: 0;
+  }
+
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(32px);
+    opacity: 0.22;
+  }
+
+  .orb.a {
+    width: 160px; height: 160px;
+    background: radial-gradient(circle, #00d4ff, #7b61ff);
+    left: -20px; top: -50px;
+    animation: floatA 8s ease-in-out infinite;
+  }
+
+  .orb.b {
+    width: 110px; height: 110px;
+    background: radial-gradient(circle, #ff6fd8, #ffd36a);
+    right: -10px; bottom: -15px;
+    animation: floatB 10s ease-in-out infinite;
+  }
+
+  @keyframes floatA { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+  @keyframes floatB { 0%,100% { transform: translateY(0); } 50% { transform: translateY(12px); } }
+
+  /* ── Toolbar / legend ── */
+  .toolbar {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--muted2);
+  }
+
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .legend-dot.done { background: var(--green); box-shadow: 0 0 5px rgba(34,197,94,0.5); }
+  .legend-dot.wip  { background: var(--red);   box-shadow: 0 0 5px rgba(244,63,94,0.4); }
+
+  /* ── Grid ── */
+  .grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+  }
+
+  /* ── Card ── */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 20px;
+    border: 1px solid var(--glass-border);
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+    box-shadow: var(--shadow-card);
+    text-decoration: none;
+    color: inherit;
+  }
+
+  /* Top accent line on hover */
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 20%; right: 20%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.25s ease, left 0.25s ease, right 0.25s ease;
+  }
+
+  .card:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--glass-border-hover);
+    background: var(--card-hover);
+  }
+
+  .card:hover::before {
+    opacity: 1;
+    left: 5%; right: 5%;
+  }
+
+  /* ── Card header row ── */
+  .card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 13px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+    border: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.35), inset 0 -3px 10px rgba(0,0,0,0.2);
+  }
+
+  .card-title-block {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .app-title {
+    font-weight: 700;
+    font-size: 15.5px;
+    color: var(--text-strong);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    line-height: 1.2;
+  }
+
+  /* Status dot */
+  .status-dot {
+    display: inline-flex;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .status-dot.done {
+    background: var(--green);
+    box-shadow: 0 0 6px rgba(34,197,94,0.6);
+  }
+
+  .status-dot.done::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--green);
+    opacity: 0.35;
+    animation: ping 2.2s ease-in-out infinite;
+  }
+
+  .status-dot.wip {
+    background: var(--red);
+    box-shadow: 0 0 6px rgba(244,63,94,0.5);
+  }
+
+  @keyframes ping {
+    0%   { transform: scale(1); opacity: 0.5; }
+    70%  { transform: scale(2.4); opacity: 0; }
+    100% { transform: scale(2.4); opacity: 0; }
+  }
+
+  .app-desc {
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+    font-weight: 400;
+  }
+
+  /* ── Card footer ── */
+  .card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
+    gap: 8px;
+  }
+
+  .endpoint {
+    font-family: 'Syne', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.15);
+    padding: 4px 10px;
+    border-radius: 6px;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60%;
+  }
+
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted2);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    padding: 3px 9px;
+    border-radius: 6px;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── Arrow hint ── */
+  .card-arrow {
+    position: absolute;
+    bottom: 20px;
+    right: 18px;
+    font-size: 16px;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    color: var(--accent);
+  }
+
+  .card:hover .card-arrow {
+    opacity: 0.7;
+    transform: translateX(0);
+  }
+
+  /* ── Footer ── */
+  .footer {
+    width: 100%;
+    max-width: 1180px;
+    color: var(--muted2);
+    font-size: 12px;
+    text-align: center;
+    padding: 10px;
+    letter-spacing: 0.2px;
+  }
+
+  /* ── Scroll reveal animation ── */
+  .card {
+    animation: fadeInUp 0.4s ease both;
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Stagger delay for each card */
+  .card:nth-child(1)  { animation-delay: 0.04s; }
+  .card:nth-child(2)  { animation-delay: 0.08s; }
+  .card:nth-child(3)  { animation-delay: 0.12s; }
+  .card:nth-child(4)  { animation-delay: 0.16s; }
+  .card:nth-child(5)  { animation-delay: 0.20s; }
+  .card:nth-child(6)  { animation-delay: 0.24s; }
+  .card:nth-child(7)  { animation-delay: 0.28s; }
+  .card:nth-child(8)  { animation-delay: 0.32s; }
+  .card:nth-child(9)  { animation-delay: 0.36s; }
+  .card:nth-child(10) { animation-delay: 0.40s; }
+  .card:nth-child(11) { animation-delay: 0.44s; }
+  .card:nth-child(12) { animation-delay: 0.48s; }
+  .card:nth-child(13) { animation-delay: 0.52s; }
+  .card:nth-child(14) { animation-delay: 0.56s; }
+  .card:nth-child(15) { animation-delay: 0.60s; }
+
+  /* Focus style */
+  .card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    .wrap { padding: calc(32px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(48px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left)); gap: 20px; }
+    .hero { flex-direction: column; align-items: flex-start; padding: 22px 20px; }
+    .hero-right { display: none; }
+    .grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .icon { width: 44px; height: 44px; font-size: 20px; border-radius: 11px; }
+    .app-title { font-size: 14px; }
+    .app-desc { font-size: 11.5px; }
+  }
+
+  @media (max-width: 400px) {
+    .grid { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
   <div class="wrap" role="main">
+
+    <!-- Hero -->
     <header class="hero" aria-labelledby="hero-title">
       <div class="hero-left">
         <div class="brand">
           <img src="../img/min-tube-pro.png" alt="MIN-Tube-Pro ロゴ" class="logo-img">
-          <div>
+          <div class="brand-text">
             <div id="hero-title" class="title">MIN‑Tube‑Pro</div>
             <div class="subtitle">アプリランチャー — すばやく、快適に</div>
           </div>
         </div>
-
         <div class="welcome" aria-live="polite">
           <div class="spark" aria-hidden="true"></div>
           <div class="typewriter" id="welcomeText" aria-hidden="true"></div>
         </div>
       </div>
-
       <div class="hero-right" aria-hidden="true">
         <div class="orb a"></div>
         <div class="orb b"></div>
       </div>
     </header>
 
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <span class="section-label">アプリ一覧</span>
+      <div class="legend" aria-label="ステータス凡例">
+        <span class="legend-item"><span class="legend-dot done"></span>実装済み</span>
+        <span class="legend-item"><span class="legend-dot wip"></span>未実装</span>
+      </div>
+    </div>
+
+    <!-- Grid -->
     <section class="grid" aria-label="アプリ一覧">
 
       <article class="card" role="button" tabindex="0" data-endpoint="/" aria-label="Youtube-Pro — 動画視聴">
-        <div class="row">
+        <div class="card-header">
           <div class="icon">▶️</div>
-          <div>
+          <div class="card-title-block">
             <div class="app-title">
-              <span class="app-title-wrap">
-                <span class="status-dot done" title="実装済み"></span>
-                <span class="tooltip">実装済み</span>
-              </span>
+              <span class="status-dot done" title="実装済み"></span>
               Youtube‑Pro
             </div>
-            <div class="app-desc">Youtube‑ProはMIN‑Tube2の進化系。UIとサーバ処理が改善され、動画を快適に視聴できます。</div>
+            <div class="app-desc">MIN‑Tube2の進化系。UIとサーバ処理が改善され、動画を快適に視聴できます。</div>
           </div>
         </div>
-        <div class="row">
+        <div class="card-footer">
           <div class="endpoint">/</div>
           <div class="badge">動画</div>
         </div>
+        <span class="card-arrow" aria-hidden="true">→</span>
       </article>
 
       <article class="card" role="button" tabindex="0" data-endpoint="/chat" aria-label="Mino-Chat — チャットとゲーム">
-        <div class="row">
+        <div class="card-header">
           <div class="icon">💬</div>
-          <div>
+          <div class="card-title-block">
             <div class="app-title">
-              <span class="app-title-wrap">
-                <span class="status-dot done"></span>
-                <span class="tooltip">実装済み</span>
-              </span>
+              <span class="status-dot done" title="実装済み"></span>
               Mino‑Chat
             </div>
             <div class="app-desc">世界中の人とチャットやゲームを楽しめます。ぜひ参加してください！</div>
           </div>
         </div>
-        <div class="row">
+        <div class="card-footer">
           <div class="endpoint">/chat</div>
           <div class="badge">コミュニティ</div>
         </div>
+        <span class="card-arrow" aria-hidden="true">→</span>
       </article>
 
       <article class="card" role="button" tabindex="0" data-endpoint="/dl-pro" aria-label="STUDY2525">
-        <div class="row">
+        <div class="card-header">
           <div class="icon">🌐</div>
-          <div>
+          <div class="card-title-block">
             <div class="app-title">
-              <span class="app-title-wrap">
-                <span class="status-dot done"></span>
-                <span class="tooltip">実装済み</span>
-              </span>
-             　STUDY2525
+              <span class="status-dot done" title="実装済み"></span>
+              STUDY2525
             </div>
-            <div class="app-desc">平均0.02秒で動画を読み込むYoutube代替インスタンスです。単体のhtmlファイルで動作しています。</div>
+            <div class="app-desc">平均0.02秒で動画を読み込むYoutube代替インスタンス。単体のhtmlファイルで動作します。</div>
           </div>
         </div>
-        <div class="row">
+        <div class="card-footer">
           <div class="endpoint">/dl-pro</div>
           <div class="badge">利用</div>
         </div>
+        <span class="card-arrow" aria-hidden="true">→</span>
       </article>
 
       <article class="card" role="button" tabindex="0" data-endpoint="/nautilus-os" aria-label="NautilusOS — HTML5プロキシ">
-        <div class="row">
+        <div class="card-header">
           <div class="icon">🧭</div>
-          <div>
+          <div class="card-title-block">
             <div class="app-title">
-              <span class="app-title-wrap">
-                <span class="status-dot done"></span>
-                <span class="tooltip">実装済み</span>
-              </span>
+              <span class="status-dot done" title="実装済み"></span>
               NautilusOS
             </div>
             <div class="app-desc">最高のHTML5プロキシ。アカウントを作成して使ってみましょう！</div>
           </div>
         </div>
-        <div class="row">
+        <div class="card-footer">
           <div class="endpoint">/nautilus-os</div>
           <div class="badge">プロキシ</div>
         </div>
+        <span class="card-arrow" aria-hidden="true">→</span>
       </article>
 
       <article class="card" role="button" tabindex="0" data-endpoint="/helios" aria-label="Helios — タブ付きHTMLプロキシ">
-        <div class="row">
+        <div class="card-header">
           <div class="icon">☀️</div>
-          <div>
+          <div class="card-title-block">
             <div class="app-title">
-              <span class="app-title-wrap">
-                <span class="status-dot done"></span>
-                <span class="tooltip">実装済み</span>
-              </span>
+              <span class="status-dot done" title="実装済み"></span>
               Helios
             </div>
             <div class="app-desc">タブ付きのHTMLプロキシ。NautilusOSと互換性があります。</div>
           </div>
         </div>
-        <div class="row">
+        <div class="card-footer">
           <div class="endpoint">/helios</div>
           <div class="badge">プロキシ</div>
         </div>
+        <span class="card-arrow" aria-hidden="true">→</span>
       </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/urls" aria-label="MIN-Proの公式リンク一覧">
-        <div class="row">
+      <article class="card" role="button" tabindex="0" data-endpoint="/urls" aria-label="公式リンク一覧">
+        <div class="card-header">
           <div class="icon">💻</div>
-          <div>
+          <div class="card-title-block">
             <div class="app-title">
-              <span class="app-title-wrap">
-                <span class="status-dot done"></span>
-                <span class="tooltip">実装済み</span>
-              </span>
+              <span class="status-dot done" title="実装済み"></span>
               公式リンク一覧
             </div>
             <div class="app-desc">Botによりver1.2.0以降のインスタンスは自動で追加されます。</div>
           </div>
         </div>
-        <div class="row">
+        <div class="card-footer">
           <div class="endpoint">/update</div>
           <div class="badge">アップデート</div>
         </div>
+        <span class="card-arrow" aria-hidden="true">→</span>
       </article>
 
       <article class="card" role="button" tabindex="0" data-endpoint="/wista" aria-label="Wista — Youtube">
-        <div class="row">
+        <div class="card-header">
           <div class="icon">😍</div>
-          <div>
+          <div class="card-title-block">
             <div class="app-title">
-              <span class="app-title-wrap">
-                <span class="status-dot done"></span>
-                <span class="tooltip">実装済み</span>
-              </span>
+              <span class="status-dot done" title="実装済み"></span>
               Wista
             </div>
-            <div class="app-desc">woolisbest様が作成した動画視聴フロントエンド　最高の機能性を楽しみましょう！</div>
+            <div class="app-desc">woolisbest様が作成した動画視聴フロントエンド。最高の機能性を楽しみましょう！</div>
           </div>
         </div>
-        <div class="row">
+        <div class="card-footer">
           <div class="endpoint">/wista</div>
           <div class="badge">Wista</div>
         </div>
+        <span class="card-arrow" aria-hidden="true">→</span>
       </article>
 
       <article class="card" role="button" tabindex="0" data-endpoint="/sia" aria-label="しあtube">
-        <div class="row">
+        <div class="card-header">
           <div class="icon">😎</div>
-          <div>
+          <div class="card-title-block">
             <div class="app-title">
-              <span class="app-title-wrap">
-                <span class="status-dot done"></span>
-                <span class="tooltip">実装済み</span>
-              </span>
+              <span class="status-dot done" title="実装済み"></span>
               しあtube
             </div>
             <div class="app-desc">siawaseok様によって開発されたYoutube視聴フロントエンド。快適な視聴を楽しみましょう！</div>
           </div>
         </div>
-        <div class="row">
+        <div class="card-footer">
           <div class="endpoint">/sia</div>
           <div class="badge">しあtube</div>
         </div>
+        <span class="card-arrow" aria-hidden="true">→</span>
       </article>
-      
-   <article class="card" role="button" tabindex="0" data-endpoint="/k-tube" aria-label="K-Tube">
-        <div class="row">
+
+      <article class="card" role="button" tabindex="0" data-endpoint="/k-tube" aria-label="K-Tube">
+        <div class="card-header">
           <div class="icon">🤩</div>
-          <div>
+          <div class="card-title-block">
             <div class="app-title">
-              <span class="app-title-wrap">
-                <span class="status-dot done"></span>
-                <span class="tooltip">実装済み</span>
-              </span>
+              <span class="status-dot done" title="実装済み"></span>
               K-tube
             </div>
-            <div class="app-desc">I-love-Proxy（KA1121Studio）様によって開発されたYoutube視聴フロントエンド。高速なYoutubeの視聴を楽しみましょう！</div>
+            <div class="app-desc">I-love-Proxy（KA1121Studio）様によって開発されたYoutube視聴フロントエンド。高速な視聴をどうぞ！</div>
           </div>
         </div>
-        <div class="row">
+        <div class="card-footer">
           <div class="endpoint">/k-tube</div>
           <div class="badge">Youtube</div>
         </div>
+        <span class="card-arrow" aria-hidden="true">→</span>
       </article>
-      
+
       <article class="card" role="button" tabindex="0" data-endpoint="/game/game.html" aria-label="Games — ゲーム">
-        <div class="row">
+        <div class="card-header">
           <div class="icon">🎮</div>
-          <div>
+          <div class="card-title-block">
             <div class="app-title">
-              <span class="app-title-wrap">
-                <span class="status-dot done"></span>
-                <span class="tooltip">実装済み</span>
-              </span>
+              <span class="status-dot done" title="実装済み"></span>
               Games
             </div>
             <div class="app-desc">たくさんのゲームをプレイしましょう！気軽に遊べます。</div>
           </div>
         </div>
-        <div class="row">
+        <div class="card-footer">
           <div class="endpoint">/game</div>
           <div class="badge">エンタメ</div>
         </div>
+        <span class="card-arrow" aria-hidden="true">→</span>
       </article>
-<article class="card" role="button" tabindex="0" data-endpoint="/ai" aria-label="Claude">
-        <div class="row">
+
+      <article class="card" role="button" tabindex="0" data-endpoint="/ai" aria-label="Coder Bot">
+        <div class="card-header">
           <div class="icon">🤖</div>
-          <div>
+          <div class="card-title-block">
             <div class="app-title">
-              <span class="app-title-wrap">
-                <span class="status-dot done"></span>
-                <span class="tooltip">実装済み</span>
-              </span>
-              Coder Bot(Claude)
+              <span class="status-dot done" title="実装済み"></span>
+              Coder Bot (Claude)
             </div>
-            <div class="app-desc">コードを書くので優秀なClaudeの課金プランがタダで使えます、コードを手軽に書こう</div>
+            <div class="app-desc">優秀なClaudeの課金プランが使えます。コードを手軽に書きましょう。</div>
           </div>
         </div>
-        <div class="row">
+        <div class="card-footer">
           <div class="endpoint">/ai</div>
           <div class="badge">Claude</div>
         </div>
+        <span class="card-arrow" aria-hidden="true">→</span>
       </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/proxy" aria-label="app.get("Elixir-Network — ウェブプロキシ">
-        <div class="row">
+      <article class="card" role="button" tabindex="0" data-endpoint="/proxy" aria-label="Abyss V5 — ウェブプロキシ">
+        <div class="card-header">
           <div class="icon">🔓</div>
-          <div>
+          <div class="card-title-block">
             <div class="app-title">
-              <span class="app-title-wrap">
-                <span class="status-dot done"></span>
-                <span class="tooltip">実装済み</span>
-              </span>
+              <span class="status-dot done" title="実装済み"></span>
               Abyss V5
             </div>
-            <div class="app-desc">UVプロキシ　インターステラーやShadowなどと同じ類のプロキシです</div>
+            <div class="app-desc">UVプロキシ。インターステラーやShadowなどと同系統のプロキシです。</div>
           </div>
         </div>
-        <div class="row">
+        <div class="card-footer">
           <div class="endpoint">/proxy</div>
           <div class="badge">プロキシ</div>
         </div>
+        <span class="card-arrow" aria-hidden="true">→</span>
       </article>
 
-    <article class="card" role="button" tabindex="0" data-endpoint="/science" aria-label="Proxy">
-        <div class="row">
+      <article class="card" role="button" tabindex="0" data-endpoint="/science" aria-label="ANIME Proxy">
+        <div class="card-header">
           <div class="icon">🧪</div>
-          <div>
+          <div class="card-title-block">
             <div class="app-title">
-              <span class="app-title-wrap">
-                <span class="status-dot done"></span>
-                <span class="tooltip">実装済み</span>
-              </span>
+              <span class="status-dot done" title="実装済み"></span>
               ANIME
             </div>
             <div class="app-desc">I-love-Proxy（KA1121Studio）様によって開発されたプロキシ。至高のパフォーマンスを楽しみましょう！</div>
           </div>
         </div>
-        <div class="row">
+        <div class="card-footer">
           <div class="endpoint">/science</div>
           <div class="badge">Proxy</div>
         </div>
+        <span class="card-arrow" aria-hidden="true">→</span>
       </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/anime" aria-label="ANIME">
-        <div class="row">
+      <article class="card" role="button" tabindex="0" data-endpoint="/anime" aria-label="ANIME — アニメ視聴">
+        <div class="card-header">
           <div class="icon">🥰</div>
-          <div>
+          <div class="card-title-block">
             <div class="app-title">
-              <span class="app-title-wrap">
-                <span class="status-dot done"></span>
-                <span class="tooltip">実装済み</span>
-              </span>
+              <span class="status-dot done" title="実装済み"></span>
               ANIME
             </div>
             <div class="app-desc">たくさんのアニメを視聴しましょう！</div>
           </div>
         </div>
-        <div class="row">
+        <div class="card-footer">
           <div class="endpoint">/anime</div>
           <div class="badge">アニメ</div>
         </div>
+        <span class="card-arrow" aria-hidden="true">→</span>
       </article>
 
-
       <article class="card" role="button" tabindex="0" data-endpoint="/check" aria-label="Check — 監視状態を取得">
-        <div class="row">
+        <div class="card-header">
           <div class="icon">🌐</div>
-          <div>
+          <div class="card-title-block">
             <div class="app-title">
-              <span class="app-title-wrap">
-                <span class="status-dot done"></span>
-                <span class="tooltip">実装済み</span>
-              </span>
+              <span class="status-dot done" title="実装済み"></span>
               Check
             </div>
             <div class="app-desc">端末の監視状態を表示します。拡張機能の視覚化。</div>
           </div>
         </div>
-        <div class="row">
+        <div class="card-footer">
           <div class="endpoint">/check</div>
           <div class="badge">情報</div>
         </div>
+        <span class="card-arrow" aria-hidden="true">→</span>
       </article>
-      
-  
-      <article class="card" role="button" tabindex="0" data-endpoint="/use-api" aria-label="APIs — API">
-        <div class="row">
+
+      <article class="card" role="button" tabindex="0" data-endpoint="/use-api" aria-label="API — 開発者向け">
+        <div class="card-header">
           <div class="icon">💻</div>
-          <div>
+          <div class="card-title-block">
             <div class="app-title">
-              <span class="app-title-wrap">
-                <span class="status-dot wip"></span>
-                <span class="tooltip">未実装</span>
-              </span>
+              <span class="status-dot wip" title="未実装"></span>
               API
             </div>
             <div class="app-desc">ここからMIN-Tube-ProのAPIを利用する鍵が入手できます。</div>
           </div>
         </div>
-        <div class="row">
+        <div class="card-footer">
           <div class="endpoint">/use-api</div>
           <div class="badge">開発</div>
         </div>
+        <span class="card-arrow" aria-hidden="true">→</span>
       </article>
 
     </section>
 
-    <div class="footer" role="contentinfo">クリックまたはEnterでアプリを開きます。</div>
+    <footer class="footer" role="contentinfo">
+      クリックまたは Enter でアプリを開きます
+    </footer>
   </div>
 
 <script>
+  // ── Typewriter ──
   const welcomePhrases = [
     "Welcome to MIN‑Tube‑Pro ✨",
     "動画をもっと快適に。🎬",
@@ -485,42 +846,34 @@
   ];
   const el = document.getElementById('welcomeText');
   let pi = 0, ci = 0, forward = true;
-  const typingDelay = 90;
-  const deletingDelay = 60;
-  const pauseBetweenPhrases = 2200;
 
-  function tick(){
+  function tick() {
     const phrase = welcomePhrases[pi];
-    if(forward){
+    if (forward) {
       ci++;
-      el.textContent = phrase.slice(0,ci);
-      if(ci === phrase.length){ forward=false; setTimeout(tick, pauseBetweenPhrases); return; }
-      setTimeout(tick, typingDelay);
+      el.textContent = phrase.slice(0, ci);
+      if (ci === phrase.length) { forward = false; setTimeout(tick, 2400); return; }
+      setTimeout(tick, 85);
     } else {
       ci--;
-      el.textContent = phrase.slice(0,ci);
-      if(ci === 0){ forward=true; pi=(pi+1)%welcomePhrases.length; setTimeout(tick, 500); return; }
-      setTimeout(tick, deletingDelay);
+      el.textContent = phrase.slice(0, ci);
+      if (ci === 0) { forward = true; pi = (pi + 1) % welcomePhrases.length; setTimeout(tick, 450); return; }
+      setTimeout(tick, 55);
     }
   }
+  setTimeout(tick, 700);
 
-  setTimeout(tick, 600);
-
-  document.querySelectorAll('.card').forEach(card=>{
+  // ── Navigation ──
+  document.querySelectorAll('.card').forEach(card => {
     const endpoint = card.dataset.endpoint || '/';
-    function openEndpoint(){
-      window.location.href = endpoint;
-    }
+    function openEndpoint() { window.location.href = endpoint; }
     card.addEventListener('click', openEndpoint);
-    card.addEventListener('keydown', (e)=>{
-      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openEndpoint(); }
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEndpoint(); }
     });
   });
 
-  const firstCard = document.querySelector('.card');
-  if(firstCard) firstCard.setAttribute('aria-pressed','false');
-
-  // Service Worker 登録
+  // ── Service Worker ──
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }

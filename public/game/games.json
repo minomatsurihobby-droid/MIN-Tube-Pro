@@ -99,6 +99,20 @@
     "isNew": false,
     "status": "done"
   },
+   {
+  "key": "REPO",
+  "name": "R.E.P.O",
+  "emoji": "🤖",
+  "sub": "オンライン 心理戦",
+  "file": "fun/R.E.P.O.html",
+  "desc": "有料ゲームR.E.P.Oが無料でできます",
+  "genre": "horror",
+  "genreLabel": "online",
+  "players": "1人",
+  "tags": ["オンライン", "海賊版", "R.E.P.O"],
+  "isNew": true,
+  "status": "done"
+}
   {
     "key": "agario",
     "name": "Agar.io",

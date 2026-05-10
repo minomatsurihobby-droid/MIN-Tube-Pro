@@ -1,3 +1,6 @@
+
+# ver1.4.2(予定)
+人気ホラーゲームR.E.P.Oをできるように、本物のBACKROOM,BLOCKBRASTも追加
 # ver1.4.1
 claudeが無料で使えるように変更、認証すれば使えるようになります<br>
 portable版のマイクラを追加<br>

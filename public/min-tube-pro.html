@@ -261,12 +261,57 @@
   .legend-dot.done { background: var(--green); box-shadow: 0 0 5px rgba(34,197,94,0.5); }
   .legend-dot.wip  { background: var(--red);   box-shadow: 0 0 5px rgba(244,63,94,0.4); }
 
+  /* ── Category sections ── */
+  .category-section {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .category-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 2px;
+  }
+
+  .category-icon {
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .category-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--muted2);
+  }
+
+  .category-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.07), transparent);
+  }
+
+  .category-count {
+    font-size: 11px;
+    color: var(--muted2);
+    font-weight: 600;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0;
+  }
+
   /* ── Grid ── */
   .grid {
     width: 100%;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 14px;
+    gap: 12px;
   }
 
   /* ── Card ── */
@@ -496,6 +541,7 @@
     .hero { flex-direction: column; align-items: flex-start; padding: 22px 20px; }
     .hero-right { display: none; }
     .grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .category-title { font-size: 10px; letter-spacing: 1.2px; }
     .icon { width: 44px; height: 44px; font-size: 20px; border-radius: 11px; }
     .app-title { font-size: 14px; }
     .app-desc { font-size: 11.5px; }
@@ -530,7 +576,7 @@
       </div>
     </header>
 
-    <!-- Toolbar -->
+    <!-- Legend -->
     <div class="toolbar">
       <span class="section-label">アプリ一覧</span>
       <div class="legend" aria-label="ステータス凡例">
@@ -539,297 +585,261 @@
       </div>
     </div>
 
-    <!-- Grid -->
-    <section class="grid" aria-label="アプリ一覧">
+    <!-- ── 動画視聴 ── -->
+    <section class="category-section" aria-label="動画視聴">
+      <div class="category-header">
+        <span class="category-icon">🎬</span>
+        <span class="category-title">動画視聴</span>
+        <div class="category-line"></div>
+        <span class="category-count">5</span>
+      </div>
+      <div class="grid">
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/" aria-label="Youtube-Pro — 動画視聴">
-        <div class="card-header">
-          <div class="icon">▶️</div>
-          <div class="card-title-block">
-            <div class="app-title">
-              <span class="status-dot done" title="実装済み"></span>
-              Youtube‑Pro
+        <article class="card" role="button" tabindex="0" data-endpoint="/" aria-label="Youtube-Pro">
+          <div class="card-header">
+            <div class="icon">▶️</div>
+            <div class="card-title-block">
+              <div class="app-title"><span class="status-dot done" title="実装済み"></span>Youtube‑Pro</div>
+              <div class="app-desc">MIN‑Tube2の進化系。UIとサーバ処理が改善され、動画を快適に視聴できます。</div>
             </div>
-            <div class="app-desc">MIN‑Tube2の進化系。UIとサーバ処理が改善され、動画を快適に視聴できます。</div>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="endpoint">/</div>
-          <div class="badge">動画</div>
-        </div>
-        <span class="card-arrow" aria-hidden="true">→</span>
-      </article>
+          <div class="card-footer"><div class="endpoint">/</div><div class="badge">動画</div></div>
+          <span class="card-arrow" aria-hidden="true">→</span>
+        </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/chat" aria-label="Mino-Chat — チャットとゲーム">
-        <div class="card-header">
-          <div class="icon">💬</div>
-          <div class="card-title-block">
-            <div class="app-title">
-              <span class="status-dot done" title="実装済み"></span>
-              Mino‑Chat
+        <article class="card" role="button" tabindex="0" data-endpoint="/dl-pro" aria-label="STUDY2525">
+          <div class="card-header">
+            <div class="icon">⚡</div>
+            <div class="card-title-block">
+              <div class="app-title"><span class="status-dot done" title="実装済み"></span>STUDY2525</div>
+              <div class="app-desc">平均0.02秒で動画を読み込むYoutube代替インスタンス。単体のhtmlファイルで動作します。</div>
             </div>
-            <div class="app-desc">世界中の人とチャットやゲームを楽しめます。ぜひ参加してください！</div>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="endpoint">/chat</div>
-          <div class="badge">コミュニティ</div>
-        </div>
-        <span class="card-arrow" aria-hidden="true">→</span>
-      </article>
+          <div class="card-footer"><div class="endpoint">/dl-pro</div><div class="badge">高速</div></div>
+          <span class="card-arrow" aria-hidden="true">→</span>
+        </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/dl-pro" aria-label="STUDY2525">
-        <div class="card-header">
-          <div class="icon">🌐</div>
-          <div class="card-title-block">
-            <div class="app-title">
-              <span class="status-dot done" title="実装済み"></span>
-              STUDY2525
+        <article class="card" role="button" tabindex="0" data-endpoint="/wista" aria-label="Wista">
+          <div class="card-header">
+            <div class="icon">😍</div>
+            <div class="card-title-block">
+              <div class="app-title"><span class="status-dot done" title="実装済み"></span>Wista</div>
+              <div class="app-desc">woolisbest様が作成した動画視聴フロントエンド。最高の機能性を楽しみましょう！</div>
             </div>
-            <div class="app-desc">平均0.02秒で動画を読み込むYoutube代替インスタンス。単体のhtmlファイルで動作します。</div>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="endpoint">/dl-pro</div>
-          <div class="badge">利用</div>
-        </div>
-        <span class="card-arrow" aria-hidden="true">→</span>
-      </article>
+          <div class="card-footer"><div class="endpoint">/wista</div><div class="badge">Youtube</div></div>
+          <span class="card-arrow" aria-hidden="true">→</span>
+        </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/nautilus-os" aria-label="NautilusOS — HTML5プロキシ">
-        <div class="card-header">
-          <div class="icon">🧭</div>
-          <div class="card-title-block">
-            <div class="app-title">
-              <span class="status-dot done" title="実装済み"></span>
-              NautilusOS
+        <article class="card" role="button" tabindex="0" data-endpoint="/sia" aria-label="しあtube">
+          <div class="card-header">
+            <div class="icon">😎</div>
+            <div class="card-title-block">
+              <div class="app-title"><span class="status-dot done" title="実装済み"></span>しあtube</div>
+              <div class="app-desc">siawaseok様によって開発されたYoutube視聴フロントエンド。快適な視聴を楽しみましょう！</div>
             </div>
-            <div class="app-desc">最高のHTML5プロキシ。アカウントを作成して使ってみましょう！</div>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="endpoint">/nautilus-os</div>
-          <div class="badge">プロキシ</div>
-        </div>
-        <span class="card-arrow" aria-hidden="true">→</span>
-      </article>
+          <div class="card-footer"><div class="endpoint">/sia</div><div class="badge">Youtube</div></div>
+          <span class="card-arrow" aria-hidden="true">→</span>
+        </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/helios" aria-label="Helios — タブ付きHTMLプロキシ">
-        <div class="card-header">
-          <div class="icon">☀️</div>
-          <div class="card-title-block">
-            <div class="app-title">
-              <span class="status-dot done" title="実装済み"></span>
-              Helios
+        <article class="card" role="button" tabindex="0" data-endpoint="/k-tube" aria-label="K-Tube">
+          <div class="card-header">
+            <div class="icon">🤩</div>
+            <div class="card-title-block">
+              <div class="app-title"><span class="status-dot done" title="実装済み"></span>K-tube</div>
+              <div class="app-desc">I-love-Proxy（KA1121Studio）様によって開発されたYoutube視聴フロントエンド。高速な視聴をどうぞ！</div>
             </div>
-            <div class="app-desc">タブ付きのHTMLプロキシ。NautilusOSと互換性があります。</div>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="endpoint">/helios</div>
-          <div class="badge">プロキシ</div>
-        </div>
-        <span class="card-arrow" aria-hidden="true">→</span>
-      </article>
+          <div class="card-footer"><div class="endpoint">/k-tube</div><div class="badge">Youtube</div></div>
+          <span class="card-arrow" aria-hidden="true">→</span>
+        </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/urls" aria-label="公式リンク一覧">
-        <div class="card-header">
-          <div class="icon">💻</div>
-          <div class="card-title-block">
-            <div class="app-title">
-              <span class="status-dot done" title="実装済み"></span>
-              公式リンク一覧
+      </div>
+    </section>
+
+    <!-- ── アニメ ── -->
+    <section class="category-section" aria-label="アニメ">
+      <div class="category-header">
+        <span class="category-icon">🥰</span>
+        <span class="category-title">アニメ</span>
+        <div class="category-line"></div>
+        <span class="category-count">1</span>
+      </div>
+      <div class="grid">
+
+        <article class="card" role="button" tabindex="0" data-endpoint="/anime" aria-label="ANIME — アニメ視聴">
+          <div class="card-header">
+            <div class="icon">🥰</div>
+            <div class="card-title-block">
+              <div class="app-title"><span class="status-dot done" title="実装済み"></span>ANIME</div>
+              <div class="app-desc">たくさんのアニメを視聴しましょう！</div>
             </div>
-            <div class="app-desc">Botによりver1.2.0以降のインスタンスは自動で追加されます。</div>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="endpoint">/update</div>
-          <div class="badge">アップデート</div>
-        </div>
-        <span class="card-arrow" aria-hidden="true">→</span>
-      </article>
+          <div class="card-footer"><div class="endpoint">/anime</div><div class="badge">アニメ</div></div>
+          <span class="card-arrow" aria-hidden="true">→</span>
+        </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/wista" aria-label="Wista — Youtube">
-        <div class="card-header">
-          <div class="icon">😍</div>
-          <div class="card-title-block">
-            <div class="app-title">
-              <span class="status-dot done" title="実装済み"></span>
-              Wista
+      </div>
+    </section>
+
+    <!-- ── コミュニティ & エンタメ ── -->
+    <section class="category-section" aria-label="コミュニティ・エンタメ">
+      <div class="category-header">
+        <span class="category-icon">🎮</span>
+        <span class="category-title">コミュニティ・エンタメ</span>
+        <div class="category-line"></div>
+        <span class="category-count">2</span>
+      </div>
+      <div class="grid">
+
+        <article class="card" role="button" tabindex="0" data-endpoint="/chat" aria-label="Mino-Chat">
+          <div class="card-header">
+            <div class="icon">💬</div>
+            <div class="card-title-block">
+              <div class="app-title"><span class="status-dot done" title="実装済み"></span>Mino‑Chat</div>
+              <div class="app-desc">世界中の人とチャットやゲームを楽しめます。ぜひ参加してください！</div>
             </div>
-            <div class="app-desc">woolisbest様が作成した動画視聴フロントエンド。最高の機能性を楽しみましょう！</div>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="endpoint">/wista</div>
-          <div class="badge">Wista</div>
-        </div>
-        <span class="card-arrow" aria-hidden="true">→</span>
-      </article>
+          <div class="card-footer"><div class="endpoint">/chat</div><div class="badge">コミュニティ</div></div>
+          <span class="card-arrow" aria-hidden="true">→</span>
+        </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/sia" aria-label="しあtube">
-        <div class="card-header">
-          <div class="icon">😎</div>
-          <div class="card-title-block">
-            <div class="app-title">
-              <span class="status-dot done" title="実装済み"></span>
-              しあtube
+        <article class="card" role="button" tabindex="0" data-endpoint="/game/game.html" aria-label="Games">
+          <div class="card-header">
+            <div class="icon">🎮</div>
+            <div class="card-title-block">
+              <div class="app-title"><span class="status-dot done" title="実装済み"></span>Games</div>
+              <div class="app-desc">たくさんのゲームをプレイしましょう！気軽に遊べます。</div>
             </div>
-            <div class="app-desc">siawaseok様によって開発されたYoutube視聴フロントエンド。快適な視聴を楽しみましょう！</div>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="endpoint">/sia</div>
-          <div class="badge">しあtube</div>
-        </div>
-        <span class="card-arrow" aria-hidden="true">→</span>
-      </article>
+          <div class="card-footer"><div class="endpoint">/game</div><div class="badge">エンタメ</div></div>
+          <span class="card-arrow" aria-hidden="true">→</span>
+        </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/k-tube" aria-label="K-Tube">
-        <div class="card-header">
-          <div class="icon">🤩</div>
-          <div class="card-title-block">
-            <div class="app-title">
-              <span class="status-dot done" title="実装済み"></span>
-              K-tube
+      </div>
+    </section>
+
+    <!-- ── プロキシ ── -->
+    <section class="category-section" aria-label="プロキシ">
+      <div class="category-header">
+        <span class="category-icon">🔓</span>
+        <span class="category-title">プロキシ</span>
+        <div class="category-line"></div>
+        <span class="category-count">4</span>
+      </div>
+      <div class="grid">
+
+        <article class="card" role="button" tabindex="0" data-endpoint="/nautilus-os" aria-label="NautilusOS">
+          <div class="card-header">
+            <div class="icon">🧭</div>
+            <div class="card-title-block">
+              <div class="app-title"><span class="status-dot done" title="実装済み"></span>NautilusOS</div>
+              <div class="app-desc">最高のHTML5プロキシ。アカウントを作成して使ってみましょう！</div>
             </div>
-            <div class="app-desc">I-love-Proxy（KA1121Studio）様によって開発されたYoutube視聴フロントエンド。高速な視聴をどうぞ！</div>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="endpoint">/k-tube</div>
-          <div class="badge">Youtube</div>
-        </div>
-        <span class="card-arrow" aria-hidden="true">→</span>
-      </article>
+          <div class="card-footer"><div class="endpoint">/nautilus-os</div><div class="badge">HTML5</div></div>
+          <span class="card-arrow" aria-hidden="true">→</span>
+        </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/game/game.html" aria-label="Games — ゲーム">
-        <div class="card-header">
-          <div class="icon">🎮</div>
-          <div class="card-title-block">
-            <div class="app-title">
-              <span class="status-dot done" title="実装済み"></span>
-              Games
+        <article class="card" role="button" tabindex="0" data-endpoint="/helios" aria-label="Helios">
+          <div class="card-header">
+            <div class="icon">☀️</div>
+            <div class="card-title-block">
+              <div class="app-title"><span class="status-dot done" title="実装済み"></span>Helios</div>
+              <div class="app-desc">タブ付きのHTMLプロキシ。NautilusOSと互換性があります。</div>
             </div>
-            <div class="app-desc">たくさんのゲームをプレイしましょう！気軽に遊べます。</div>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="endpoint">/game</div>
-          <div class="badge">エンタメ</div>
-        </div>
-        <span class="card-arrow" aria-hidden="true">→</span>
-      </article>
+          <div class="card-footer"><div class="endpoint">/helios</div><div class="badge">タブ対応</div></div>
+          <span class="card-arrow" aria-hidden="true">→</span>
+        </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/ai" aria-label="Coder Bot">
-        <div class="card-header">
-          <div class="icon">🤖</div>
-          <div class="card-title-block">
-            <div class="app-title">
-              <span class="status-dot done" title="実装済み"></span>
-              Coder Bot (Claude)
+        <article class="card" role="button" tabindex="0" data-endpoint="/proxy" aria-label="Abyss V5">
+          <div class="card-header">
+            <div class="icon">🔓</div>
+            <div class="card-title-block">
+              <div class="app-title"><span class="status-dot done" title="実装済み"></span>Abyss V5</div>
+              <div class="app-desc">UVプロキシ。インターステラーやShadowなどと同系統のプロキシです。</div>
             </div>
-            <div class="app-desc">優秀なClaudeの課金プランが使えます。コードを手軽に書きましょう。</div>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="endpoint">/ai</div>
-          <div class="badge">Claude</div>
-        </div>
-        <span class="card-arrow" aria-hidden="true">→</span>
-      </article>
+          <div class="card-footer"><div class="endpoint">/proxy</div><div class="badge">UV</div></div>
+          <span class="card-arrow" aria-hidden="true">→</span>
+        </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/proxy" aria-label="Abyss V5 — ウェブプロキシ">
-        <div class="card-header">
-          <div class="icon">🔓</div>
-          <div class="card-title-block">
-            <div class="app-title">
-              <span class="status-dot done" title="実装済み"></span>
-              Abyss V5
+        <article class="card" role="button" tabindex="0" data-endpoint="/science" aria-label="ANIME Proxy">
+          <div class="card-header">
+            <div class="icon">🧪</div>
+            <div class="card-title-block">
+              <div class="app-title"><span class="status-dot done" title="実装済み"></span>ANIME Proxy</div>
+              <div class="app-desc">I-love-Proxy（KA1121Studio）様によって開発されたプロキシ。至高のパフォーマンスを楽しみましょう！</div>
             </div>
-            <div class="app-desc">UVプロキシ。インターステラーやShadowなどと同系統のプロキシです。</div>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="endpoint">/proxy</div>
-          <div class="badge">プロキシ</div>
-        </div>
-        <span class="card-arrow" aria-hidden="true">→</span>
-      </article>
+          <div class="card-footer"><div class="endpoint">/science</div><div class="badge">高性能</div></div>
+          <span class="card-arrow" aria-hidden="true">→</span>
+        </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/science" aria-label="ANIME Proxy">
-        <div class="card-header">
-          <div class="icon">🧪</div>
-          <div class="card-title-block">
-            <div class="app-title">
-              <span class="status-dot done" title="実装済み"></span>
-              ANIME
+      </div>
+    </section>
+
+    <!-- ── ツール ── -->
+    <section class="category-section" aria-label="ツール">
+      <div class="category-header">
+        <span class="category-icon">🛠️</span>
+        <span class="category-title">ツール</span>
+        <div class="category-line"></div>
+        <span class="category-count">4</span>
+      </div>
+      <div class="grid">
+
+        <article class="card" role="button" tabindex="0" data-endpoint="/ai" aria-label="Coder Bot">
+          <div class="card-header">
+            <div class="icon">🤖</div>
+            <div class="card-title-block">
+              <div class="app-title"><span class="status-dot done" title="実装済み"></span>Coder Bot (Claude)</div>
+              <div class="app-desc">優秀なClaudeの課金プランが使えます。コードを手軽に書きましょう。</div>
             </div>
-            <div class="app-desc">I-love-Proxy（KA1121Studio）様によって開発されたプロキシ。至高のパフォーマンスを楽しみましょう！</div>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="endpoint">/science</div>
-          <div class="badge">Proxy</div>
-        </div>
-        <span class="card-arrow" aria-hidden="true">→</span>
-      </article>
+          <div class="card-footer"><div class="endpoint">/ai</div><div class="badge">Claude</div></div>
+          <span class="card-arrow" aria-hidden="true">→</span>
+        </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/anime" aria-label="ANIME — アニメ視聴">
-        <div class="card-header">
-          <div class="icon">🥰</div>
-          <div class="card-title-block">
-            <div class="app-title">
-              <span class="status-dot done" title="実装済み"></span>
-              ANIME
+        <article class="card" role="button" tabindex="0" data-endpoint="/check" aria-label="Check">
+          <div class="card-header">
+            <div class="icon">📡</div>
+            <div class="card-title-block">
+              <div class="app-title"><span class="status-dot done" title="実装済み"></span>Check</div>
+              <div class="app-desc">端末の監視状態を表示します。拡張機能の視覚化。</div>
             </div>
-            <div class="app-desc">たくさんのアニメを視聴しましょう！</div>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="endpoint">/anime</div>
-          <div class="badge">アニメ</div>
-        </div>
-        <span class="card-arrow" aria-hidden="true">→</span>
-      </article>
+          <div class="card-footer"><div class="endpoint">/check</div><div class="badge">情報</div></div>
+          <span class="card-arrow" aria-hidden="true">→</span>
+        </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/check" aria-label="Check — 監視状態を取得">
-        <div class="card-header">
-          <div class="icon">🌐</div>
-          <div class="card-title-block">
-            <div class="app-title">
-              <span class="status-dot done" title="実装済み"></span>
-              Check
+        <article class="card" role="button" tabindex="0" data-endpoint="/urls" aria-label="公式リンク一覧">
+          <div class="card-header">
+            <div class="icon">🔗</div>
+            <div class="card-title-block">
+              <div class="app-title"><span class="status-dot done" title="実装済み"></span>公式リンク一覧</div>
+              <div class="app-desc">Botによりver1.2.0以降のインスタンスは自動で追加されます。</div>
             </div>
-            <div class="app-desc">端末の監視状態を表示します。拡張機能の視覚化。</div>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="endpoint">/check</div>
-          <div class="badge">情報</div>
-        </div>
-        <span class="card-arrow" aria-hidden="true">→</span>
-      </article>
+          <div class="card-footer"><div class="endpoint">/update</div><div class="badge">アップデート</div></div>
+          <span class="card-arrow" aria-hidden="true">→</span>
+        </article>
 
-      <article class="card" role="button" tabindex="0" data-endpoint="/use-api" aria-label="API — 開発者向け">
-        <div class="card-header">
-          <div class="icon">💻</div>
-          <div class="card-title-block">
-            <div class="app-title">
-              <span class="status-dot wip" title="未実装"></span>
-              API
+        <article class="card" role="button" tabindex="0" data-endpoint="/use-api" aria-label="API">
+          <div class="card-header">
+            <div class="icon">🔑</div>
+            <div class="card-title-block">
+              <div class="app-title"><span class="status-dot wip" title="未実装"></span>API</div>
+              <div class="app-desc">ここからMIN-Tube-ProのAPIを利用する鍵が入手できます。</div>
             </div>
-            <div class="app-desc">ここからMIN-Tube-ProのAPIを利用する鍵が入手できます。</div>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="endpoint">/use-api</div>
-          <div class="badge">開発</div>
-        </div>
-        <span class="card-arrow" aria-hidden="true">→</span>
-      </article>
+          <div class="card-footer"><div class="endpoint">/use-api</div><div class="badge">開発</div></div>
+          <span class="card-arrow" aria-hidden="true">→</span>
+        </article>
 
+      </div>
     </section>
 
     <footer class="footer" role="contentinfo">

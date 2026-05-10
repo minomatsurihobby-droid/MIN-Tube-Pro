@@ -26,7 +26,8 @@
     "players": "1人プレイ",
     "tags": ["アクション"],
     "isNew": false,
-    "status": "done"
+    "status": "done",
+    "href": "/minecraft" 
   },
   {
     "key": "brick-breaker",
@@ -112,6 +113,7 @@
   "tags": ["オンライン", "海賊版", "R.E.P.O"],
   "isNew": true,
   "status": "done"
+  "href": "/REPO" 
 }
   {
     "key": "agario",

@@ -1413,7 +1413,10 @@ app.get("/game", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "app/sorry.html"));
 });
 app.get("/minecraft", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "game/fun/minecraft.html"));
+  res.sendFile(path.join(__dirname, "public", "game/fun/Minecraft.html"));
+});
+app.get("/REPO", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "game/fun/R.E.P.O.html"));
 });
 app.get("/anime", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "app/anime.html"));

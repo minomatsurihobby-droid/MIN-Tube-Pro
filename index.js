@@ -1834,6 +1834,7 @@ app.get("/channel/:channelName", (req, res) => {
   let isLoading = false;
   let isEnd = false;
   let totalLoaded = 0;
+  let channelAvatarUrl = ''; // fetchChannelInfo後に設定される
 
   // 既存：チャンネル登録管理
   const SUB_KEY = 'subscribed_' + CHANNEL_NAME;
@@ -1880,7 +1881,10 @@ app.get("/channel/:channelName", (req, res) => {
           \${v.lengthText ? \`<div class="duration-badge">\${v.lengthText}</div>\` : ''}
         </div>
         <div class="card-meta">
-          <div class="card-ch-avatar">\${initial}</div>
+          <div class="card-ch-avatar" style="position:relative;overflow:hidden;">
+            <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:inherit;">\${initial}</span>
+            \${channelAvatarUrl ? \`<img src="\${channelAvatarUrl}" alt="\${CHANNEL_NAME}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.remove()">\` : ''}
+          </div>
           <div class="card-info">
             <div class="video-title">\${v.title || ''}</div>
             <div class="video-ch-name">\${CHANNEL_NAME}</div>
@@ -1935,8 +1939,10 @@ app.get("/channel/:channelName", (req, res) => {
       const c = Array.isArray(data) ? data[0] : data;
       if (c) {
         if (c.authorThumbnails?.length) {
+          const avatarSrc = c.authorThumbnails[c.authorThumbnails.length-1].url;
+          channelAvatarUrl = avatarSrc; // renderVideos で使用
           const img = document.getElementById('channelAvatarImg');
-          img.src = c.authorThumbnails[c.authorThumbnails.length-1].url;
+          img.src = avatarSrc;
           img.onload = () => { img.classList.add('loaded'); document.getElementById('avatarInitial').style.display='none'; };
         }
         if (c.description) document.getElementById('channelDescription').textContent = c.description;

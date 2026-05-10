@@ -1418,6 +1418,10 @@ app.get("/minecraft", (req, res) => {
 app.get("/REPO", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "game/fun/R.E.P.O.html"));
 });
+
+app.get("/play", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "game/play.html"));
+});
 app.get("/anime", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "app/anime.html"));
 });

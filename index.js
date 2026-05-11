@@ -1448,7 +1448,9 @@ app.get("/ai", (req, res) => {
 app.get("/games.json", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "game/game.json"));
 });
-
+app.get("/gust", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "proxy/GUST.html.html"));
+});
 app.get("/easy", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "proxy/easy.html"));
 });

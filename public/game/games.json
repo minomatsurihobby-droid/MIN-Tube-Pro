@@ -337,7 +337,7 @@
     "name": "Backrooms",
     "emoji": "🏃",
     "sub": "ホラー · 1人プレイ",
-    "file": "game/backrooms.html",
+    "file": "game/Backrooms.html",
     "image": "img/Back.jpeg",
     "desc": "不気味な黄色の部屋から逃げろ。無限に続く恐怖の空間。",
     "genre": "horror",

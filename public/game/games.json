@@ -460,6 +460,21 @@
     "isNew": true,
     "status": "done"
   },
+  
+  {
+    "key": "Brawl",
+    "name": "Brawl Stars",
+    "emoji": "🏴‍☠️",
+    "sub": "アクション · スマホゲー",
+    "file": "fun/Brawl.html",
+    "desc": "ブロスタできます",
+    "genre": "action",
+    "genreLabel": "アクション",
+    "players": "1人プレイ",
+    "tags": ["アクション", "対戦", "激ムズ"],
+    "isNew": true,
+    "status": "done"
+  },
   {
     "key": "geometry-dash",
     "name": "Geometry Dash",

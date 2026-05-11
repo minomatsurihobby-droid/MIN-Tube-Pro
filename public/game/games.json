@@ -474,6 +474,34 @@
     "tags": ["アクション", "対戦", "激ムズ"],
     "isNew": true,
     "status": "done"
+  }, 
+  {
+    "key": "stickman",
+    "name": "StickMan",
+    "emoji": "🧵",
+    "sub": "アクション · スマホゲー",
+    "file": "fun/Stickman Hook.html",
+    "desc": "自由自在に駆け抜けろ",
+    "genre": "action",
+    "genreLabel": "アクション",
+    "players": "1人プレイ",
+    "tags": ["アクション", "糸", "激ムズ"],
+    "isNew": true,
+    "status": "done"
+  },
+  {
+    "key": "atsumori",
+    "name": "あつ森",
+    "emoji": "🏝️",
+    "sub": "アクション · ゲームキューブ",
+    "file": "fun/Atsumori.html",
+    "desc": "自由に無人島を開拓しろ",
+    "genre": "action",
+    "genreLabel": "アクション",
+    "players": "1人プレイ",
+    "tags": ["アクション", "島", "激ムズ"],
+    "isNew": true,
+    "status": "done"
   },
   {
     "key": "geometry-dash",

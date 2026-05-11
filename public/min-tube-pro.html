@@ -306,16 +306,27 @@
     letter-spacing: 0;
   }
 
-  /* ── Grid ── */
-  .grid {
-    width: 100%;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 12px;
-  }
+.grid {
+  display: flex;            /* GridからFlexに変更 */
+  flex-wrap: nowrap;        /* 折り返しを禁止 */
+  overflow-x: auto;         /* 横方向のスクロールを許可 */
+  gap: 16px;                /* カード間の余白 */
+  padding-bottom: 16px;     /* スクロールバーや影のための余白 */
+  scroll-snap-type: x mandatory; /* スクロール時にカードの端でピタッと止まる設定 */
+  -webkit-overflow-scrolling: touch; /* iOSでの滑らかなスクロール */
+}
+
+/* スクロールバーのデザイン（細く、スタイリッシュに） */
+.grid::-webkit-scrollbar { height: 6px; }
+.grid::-webkit-scrollbar-thumb {
+  background: rgba(0, 212, 255, 0.2);
+  border-radius: 10px;
+}
 
   /* ── Card ── */
   .card {
+    flex: 0 0 280px;    
+　  scroll-snap-align: start; 
     background: var(--card);
     border-radius: var(--radius);
     padding: 20px;
@@ -537,6 +548,7 @@
 
   /* ── Responsive ── */
   @media (max-width: 640px) {
+    .card {flex: 0 0 240px; } 
     .wrap { padding: calc(32px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(48px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left)); gap: 20px; }
     .hero { flex-direction: column; align-items: flex-start; padding: 22px 20px; }
     .hero-right { display: none; }

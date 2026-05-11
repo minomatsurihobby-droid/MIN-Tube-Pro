@@ -306,43 +306,74 @@
     letter-spacing: 0;
   }
 
+/* --- グリッドコンテナの修正 --- */
 .grid {
-  display: flex;            /* GridからFlexに変更 */
-  flex-wrap: nowrap;        /* 折り返しを禁止 */
-  overflow-x: auto;         /* 横方向のスクロールを許可 */
-  gap: 16px;                /* カード間の余白 */
-  padding-bottom: 16px;     /* スクロールバーや影のための余白 */
-  scroll-snap-type: x mandatory; /* スクロール時にカードの端でピタッと止まる設定 */
-  -webkit-overflow-scrolling: touch; /* iOSでの滑らかなスクロール */
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 16px;
+  padding: 8px 4px 20px 4px; /* 上下に少し余白を確保 */
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  
+  /* 右側にフェードアウト効果（これだけで「続き」がわかりやすくなります） */
+  mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
 }
 
-/* スクロールバーのデザイン（細く、スタイリッシュに） */
-.grid::-webkit-scrollbar { height: 6px; }
+/* スクロールバーを見えやすく修正 */
+.grid::-webkit-scrollbar {
+  height: 4px; /* 少し細くしてスタイリッシュに */
+}
+.grid::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
 .grid::-webkit-scrollbar-thumb {
-  background: rgba(0, 212, 255, 0.2);
+  background: linear-gradient(to right, var(--accent), var(--accent2));
   border-radius: 10px;
 }
 
-  /* ── Card ── */
-  .card {
-    flex: 0 0 280px;    
-　  scroll-snap-align: start; 
-    background: var(--card);
-    border-radius: var(--radius);
-    padding: 20px;
-    border: 1px solid var(--glass-border);
-    cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    position: relative;
-    overflow: hidden;
-    backdrop-filter: blur(8px);
-    box-shadow: var(--shadow-card);
-    text-decoration: none;
-    color: inherit;
+/* --- カードの幅をレスポンシブに調整（チラ見せ設定） --- */
+.card {
+  /* PC/タブレット：固定幅 */
+  flex: 0 0 280px;
+  scroll-snap-align: start;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 20px;
+  border: 1px solid var(--glass-border);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-card);
+  text-decoration: none;
+  color: inherit;
+}
+
+/* ── モバイル向け：ここが重要 ── */
+@media (max-width: 640px) {
+  .grid {
+    /* モバイルではフェードを少し弱めるか調整 */
+    gap: 12px;
+    padding-right: 40px; /* 最後のカードの後に余白を作る */
   }
+
+  .card {
+    /* 画面幅の80%程度にすることで、右側のカードが必ず「20%分チラ見え」するようになります */
+    flex: 0 0 75vw; 
+    max-width: 300px;
+  }
+  
+  .category-header {
+    padding: 0 4px;
+  }
+}
 
   /* Top accent line on hover */
   .card::before {

@@ -5,7 +5,6 @@ const fetch = require("node-fetch");
 const cookieParser = require("cookie-parser");
 const https = require("https");
 const fs = require('fs');
-const AbortController = require('abort-controller');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -32,10 +31,6 @@ const keys = [
 ];
 
 const PROXY_DIR = path.join(__dirname, 'proxy');
-
-const MAX_API_WAIT_TIME = 5000; 
-const MAX_TIME = 10000;
-const MAX_TIME_SLOW = 20000;
 
 
 app.use(express.static(path.join(__dirname, "public")));
@@ -2087,175 +2082,164 @@ app.use((req, res, next) => {
     next();
 });
 
-function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
-}
+// API提供toka-kun様　siawaseok様　sennen様　xeroxyt様　woolisbest様に感謝します
+app.get('/get-other/:videoId', async (req, res) => {
+    const videoId = req.params.videoId;
+    if (!videoId) return res.status(400).json({ error: "videoId is required" });
 
-async function fetchWithTimeout(url, options = {}) {
-    const timeout = options.timeout || MAX_TIME;
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeout);
-    try {
-        const response = await fetch(url, { ...options, signal: controller.signal });
-        clearTimeout(id);
-        return response;
-    } catch (e) {
-        clearTimeout(id);
-        throw e;
-    }
-}
+    const MAX_API_WAIT_TIME = 6000; 
 
-async function getInvidiousApis() {
-    try {
-        const res = await fetch('https://raw.githubusercontent.com/toka-kun/Education/refs/heads/main/apis/Invidious/yes.json');
-        apis = await res.json();
-    } catch (e) { console.error('Invidiousリスト取得失敗'); }
-}
-
-async function getXeroxApis() {
-    try {
-        const res = await fetch('https://raw.githubusercontent.com/toka-kun/Education/refs/heads/main/apis/XeroxYT-NT/yes.json');
-        xeroxApis = await res.json();
-    } catch (e) { console.error('Xeroxリスト取得失敗'); }
-}
-
-async function getMinTube2Apis() {
-    try {
-        const res = await fetch('https://raw.githubusercontent.com/Minotaur-ZAOU/test/refs/heads/main/min-tube-api.json');
-        minTubeApis = await res.json();
-    } catch (e) { console.error('MinTubeリスト取得失敗'); }
-}
-
-async function fetchInvidious(videoId) {
-    if (!apis) await getInvidiousApis();
-    for (const instance of apis) {
+    async function fetchWithTimeout(url, options = {}) {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), MAX_API_WAIT_TIME);
         try {
-            const res = await fetchWithTimeout(`${instance}/api/v1/videos/${videoId}`, { timeout: MAX_API_WAIT_TIME });
-            const data = await res.json();
-            if (data && data.formatStreams) {
-                const highRes = data.adaptiveFormats?.find(f => f.resolution === '1080p') || data.formatStreams.find(f => f.itag === "22");
-                const audio = data.adaptiveFormats?.find(f => f.itag === "251") || data.adaptiveFormats?.find(f => f.container === "m4a");
-                
-                return {
-                    stream_url: data.formatStreams.find(f => f.itag === "18")?.url || data.formatStreams[0]?.url || "",
-                    highstreamUrl: highRes?.url || "",
-                    audioUrl: audio?.url || "",
-                    videoId: data.videoId,
-                    channelId: data.authorId,
-                    channelName: data.author,
-                    channelImage: data.authorThumbnails?.[0]?.url || "",
-                    videoTitle: data.title,
-                    videoDes: data.description,
-                    videoViews: parseInt(data.viewCount) || 0,
-                    likeCount: data.likeCount || 0
-                };
-            }
-        } catch (e) { continue; }
+            const response = await fetch(url, { ...options, signal: controller.signal });
+            clearTimeout(id);
+            return response;
+        } catch (e) {
+            clearTimeout(id);
+            throw e;
+        }
     }
-    throw new Error("Invidious failed");
-}
 
-async function fetchYtDlpApi(url, videoId) {
-    try {
-        const res = await fetchWithTimeout(`${url}${videoId}`, { timeout: MAX_TIME });
+    function shuffle(array) {
+        return array.sort(() => Math.random() - 0.5);
+    }
+
+
+    const tryInvidious = async (id) => {
+        const listRes = await fetchWithTimeout('https://raw.githubusercontent.com/toka-kun/Education/refs/heads/main/apis/Invidious/yes.json');
+        const instances = await listRes.json();
+        for (const instance of shuffle(instances)) {
+            try {
+                const apiRes = await fetchWithTimeout(`${instance}/api/v1/videos/${id}`);
+                const data = await apiRes.json();
+                if (data && data.formatStreams) {
+                    const highRes = data.adaptiveFormats?.find(f => f.resolution === '720p' || f.resolution === '1080p')?.url;
+                    return {
+                        stream_url: data.formatStreams.find(s => s.itag === "18" || s.itag === "22")?.url || data.formatStreams[0]?.url,
+                        highstreamUrl: highRes || "",
+                        audioUrl: data.adaptiveFormats?.find(f => f.container === 'm4a' || f.type?.includes('audio'))?.url || "",
+                        id: data.videoId,
+                        channelId: data.authorId,
+                        channelTitle: data.author,
+                        channelImageUrl: data.authorThumbnails?.[0]?.url || "",
+                        title: data.title,
+                        description: data.description,
+                        viewCount: data.viewCount,
+                        likeCount: data.likeCount || 0
+                    };
+                }
+            } catch (e) { continue; }
+        }
+        throw new Error("Invidious fails");
+    };
+
+    const tryYtdlpApi = async (id, baseUrl) => {
+        const url = baseUrl.includes('/stream/') ? `${baseUrl}${id}` : `${baseUrl}/${id}`;
+        const res = await fetchWithTimeout(url);
         const data = await res.json();
         const formats = Array.isArray(data) ? data : (data.formats || []);
         
-        const itag18 = formats.find(f => String(f.itag || f.format_id) === '18');
-        const highRes = formats.find(f => f.height >= 720 && f.acodec !== 'none') || formats.find(f => f.height >= 720);
-        const audio = formats.find(f => String(f.itag || f.format_id) === '251') || formats.find(f => f.vcodec === 'none');
+        const audio = formats.find(f => f.resolution === 'audio only' || f.acodec !== 'none' && f.vcodec === 'none')?.url;
+        const high = formats.find(f => f.height >= 720)?.url;
 
         return {
-            stream_url: itag18?.url || formats[0]?.url || "",
-            highstreamUrl: highRes?.url || "",
-            audioUrl: audio?.url || "",
-            videoId: videoId,
-            channelId: data.channel_id || data.uploader_id || "",
-            channelName: data.uploader || data.channel || "Unknown",
-            channelImage: data.uploader_url || "", 
-            videoTitle: data.title || "No Title",
-            videoDes: data.description || "",
-            videoViews: parseInt(data.view_count) || 0,
+            stream_url: formats.find(f => f.format_id === "18" || f.itag === 18)?.url || formats[0]?.url || "",
+            highstreamUrl: high || "",
+            audioUrl: audio || "",
+            id: data.id || id,
+            channelId: data.channelId || "",
+            channelTitle: data.channel || data.uploader || "Unknown",
+            channelImageUrl: data.channelImageUrl || "",
+            title: data.title || "Unknown Title",
+            description: data.description || "",
+            viewCount: data.view_count || 0,
             likeCount: data.like_count || 0
         };
-    } catch (e) {
-        throw e;
-    }
-}
+    };
 
-async function fetchXerox(videoId) {
-    if (!xeroxApis) await getXeroxApis();
-    const shuffled = shuffleArray([...xeroxApis]);
-    for (const instance of shuffled) {
+    const tryXerox = async (id) => {
+        const listRes = await fetchWithTimeout('https://raw.githubusercontent.com/toka-kun/Education/refs/heads/main/apis/XeroxYT-NT/yes.json');
+        const instances = await listRes.json();
+        for (const instance of shuffle(instances)) {
+            try {
+                const apiRes = await fetchWithTimeout(`${instance}/stream?id=${id}`);
+                const data = await apiRes.json();
+                if (data && data.streamingUrl) {
+                    return {
+                        stream_url: data.streamingUrl,
+                        highstreamUrl: data.formats?.find(f => f.quality?.includes('720') || f.height >= 720)?.url || "",
+                        audioUrl: data.audioUrl || "",
+                        id: id,
+                        channelId: data.channelId || "",
+                        channelTitle: data.channelTitle || "",
+                        channelImageUrl: "", 
+                        title: data.title || "",
+                        description: data.description || "",
+                        viewCount: data.viewCount || 0,
+                        likeCount: data.likeCount || 0
+                    };
+                }
+            } catch (e) { continue; }
+        }
+        throw new Error("Xerox fails");
+    };
+
+    const tryWista = async (id) => {
+        const res = await fetchWithTimeout(`https://simple-yt-stream.onrender.com/api/video/${id}`);
+        const data = await res.json();
+        const streams = data.streams || [];
+        return {
+            stream_url: streams.find(s => s.format_id === "18")?.url || streams[0]?.url || "",
+            highstreamUrl: streams.find(s => s.quality === "720p")?.url || "",
+            audioUrl: streams.find(s => s.fps === null)?.url || "",
+            id: id,
+            channelId: "",
+            channelTitle: "",
+            channelImageUrl: "",
+            title: "Wista Video",
+            description: "",
+            viewCount: 0,
+            likeCount: 0
+        };
+    };
+
+    const apis = [
+        { name: 'SiaTube', fn: () => tryYtdlpApi(videoId, 'https://siawaseok.f5.si/api/streams') },
+        { name: 'YuZuTube', fn: () => tryYtdlpApi(videoId, 'https://yudlp.vercel.app/stream') },
+        { name: 'KatuoTube', fn: () => tryYtdlpApi(videoId, 'https://ytdlpinstance-vercel.vercel.app/stream') },
+        { name: 'SenninTube', fn: () => tryYtdlpApi(videoId, 'https://senninytdlp-42jz.vercel.app/stream') },
+        { name: 'Invidious', fn: () => tryInvidious(videoId) },
+        { name: 'Xerox', fn: () => tryXerox(videoId) },
+        { name: 'Wista', fn: () => tryWista(videoId) }
+    ];
+
+    for (const api of apis) {
         try {
-            const res = await fetchWithTimeout(`${instance}/stream?id=${videoId}`, { timeout: MAX_TIME_SLOW });
-            const data = await res.json();
-            if (data && data.streamingUrl) {
-                return {
-                    stream_url: data.streamingUrl,
-                    highstreamUrl: data.formats?.find(f => f.quality === '720p' || f.height >= 720)?.url || "",
-                    audioUrl: data.audioUrl || "",
-                    videoId: videoId,
-                    channelId: "",
-                    channelName: "Unknown",
-                    channelImage: "",
-                    videoTitle: "Unknown Title",
-                    videoDes: "",
-                    videoViews: 0,
-                    likeCount: 0
-                };
-            }
-        } catch (e) { continue; }
-    }
-    throw new Error("Xerox failed");
-}
-
-
-app.get('/get-other/:videoId', async (req, res) => {
-    const videoId = req.params.videoId;
-    const type = req.query.type || 'invidious';
-
-    try {
-        let result;
-
-        // API提供toka-kun様　siawaseok様　sennen様　xeroxyt様　woolisbest様に感謝します
-        switch (type) {
-            case 'siawaseok':
-                result = await fetchYtDlpApi('https://siawaseok.f5.si/api/streams/', videoId);
-                break;
-            case 'yudlp':
-                result = await fetchYtDlpApi('https://yudlp.vercel.app/stream/', videoId);
-                break;
-            case 'ytdlpinstance-vercel':
-                result = await fetchYtDlpApi('https://ytdlpinstance-vercel.vercel.app/stream/', videoId);
-                break;
-            case 'senninytdlp':
-                result = await fetchYtDlpApi('https://senninytdlp-42jz.vercel.app/stream/', videoId);
-                break;
-            case 'xeroxyt-nt-apiv1':
-                result = await fetchXerox(videoId);
-                break;
-            case 'simple-yt-stream':
-                result = await fetchYtDlpApi('https://simple-yt-stream.onrender.com/api/video/', videoId);
-                break;
-            default:
-                result = await fetchInvidious(videoId);
+            console.log(`Trying API: ${api.name}...`);
+            const data = await api.fn();
+            
+            return res.json({
+                stream_url: data.stream_url || "",
+                highstreamUrl: data.highstreamUrl || "",
+                audioUrl: data.audioUrl || "",
+                videoId: data.id,
+                channelId: data.channelId,
+                channelName: data.channelTitle,
+                channelImage: data.channelImageUrl,
+                videoTitle: data.title,
+                videoDes: data.videoDes || data.description,
+                videoViews: parseInt(data.viewCount) || 0,
+                likeCount: data.likeCount
+            });
+        } catch (err) {
+            console.error(`API ${api.name} failed:`, err.message);
+            continue; 
         }
-
-        if (result.audioUrl && (result.audioUrl.includes('manifest') || result.audioUrl.includes('.m3u8'))) {
-            result.audioUrl = "";
-        }
-
-        res.json(result);
-
-    } catch (error) {
-        console.error('Final Error:', error.message);
-        res.status(500).json({ error: "Failed to fetch video data from all APIs", message: error.message });
     }
+
+    res.status(500).json({ error: "全てのAPIから情報を取得できませんでした。" });
 });
 
 

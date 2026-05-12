@@ -2083,165 +2083,234 @@ app.use((req, res, next) => {
 });
 
 // API提供toka-kun様　siawaseok様　sennen様　xeroxyt様　woolisbest様に感謝します
-app.get('/get-other/:videoId', async (req, res) => {
-    const videoId = req.params.videoId;
-    if (!videoId) return res.status(400).json({ error: "videoId is required" });
+const MAX_API_WAIT_TIME = 5000; 
+const MAX_TIME = 10000;       
+const MAX_TIME_SLOW = 20000; 
 
-    const MAX_API_WAIT_TIME = 6000; 
+let cache = {
+    invidious: null,
+    xerox: null
+};
 
-    async function fetchWithTimeout(url, options = {}) {
-        const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), MAX_API_WAIT_TIME);
-        try {
-            const response = await fetch(url, { ...options, signal: controller.signal });
-            clearTimeout(id);
-            return response;
-        } catch (e) {
-            clearTimeout(id);
-            throw e;
-        }
+function shuffleArray(array) {
+    const newArr = [...array];
+    for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
     }
+    return newArr;
+}
 
-    function shuffle(array) {
-        return array.sort(() => Math.random() - 0.5);
+
+async function updateInstanceLists() {
+    try {
+        const [invRes, xeroxRes] = await Promise.allSettled([
+            axios.get('https://raw.githubusercontent.com/toka-kun/Education/refs/heads/main/apis/Invidious/yes.json', { timeout: 5000 }),
+            axios.get('https://raw.githubusercontent.com/toka-kun/Education/refs/heads/main/apis/XeroxYT-NT/yes.json', { timeout: 5000 })
+        ]);
+        if (invRes.status === 'fulfilled') cache.invidious = invRes.value.data;
+        if (xeroxRes.status === 'fulfilled') cache.xerox = xeroxRes.value.data;
+    } catch (e) {
+        console.error("インスタンスリストの更新エラー");
     }
+}
+
+updateInstanceLists();
 
 
-    const tryInvidious = async (id) => {
-        const listRes = await fetchWithTimeout('https://raw.githubusercontent.com/toka-kun/Education/refs/heads/main/apis/Invidious/yes.json');
-        const instances = await listRes.json();
-        for (const instance of shuffle(instances)) {
-            try {
-                const apiRes = await fetchWithTimeout(`${instance}/api/v1/videos/${id}`);
-                const data = await apiRes.json();
-                if (data && data.formatStreams) {
-                    const highRes = data.adaptiveFormats?.find(f => f.resolution === '720p' || f.resolution === '1080p')?.url;
-                    return {
-                        stream_url: data.formatStreams.find(s => s.itag === "18" || s.itag === "22")?.url || data.formatStreams[0]?.url,
-                        highstreamUrl: highRes || "",
-                        audioUrl: data.adaptiveFormats?.find(f => f.container === 'm4a' || f.type?.includes('audio'))?.url || "",
-                        id: data.videoId,
-                        channelId: data.authorId,
-                        channelTitle: data.author,
-                        channelImageUrl: data.authorThumbnails?.[0]?.url || "",
-                        title: data.title,
-                        description: data.description,
-                        viewCount: data.viewCount,
-                        likeCount: data.likeCount || 0
-                    };
-                }
-            } catch (e) { continue; }
-        }
-        throw new Error("Invidious fails");
-    };
-
-    const tryYtdlpApi = async (id, baseUrl) => {
-        const url = baseUrl.includes('/stream/') ? `${baseUrl}${id}` : `${baseUrl}/${id}`;
-        const res = await fetchWithTimeout(url);
-        const data = await res.json();
-        const formats = Array.isArray(data) ? data : (data.formats || []);
+const apiHandlers = {
+    invidious: async (videoId) => {
+        if (!cache.invidious) await updateInstanceLists();
+        if (!cache.invidious) throw new Error("List empty");
         
-        const audio = formats.find(f => f.resolution === 'audio only' || f.acodec !== 'none' && f.vcodec === 'none')?.url;
-        const high = formats.find(f => f.height >= 720)?.url;
-
-        return {
-            stream_url: formats.find(f => f.format_id === "18" || f.itag === 18)?.url || formats[0]?.url || "",
-            highstreamUrl: high || "",
-            audioUrl: audio || "",
-            id: data.id || id,
-            channelId: data.channelId || "",
-            channelTitle: data.channel || data.uploader || "Unknown",
-            channelImageUrl: data.channelImageUrl || "",
-            title: data.title || "Unknown Title",
-            description: data.description || "",
-            viewCount: data.view_count || 0,
-            likeCount: data.like_count || 0
-        };
-    };
-
-    const tryXerox = async (id) => {
-        const listRes = await fetchWithTimeout('https://raw.githubusercontent.com/toka-kun/Education/refs/heads/main/apis/XeroxYT-NT/yes.json');
-        const instances = await listRes.json();
-        for (const instance of shuffle(instances)) {
+        const instances = shuffleArray(cache.invidious);
+        for (const instance of instances) {
             try {
-                const apiRes = await fetchWithTimeout(`${instance}/stream?id=${id}`);
-                const data = await apiRes.json();
-                if (data && data.streamingUrl) {
+                const apiUrl = `${instance}/api/v1/videos/${videoId}`;
+                const response = await axios.get(apiUrl, { timeout: MAX_API_WAIT_TIME });
+                const data = response.data;
+                if (data && data.formatStreams) {
+                    const formats = data.formatStreams || [];
+                    const adaptive = data.adaptiveFormats || [];
+                    
+                    const streamUrl = formats.find(s => String(s.itag) === '18' && s.url)?.url || 
+                                     formats.find(s => String(s.itag) === '22' && s.url)?.url || 
+                                     data.hlsUrl || '';
+
+                    const audioUrls = adaptive
+                        .filter(s => !s.resolution && (s.container === 'webm' || s.container === 'm4a') && s.url)
+                        .map(s => ({
+                            url: s.url,
+                            name: s.audioQuality ? s.audioQuality.replace('AUDIO_QUALITY_', '') : `${s.audioBitrate}kbps`,
+                            container: s.container
+                        }));
+
+                    const streamUrls = adaptive
+                        .filter(s => s.resolution && s.url)
+                        .map(s => ({ url: s.url, resolution: s.resolution, container: s.container, fps: s.fps }));
+
+                    return { stream_url: streamUrl, audioUrl: adaptive.find(s => String(s.itag) === '251')?.url || '', audioUrls, streamUrls };
+                }
+            } catch (e) { continue; }
+        }
+        throw new Error("All Invidious nodes failed");
+    },
+
+    // SiaTube
+    siawaseok: async (videoId) => {
+        const res = await axios.get(`https://siawaseok.f5.si/api/streams/${videoId}`, { timeout: MAX_TIME });
+        const streams = Array.isArray(res.data) ? res.data : (res.data.formats || []);
+        const audio = streams.find(s => String(s.itag) === '251' || s.vcodec === 'none');
+        const combined = streams.find(s => String(s.itag) === '18');
+        return {
+            stream_url: combined?.url || '',
+            audioUrl: audio?.url || '',
+            audioUrls: streams.filter(s => s.vcodec === 'none').map(s => ({ url: s.url, name: `${s.abr}kbps`, container: s.ext })),
+            streamUrls: streams.filter(s => s.vcodec !== 'none').map(s => ({ url: s.url, resolution: s.resolution, container: s.ext, fps: s.fps }))
+        };
+    },
+
+    // YuZuTube
+    yudlp: async (videoId) => {
+        const res = await axios.get(`https://yudlp.vercel.app/stream/${videoId}`, { timeout: MAX_TIME });
+        const formats = res.data.formats || [];
+        return {
+            stream_url: formats.find(s => String(s.itag) === '18')?.url || '',
+            audioUrl: formats.find(s => String(s.itag) === '251')?.url || '',
+            audioUrls: formats.filter(s => s.resolution === 'audio only').map(s => ({ url: s.url, name: s.ext, container: s.ext })),
+            streamUrls: formats.filter(s => s.resolution !== 'audio only' && s.vcodec !== 'none').map(s => ({ url: s.url, resolution: s.resolution, container: s.ext }))
+        };
+    },
+
+    // KatuoTube
+    katuo: async (videoId) => {
+        const res = await axios.get(`https://ytdlpinstance-vercel.vercel.app/stream/${videoId}`, { timeout: MAX_TIME });
+        const formats = res.data.formats || [];
+        return {
+            stream_url: formats.find(s => String(s.itag) === '18')?.url || '',
+            audioUrl: formats.find(s => String(s.itag) === '251')?.url || '',
+            audioUrls: formats.filter(s => s.vcodec === 'none').map(s => ({ url: s.url, name: s.ext, container: s.ext })),
+            streamUrls: formats.filter(s => s.vcodec !== 'none').map(s => ({ url: s.url, resolution: s.resolution, container: s.ext }))
+        };
+    },
+
+    // SenninTube
+    sennin: async (videoId) => {
+        const res = await axios.get(`https://senninytdlp-42jz.vercel.app/stream/${videoId}`, { timeout: MAX_TIME });
+        const formats = res.data.formats || [];
+        return {
+            stream_url: formats.find(s => String(s.itag) === '18')?.url || '',
+            audioUrl: formats.find(s => String(s.itag) === '251')?.url || '',
+            audioUrls: formats.filter(s => s.vcodec === 'none').map(s => ({ url: s.url, name: s.ext, container: s.ext })),
+            streamUrls: formats.filter(s => s.vcodec !== 'none').map(s => ({ url: s.url, resolution: s.resolution, container: s.ext }))
+        };
+    },
+
+    // XeroxYT-NT
+    xerox: async (videoId) => {
+        if (!cache.xerox) await updateInstanceLists();
+        const instances = shuffleArray(cache.xerox || []);
+        for (const instance of instances) {
+            try {
+                const res = await axios.get(`${instance}/stream?id=${videoId}`, { timeout: MAX_TIME_SLOW });
+                if (res.data?.streamingUrl) {
                     return {
-                        stream_url: data.streamingUrl,
-                        highstreamUrl: data.formats?.find(f => f.quality?.includes('720') || f.height >= 720)?.url || "",
-                        audioUrl: data.audioUrl || "",
-                        id: id,
-                        channelId: data.channelId || "",
-                        channelTitle: data.channelTitle || "",
-                        channelImageUrl: "", 
-                        title: data.title || "",
-                        description: data.description || "",
-                        viewCount: data.viewCount || 0,
-                        likeCount: data.likeCount || 0
+                        stream_url: res.data.streamingUrl,
+                        audioUrl: res.data.audioUrl || '',
+                        audioUrls: [],
+                        streamUrls: (res.data.formats || []).map(f => ({ url: f.url, resolution: f.quality || 'Auto', container: f.container || 'mp4' }))
                     };
                 }
             } catch (e) { continue; }
         }
-        throw new Error("Xerox fails");
-    };
+        throw new Error("Xerox failed");
+    },
 
-    const tryWista = async (id) => {
-        const res = await fetchWithTimeout(`https://simple-yt-stream.onrender.com/api/video/${id}`);
-        const data = await res.json();
-        const streams = data.streams || [];
+    // Wista Stream
+    wista: async (videoId) => {
+        const res = await axios.get(`https://simple-yt-stream.onrender.com/api/video/${videoId}`, { timeout: MAX_TIME_SLOW });
+        const streams = res.data.streams || [];
         return {
-            stream_url: streams.find(s => s.format_id === "18")?.url || streams[0]?.url || "",
-            highstreamUrl: streams.find(s => s.quality === "720p")?.url || "",
-            audioUrl: streams.find(s => s.fps === null)?.url || "",
-            id: id,
-            channelId: "",
-            channelTitle: "",
-            channelImageUrl: "",
-            title: "Wista Video",
-            description: "",
-            viewCount: 0,
-            likeCount: 0
+            stream_url: streams.find(s => String(s.format_id) === '18')?.url || '',
+            audioUrl: streams.find(s => s.fps === null)?.url || '',
+            audioUrls: streams.filter(s => s.fps === null).map(s => ({ url: s.url, name: s.quality, container: s.ext })),
+            streamUrls: streams.filter(s => s.fps !== null).map(s => ({ url: s.url, resolution: s.quality, container: s.ext, fps: s.fps }))
         };
-    };
+    }
+};
 
-    const apis = [
-        { name: 'SiaTube', fn: () => tryYtdlpApi(videoId, 'https://siawaseok.f5.si/api/streams') },
-        { name: 'YuZuTube', fn: () => tryYtdlpApi(videoId, 'https://yudlp.vercel.app/stream') },
-        { name: 'KatuoTube', fn: () => tryYtdlpApi(videoId, 'https://ytdlpinstance-vercel.vercel.app/stream') },
-        { name: 'SenninTube', fn: () => tryYtdlpApi(videoId, 'https://senninytdlp-42jz.vercel.app/stream') },
-        { name: 'Invidious', fn: () => tryInvidious(videoId) },
-        { name: 'Xerox', fn: () => tryXerox(videoId) },
-        { name: 'Wista', fn: () => tryWista(videoId) }
-    ];
+app.get('/get-other/:videoId', async (req, res) => {
+    const { videoId } = req.params;
+    
+    const apiOrder = shuffleArray(Object.keys(apiHandlers));
+    
+    let result = null;
+    let errors = [];
 
-    for (const api of apis) {
+    for (const apiName of apiOrder) {
         try {
-            console.log(`Trying API: ${api.name}...`);
-            const data = await api.fn();
-            
-            return res.json({
-                stream_url: data.stream_url || "",
-                highstreamUrl: data.highstreamUrl || "",
-                audioUrl: data.audioUrl || "",
-                videoId: data.id,
-                channelId: data.channelId,
-                channelName: data.channelTitle,
-                channelImage: data.channelImageUrl,
-                videoTitle: data.title,
-                videoDes: data.videoDes || data.description,
-                videoViews: parseInt(data.viewCount) || 0,
-                likeCount: data.likeCount
-            });
-        } catch (err) {
-            console.error(`API ${api.name} failed:`, err.message);
-            continue; 
+            console.log(`Trying API: ${apiName}`);
+            result = await apiHandlers[apiName](videoId);
+            if (result) {
+                result.provider = apiName; 
+                break; 
+            }
+        } catch (error) {
+            console.error(`❌ ${apiName} failed: ${error.message}`);
+            errors.push({ api: apiName, error: error.message });
         }
     }
 
-    res.status(500).json({ error: "全てのAPIから情報を取得できませんでした。" });
-});
+    if (!result) {
+        return res.status(500).json({
+            success: false,
+            message: "えらー",
+            details: errors
+        });
+    }
 
+    try {
+        const seenUrls = new Set();
+        if (result.stream_url) seenUrls.add(result.stream_url);
+
+        result.streamUrls = (result.streamUrls || []).filter(s => {
+            if (!s.url || seenUrls.has(s.url)) return false;
+            seenUrls.add(s.url);
+            
+            if (s.resolution) {
+                s.resolution = String(s.resolution).replace(/ \(.+\)/g, '').trim();
+                if (s.fps && s.resolution.endsWith(String(s.fps))) {
+                    s.resolution = s.resolution.slice(0, -String(s.fps).length).trim();
+                }
+            }
+            
+            if (s.url.includes('.m3u8') || s.url.includes('manifest')) {
+                s.container = 'm3u8';
+            }
+            return true;
+        });
+
+        const isInvalid = (url) => !url || url.includes('manifest') || url.includes('.m3u8');
+        if (isInvalid(result.audioUrl)) {
+            result.audioUrl = '';
+            result.audioUrls = [];
+        } else {
+            result.audioUrls = (result.audioUrls || []).filter(s => !isInvalid(s.url));
+        }
+
+        return res.json({
+            success: true,
+            data: result
+        });
+
+    } catch (cleanError) {
+        return res.json({
+            success: true,
+            data: result,
+            note: "Cleaning process partially failed"
+        });
+    }
+});
 
 app.use((req, res) => res.status(404).sendFile(path.join(__dirname, "public", "error.html")));
 app.use((err, req, res, next) => {

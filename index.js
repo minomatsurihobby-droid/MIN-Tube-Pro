@@ -2084,8 +2084,8 @@ app.use((req, res, next) => {
 
 // API提供toka-kun様　siawaseok様　sennen様　xeroxyt様　woolisbest様に感謝します
 const MAX_API_WAIT_TIME = 5000; 
-const MAX_TIME = 10000;       
-const MAX_TIME_SLOW = 20000; 
+const MAX_TIME = 10000;      
+const MAX_TIME_SLOW = 20000;  
 
 let cache = {
     invidious: null,
@@ -2101,17 +2101,19 @@ function shuffleArray(array) {
     return newArr;
 }
 
-
 async function updateInstanceLists() {
     try {
-        const [invRes, xeroxRes] = await Promise.allSettled([
-            axios.get('https://raw.githubusercontent.com/toka-kun/Education/refs/heads/main/apis/Invidious/yes.json', { timeout: 5000 }),
-            axios.get('https://raw.githubusercontent.com/toka-kun/Education/refs/heads/main/apis/XeroxYT-NT/yes.json', { timeout: 5000 })
+        const fetchWithTimeout = (url) => fetch(url, { timeout: 5000 }).then(r => r.json());
+        
+        const results = await Promise.allSettled([
+            fetchWithTimeout('https://raw.githubusercontent.com/toka-kun/Education/refs/heads/main/apis/Invidious/yes.json'),
+            fetchWithTimeout('https://raw.githubusercontent.com/toka-kun/Education/refs/heads/main/apis/XeroxYT-NT/yes.json')
         ]);
-        if (invRes.status === 'fulfilled') cache.invidious = invRes.value.data;
-        if (xeroxRes.status === 'fulfilled') cache.xerox = xeroxRes.value.data;
+
+        if (results[0].status === 'fulfilled') cache.invidious = results[0].value;
+        if (results[1].status === 'fulfilled') cache.xerox = results[1].value;
     } catch (e) {
-        console.error("インスタンスリストの更新エラー");
+        console.error("インスタンスリストの更新に一部失敗しました");
     }
 }
 
@@ -2127,8 +2129,9 @@ const apiHandlers = {
         for (const instance of instances) {
             try {
                 const apiUrl = `${instance}/api/v1/videos/${videoId}`;
-                const response = await axios.get(apiUrl, { timeout: MAX_API_WAIT_TIME });
-                const data = response.data;
+                const response = await fetch(apiUrl, { timeout: MAX_API_WAIT_TIME });
+                const data = await response.json();
+                
                 if (data && data.formatStreams) {
                     const formats = data.formatStreams || [];
                     const adaptive = data.adaptiveFormats || [];
@@ -2158,8 +2161,9 @@ const apiHandlers = {
 
     // SiaTube
     siawaseok: async (videoId) => {
-        const res = await axios.get(`https://siawaseok.f5.si/api/streams/${videoId}`, { timeout: MAX_TIME });
-        const streams = Array.isArray(res.data) ? res.data : (res.data.formats || []);
+        const res = await fetch(`https://siawaseok.f5.si/api/streams/${videoId}`, { timeout: MAX_TIME });
+        const data = await res.json();
+        const streams = Array.isArray(data) ? data : (data.formats || []);
         const audio = streams.find(s => String(s.itag) === '251' || s.vcodec === 'none');
         const combined = streams.find(s => String(s.itag) === '18');
         return {
@@ -2172,8 +2176,9 @@ const apiHandlers = {
 
     // YuZuTube
     yudlp: async (videoId) => {
-        const res = await axios.get(`https://yudlp.vercel.app/stream/${videoId}`, { timeout: MAX_TIME });
-        const formats = res.data.formats || [];
+        const res = await fetch(`https://yudlp.vercel.app/stream/${videoId}`, { timeout: MAX_TIME });
+        const data = await res.json();
+        const formats = data.formats || [];
         return {
             stream_url: formats.find(s => String(s.itag) === '18')?.url || '',
             audioUrl: formats.find(s => String(s.itag) === '251')?.url || '',
@@ -2184,8 +2189,9 @@ const apiHandlers = {
 
     // KatuoTube
     katuo: async (videoId) => {
-        const res = await axios.get(`https://ytdlpinstance-vercel.vercel.app/stream/${videoId}`, { timeout: MAX_TIME });
-        const formats = res.data.formats || [];
+        const res = await fetch(`https://ytdlpinstance-vercel.vercel.app/stream/${videoId}`, { timeout: MAX_TIME });
+        const data = await res.json();
+        const formats = data.formats || [];
         return {
             stream_url: formats.find(s => String(s.itag) === '18')?.url || '',
             audioUrl: formats.find(s => String(s.itag) === '251')?.url || '',
@@ -2196,8 +2202,9 @@ const apiHandlers = {
 
     // SenninTube
     sennin: async (videoId) => {
-        const res = await axios.get(`https://senninytdlp-42jz.vercel.app/stream/${videoId}`, { timeout: MAX_TIME });
-        const formats = res.data.formats || [];
+        const res = await fetch(`https://senninytdlp-42jz.vercel.app/stream/${videoId}`, { timeout: MAX_TIME });
+        const data = await res.json();
+        const formats = data.formats || [];
         return {
             stream_url: formats.find(s => String(s.itag) === '18')?.url || '',
             audioUrl: formats.find(s => String(s.itag) === '251')?.url || '',
@@ -2212,13 +2219,14 @@ const apiHandlers = {
         const instances = shuffleArray(cache.xerox || []);
         for (const instance of instances) {
             try {
-                const res = await axios.get(`${instance}/stream?id=${videoId}`, { timeout: MAX_TIME_SLOW });
-                if (res.data?.streamingUrl) {
+                const res = await fetch(`${instance}/stream?id=${videoId}`, { timeout: MAX_TIME_SLOW });
+                const data = await res.json();
+                if (data?.streamingUrl) {
                     return {
-                        stream_url: res.data.streamingUrl,
-                        audioUrl: res.data.audioUrl || '',
+                        stream_url: data.streamingUrl,
+                        audioUrl: data.audioUrl || '',
                         audioUrls: [],
-                        streamUrls: (res.data.formats || []).map(f => ({ url: f.url, resolution: f.quality || 'Auto', container: f.container || 'mp4' }))
+                        streamUrls: (data.formats || []).map(f => ({ url: f.url, resolution: f.quality || 'Auto', container: f.container || 'mp4' }))
                     };
                 }
             } catch (e) { continue; }
@@ -2228,8 +2236,9 @@ const apiHandlers = {
 
     // Wista Stream
     wista: async (videoId) => {
-        const res = await axios.get(`https://simple-yt-stream.onrender.com/api/video/${videoId}`, { timeout: MAX_TIME_SLOW });
-        const streams = res.data.streams || [];
+        const res = await fetch(`https://simple-yt-stream.onrender.com/api/video/${videoId}`, { timeout: MAX_TIME_SLOW });
+        const data = await res.json();
+        const streams = data.streams || [];
         return {
             stream_url: streams.find(s => String(s.format_id) === '18')?.url || '',
             audioUrl: streams.find(s => s.fps === null)?.url || '',
@@ -2252,7 +2261,7 @@ app.get('/get-other/:videoId', async (req, res) => {
             console.log(`Trying API: ${apiName}`);
             result = await apiHandlers[apiName](videoId);
             if (result) {
-                result.provider = apiName; 
+                result.provider = apiName;
                 break; 
             }
         } catch (error) {

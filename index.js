@@ -1444,7 +1444,8 @@ app.get("/version", (req, res) => {
 app.get("/ai", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "app/aibot.html"));
 });
-
+app.get("/code", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "app/Code.html"));
 app.get("/games.json", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "game/game.json"));
 });

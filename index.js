@@ -1415,9 +1415,6 @@ app.get("/game", (req, res) => {
 app.get("/minecraft", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "game/fun/Minecraft.html"));
 });
-app.get("/REPO", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "game/fun/R.E.P.O.html"));
-});
 
 app.get("/play", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "game/play.html"));
@@ -1446,6 +1443,7 @@ app.get("/ai", (req, res) => {
 });
 app.get("/code", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "app/Code.html"));
+});
 app.get("/games.json", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "game/game.json"));
 });

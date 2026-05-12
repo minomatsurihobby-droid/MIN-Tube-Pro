@@ -20,6 +20,7 @@
     "cookie-parser": "^1.4.6",
     "ejs": "^3.1.9",
     "node-fetch": "^2.6.7",
+    "undici": "^6.19.8",
     "youtube-search-api": "^1.2.2"
   }
 }

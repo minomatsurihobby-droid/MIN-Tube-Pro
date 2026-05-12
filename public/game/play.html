@@ -1,704 +1,209 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>プレイ中 — MIN-Tube-Pro Games</title>
   <style>
     :root {
-      --bg1: #0f1724;
-      --bg2: #071029;
+      --bg: linear-gradient(135deg, #0f1724, #071029);
       --accent: #00d4ff;
       --glass: rgba(255, 255, 255, 0.06);
-      --card: rgba(255, 255, 255, 0.03);
-      --glass-border: rgba(255, 255, 255, 0.08);
-      --radius: 14px;
-      --glass-blur: 10px;
-      --text: #e6f7ff;
+      --border: rgba(255, 255, 255, 0.08);
       --muted: #9fb7c9;
+      --text: #e6f7ff;
     }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0
-    }
-
-    html,
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      height: 100%;
-      font-family: Inter, "Noto Sans JP", system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
-      background: linear-gradient(135deg, var(--bg1), var(--bg2));
-      color: var(--text);
-      -webkit-font-smoothing: antialiased;
-      overflow: hidden;
+      height: 100vh; overflow: hidden; color: var(--text);
+      font-family: Inter, "Noto Sans JP", sans-serif; background: var(--bg);
     }
-
-    .layout {
-      display: flex;
-      flex-direction: column;
-      height: 100vh
-    }
-
+    .layout { display: flex; flex-direction: column; height: 100%; position: relative; }
+    
+    /* 上部バーの調整：絶対配置にして隠せるように */
     .topbar {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 18px;
-      background: rgba(7, 16, 41, 0.85);
-      border-bottom: 1px solid var(--glass-border);
-      backdrop-filter: blur(var(--glass-blur));
-      flex-shrink: 0;
-      z-index: 100;
-      transition: transform 0.3s ease, opacity 0.3s ease;
+      position: absolute; top: 0; left: 0; right: 0;
+      display: flex; align-items: center; gap: 12px; padding: 10px 18px;
+      background: rgba(7, 16, 41, 0.9); border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(10px); z-index: 100;
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
+    /* 隠す状態 */
+    .hide-ui .topbar { transform: translateY(-100%); }
+    .hide-ui .side-toggle { opacity: 0; transform: translate(100%, -50%); }
 
-    .back-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--muted);
-      font-size: 13px;
-      text-decoration: none;
-      padding: 6px 12px;
-      border-radius: 8px;
-      border: 1px solid var(--glass-border);
-      background: var(--card);
-      transition: color .18s, background .18s;
-      white-space: nowrap;
+    .back-btn, .action-btn, .panel-close {
+      display: inline-flex; align-items: center; gap: 6px; color: var(--muted);
+      text-decoration: none; padding: 6px 12px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--glass); cursor: pointer; transition: .18s;
     }
-
-    .back-btn:hover {
-      color: var(--accent);
-      background: rgba(0, 212, 255, 0.07)
-    }
-
-    .back-btn svg {
-      width: 13px;
-      height: 13px;
-      stroke: currentColor;
-      fill: none;
-      stroke-width: 2.2;
-      stroke-linecap: round;
-      stroke-linejoin: round
-    }
-
-    .divider {
-      width: 1px;
-      height: 24px;
-      background: var(--glass-border);
-      flex-shrink: 0
-    }
-
-    .game-info {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex: 1;
-      min-width: 0
-    }
-
-    .game-emoji {
-      font-size: 22px;
-      flex-shrink: 0
-    }
-
-    .game-name {
-      font-weight: 700;
-      font-size: 15px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis
-    }
-
-    .game-sub {
-      font-size: 12px;
-      color: var(--muted)
-    }
-
+    .back-btn:hover, .action-btn:hover { color: var(--accent); background: rgba(0,212,255,0.07); }
+    .divider { width: 1px; height: 24px; background: var(--border); }
+    .game-info { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .game-name { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    
     .live-badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 20px;
-      background: rgba(34, 197, 94, 0.1);
-      border: 1px solid rgba(34, 197, 94, 0.25);
-      font-size: 12px;
-      color: #4ade80;
-      font-weight: 600;
-      white-space: nowrap;
-      flex-shrink: 0;
+      display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px;
+      background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25);
+      color: #4ade80; font-size: 12px; font-weight: 600;
     }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; position: relative; }
+    .live-dot::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: #22c55e; animation: ping 2s infinite; }
+    @keyframes ping { 0% { transform: scale(1); opacity: 0.6 } 70%,100% { transform: scale(2.4); opacity: 0 } }
 
-    .live-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #22c55e;
-      box-shadow: 0 0 6px rgba(34, 197, 94, 0.7);
-      position: relative;
+    .frame-wrap { flex: 1; position: relative; background: #000; width: 100%; height: 100%; }
+    iframe { width: 100%; height: 100%; border: none; }
+
+    .loading, .error-screen {
+      position: absolute; inset: 0; z-index: 10; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 20px; background: var(--bg); transition: .4s;
     }
-
-    .live-dot::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      background: #22c55e;
-      opacity: 0.4;
-      animation: ping 2s ease-in-out infinite;
-    }
-
-    @keyframes ping {
-      0% { transform: scale(1); opacity: 0.6 }
-      70% { transform: scale(2.4); opacity: 0 }
-      100% { transform: scale(2.4); opacity: 0 }
-    }
-
-    .action-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      padding: 6px 12px;
-      border-radius: 8px;
-      border: 1px solid var(--glass-border);
-      background: var(--card);
-      color: var(--muted);
-      font-size: 12px;
-      cursor: pointer;
-      transition: all .18s;
-      white-space: nowrap;
-    }
-
-    .action-btn:hover {
-      color: var(--text);
-      border-color: rgba(255, 255, 255, 0.18);
-      background: rgba(255, 255, 255, 0.06)
-    }
-
-    .action-btn.fullscreen-active {
-      color: var(--accent);
-      border-color: rgba(0, 212, 255, 0.3);
-      background: rgba(0, 212, 255, 0.07)
-    }
-
-    .action-btn svg {
-      width: 13px;
-      height: 13px;
-      stroke: currentColor;
-      fill: none;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round
-    }
-
-    .frame-wrap {
-      flex: 1;
-      position: relative;
-      overflow: hidden;
-      background: #000;
-    }
-
-    .loading {
-      position: absolute;
-      inset: 0;
-      z-index: 10;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 20px;
-      background: linear-gradient(135deg, var(--bg1), var(--bg2));
-      transition: opacity .4s;
-    }
-
-    .loading.hidden {
-      opacity: 0;
-      pointer-events: none
-    }
-
-    .spinner {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      border: 3px solid rgba(0, 212, 255, 0.15);
-      border-top-color: var(--accent);
-      animation: spin 0.8s linear infinite;
-    }
-
+    .hidden { opacity: 0; pointer-events: none; }
+    .spinner { width: 40px; height: 40px; border: 3px solid rgba(0,212,255,.1); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg) } }
-
-    .loading-text {
-      color: var(--muted);
-      font-size: 14px
-    }
-
-    .loading-sub {
-      color: rgba(159, 183, 201, 0.5);
-      font-size: 12px
-    }
-
-    .error-screen {
-      position: absolute;
-      inset: 0;
-      z-index: 11;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      background: linear-gradient(135deg, var(--bg1), var(--bg2));
-      text-align: center;
-      padding: 40px;
-    }
-
-    .error-screen.show { display: flex }
-
-    .error-icon { font-size: 56px }
-
-    .error-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--text)
-    }
-
-    .error-msg {
-      color: var(--muted);
-      font-size: 14px;
-      max-width: 400px;
-      line-height: 1.6
-    }
-
-    .retry-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 22px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, var(--accent), #6a00ff);
-      color: #fff;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      border: none;
-      box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
-      transition: transform .15s, box-shadow .15s;
-    }
-
-    .retry-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 24px rgba(0, 212, 255, 0.45)
-    }
-
-    iframe#gameFrame {
-      width: 100%;
-      height: 100%;
-      border: none;
-      display: block;
-    }
-
-    /* フルスクリーン時のスタイル調整 */
-    .layout.is-fullscreen .topbar {
-      display: none;
-    }
-
-    .layout.is-fullscreen .frame-wrap {
-      height: 100vh;
-    }
+    .error-screen { display: none; text-align: center; padding: 20px; }
+    .error-screen.show { display: flex; }
+    .retry-btn { padding: 10px 22px; border-radius: 10px; border: none; font-weight: 600; background: linear-gradient(135deg, var(--accent), #6a00ff); color: #fff; cursor: pointer; }
 
     .side-toggle {
-      position: fixed;
-      right: 0;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 28px;
-      height: 64px;
-      background: rgba(7, 16, 41, 0.85);
-      border: 1px solid var(--glass-border);
-      border-right: none;
-      border-radius: 8px 0 0 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      z-index: 200;
-      backdrop-filter: blur(8px);
-      transition: background .18s, opacity 0.3s;
+      position: fixed; right: 0; top: 50%; transform: translateY(-50%); width: 28px; height: 64px;
+      background: rgba(7,16,41,0.8); border: 1px solid var(--border); border-right: none;
+      border-radius: 8px 0 0 8px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; z-index: 200; backdrop-filter: blur(8px); transition: 0.4s;
     }
-
-    .layout.is-fullscreen .side-toggle {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .side-toggle:hover {
-      background: rgba(0, 212, 255, 0.1)
-    }
-
-    .side-toggle svg {
-      width: 14px;
-      height: 14px;
-      stroke: var(--muted);
-      fill: none;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      transition: stroke .18s
-    }
-
-    .side-toggle:hover svg {
-      stroke: var(--accent)
-    }
-
     .side-panel {
-      position: fixed;
-      right: -300px;
-      top: 0;
-      bottom: 0;
-      width: 300px;
-      background: rgba(7, 16, 41, 0.95);
-      border-left: 1px solid var(--glass-border);
-      backdrop-filter: blur(16px);
-      z-index: 199;
-      transition: right .3s cubic-bezier(.4, 0, .2, 1);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+      position: fixed; right: -300px; top: 0; bottom: 0; width: 300px;
+      background: rgba(7, 16, 41, 0.95); border-left: 1px solid var(--border);
+      backdrop-filter: blur(16px); z-index: 199; transition: .3s cubic-bezier(.4,0,.2,1);
+      display: flex; flex-direction: column;
     }
-
-    .side-panel.open {
-      right: 0
-    }
-
-    .panel-header {
-      padding: 18px 20px 14px;
-      border-bottom: 1px solid var(--glass-border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .panel-title {
-      font-weight: 700;
-      font-size: 15px
-    }
-
-    .panel-close {
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
-      background: var(--card);
-      border: 1px solid var(--glass-border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      color: var(--muted);
-      transition: color .18s;
-    }
-
-    .panel-close:hover { color: var(--text) }
-
-    .panel-body {
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      overflow-y: auto;
-      flex: 1
-    }
-
-    .info-block {
-      display: flex;
-      flex-direction: column;
-      gap: 6px
-    }
-
-    .info-label {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.8px
-    }
-
-    .info-value {
-      font-size: 14px;
-      color: var(--text);
-      line-height: 1.5
-    }
-
-    .tag-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px
-    }
-
-    .tag {
-      font-size: 12px;
-      padding: 3px 10px;
-      border-radius: 20px;
-      background: rgba(0, 212, 255, 0.08);
-      border: 1px solid rgba(0, 212, 255, 0.2);
-      color: var(--accent)
-    }
-
-    @media(max-width:600px) {
-      .game-sub, .live-badge .live-label { display: none }
-      .side-panel, .side-toggle { display: none }
-    }
+    .side-panel.open { right: 0; }
+    .panel-header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+    .panel-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+    .info-label { font-size: 11px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+    .tag { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: rgba(0,212,255,0.1); color: var(--accent); margin: 2px; display: inline-block; }
+    
+    .is-fullscreen .topbar, .is-fullscreen .side-toggle { display: none !important; }
+    svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    @media(max-width:600px) { .game-sub, .live-badge span, .side-toggle, .side-panel { display: none; } }
   </style>
 </head>
-
 <body>
   <div class="layout" id="layout">
-    <div class="topbar" id="topbar">
-      <a href="game.html" class="back-btn" aria-label="ゲーム一覧へ戻る">
-        <svg viewBox="0 0 24 24">
-          <polyline points="15 18 9 12 15 6" />
-        </svg>
-        ゲーム一覧
-      </a>
+    <header class="topbar" id="topbar">
+      <a href="game.html" class="back-btn"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>一覧</a>
       <div class="divider"></div>
       <div class="game-info">
-        <span class="game-emoji" id="gameEmoji">🎮</span>
-        <div>
-          <div class="game-name" id="gameName">ゲームを読み込み中…</div>
-          <div class="game-sub" id="gameSub">MIN‑Tube‑Pro Games</div>
+        <span id="gameEmoji" style="font-size:20px">🎮</span>
+        <div style="min-width:0">
+          <div class="game-name" id="gameName">読み込み中…</div>
+          <div class="game-sub" style="font-size:11px;color:var(--muted)">MIN-Tube-Pro Games</div>
         </div>
       </div>
-      <div class="live-badge" id="liveBadge" style="display:none">
-        <div class="live-dot"></div>
-        <span class="live-label">プレイ中</span>
-      </div>
-      <button class="action-btn" id="reloadBtn" title="リロード" aria-label="ゲームをリロード">
-        <svg viewBox="0 0 24 24">
-          <polyline points="23 4 23 10 17 10" />
-          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-        </svg>
-        リロード
-      </button>
-      <button class="action-btn" id="fsBtn" title="フルスクリーン" aria-label="フルスクリーン切替">
-        <svg viewBox="0 0 24 24" id="fsIcon">
-          <polyline points="15 3 21 3 21 9" />
-          <polyline points="9 21 3 21 3 15" />
-          <line x1="21" y1="3" x2="14" y2="10" />
-          <line x1="3" y1="21" x2="10" y2="14" />
-        </svg>
-        全画面
-      </button>
-    </div>
+      <div class="live-badge" id="liveBadge" style="display:none"><div class="live-dot"></div><span>プレイ中</span></div>
+      <button class="action-btn" id="reloadBtn"><svg viewBox="0 0 24 24"><path d="M23 4v6h-6M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>リロード</button>
+      <button class="action-btn" id="fsBtn"><svg viewBox="0 0 24 24" id="fsIcon"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>全画面</button>
+    </header>
 
-    <div class="frame-wrap" id="frameWrap">
+    <main class="frame-wrap">
       <div class="loading" id="loadingScreen">
         <div class="spinner"></div>
-        <div class="loading-text">ゲームを読み込んでいます…</div>
-        <div class="loading-sub" id="loadingGameName"></div>
+        <div id="loadingGameName" style="font-size:14px;color:var(--muted)"></div>
       </div>
       <div class="error-screen" id="errorScreen">
-        <div class="error-icon">⚠️</div>
-        <div class="error-title">ゲームを読み込めませんでした</div>
-        <div class="error-msg" id="errorMsg">ゲームファイルが見つかりません。ゲーム一覧に戻って再試行してください。</div>
-        <button class="retry-btn" id="retryBtn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-            stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="23 4 23 10 17 10" />
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-          </svg>
-          再試行
-        </button>
+        <div style="font-size:48px">⚠️</div>
+        <div id="errorMsg" style="margin-bottom:10px">ゲームが見つかりません。</div>
+        <button class="retry-btn" id="retryBtn">再試行</button>
       </div>
-      <iframe id="gameFrame" title="ゲームプレイエリア" allowfullscreen></iframe>
-    </div>
+      <iframe id="gameFrame" allowfullscreen></iframe>
+    </main>
   </div>
 
-  <div class="side-toggle" id="sideToggle" title="ゲーム情報" aria-label="ゲーム情報を開く">
-    <svg viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="8" x2="12" y2="12" />
-      <line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  </div>
-
-  <div class="side-panel" id="sidePanel" role="complementary" aria-label="ゲーム情報">
-    <div class="panel-header">
-      <span class="panel-title">ゲーム情報</span>
-      <div class="panel-close" id="panelClose" aria-label="パネルを閉じる">✕</div>
-    </div>
+  <div class="side-toggle" id="sideToggle"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg></div>
+  <aside class="side-panel" id="sidePanel">
+    <div class="panel-header"><b>ゲーム情報</b><div class="panel-close" id="panelClose">✕</div></div>
     <div class="panel-body" id="panelBody"></div>
-  </div>
+  </aside>
 
   <script>
-    // ── URL パラメータ取得 ───────────────────────────────────────────────
+    const $ = id => document.getElementById(id);
     const params = new URLSearchParams(location.search);
     const gameKey = params.get('game') || '';
-
-    const frame = document.getElementById('gameFrame');
-    const loading = document.getElementById('loadingScreen');
-    const errorScreen = document.getElementById('errorScreen');
-    const liveBadge = document.getElementById('liveBadge');
-    const gameName = document.getElementById('gameName');
-    const gameEmoji = document.getElementById('gameEmoji');
-    const gameSub = document.getElementById('gameSub');
-    const loadingName = document.getElementById('loadingGameName');
-    const errorMsg = document.getElementById('errorMsg');
-    const panelBody = document.getElementById('panelBody');
-
-    function showError(msg) {
-      loading.classList.add('hidden');
-      errorScreen.classList.add('show');
-      if (msg) errorMsg.textContent = msg;
-    }
-
-    function startGame(game) {
-      document.title = `${game.name} — MIN-Tube-Pro Games`;
-      gameName.textContent = game.name;
-      gameEmoji.textContent = game.emoji;
-      gameSub.textContent = game.sub;
-      loadingName.textContent = game.name;
-
-      // サイドパネル
-      const tagsHtml = game.tags.map(t => `<span class="tag">${t}</span>`).join('');
-      panelBody.innerHTML = `
-      <div class="info-block">
-        <div class="info-label">説明</div>
-        <div class="info-value">${game.desc}</div>
-      </div>
-      <div class="info-block">
-        <div class="info-label">ジャンル</div>
-        <div class="info-value">${game.genreLabel}</div>
-      </div>
-      <div class="info-block">
-        <div class="info-label">プレイ人数</div>
-        <div class="info-value">${game.players}</div>
-      </div>
-      <div class="info-block">
-        <div class="info-label">タグ</div>
-        <div class="tag-list">${tagsHtml}</div>
-      </div>
-    `;
-
-      frame.onload = () => {
-        loading.classList.add('hidden');
-        liveBadge.style.display = 'flex';
-      };
-      frame.onerror = () => {
-        showError(`ゲームファイル「${game.file}」の読み込みに失敗しました。`);
-      };
-
-      // 6秒タイムアウトフォールバック
-      setTimeout(() => {
-        if (!loading.classList.contains('hidden') && !errorScreen.classList.contains('show')) {
-          loading.classList.add('hidden');
-          liveBadge.style.display = 'flex';
-        }
-      }, 6000);
-
-      frame.src = game.file;
-    }
-
-    // ── games.json からゲームデータ取得 ────────────────────────────────
     let currentGame = null;
+    let uiTimer;
+
+    const UI = {
+      frame: $('gameFrame'), loading: $('loadingScreen'), error: $('errorScreen'),
+      badge: $('liveBadge'), panel: $('sidePanel'), layout: $('layout'), topbar: $('topbar')
+    };
+
+    // UIの表示制御
+    const showUI = () => {
+      UI.layout.classList.remove('hide-ui');
+      clearTimeout(uiTimer);
+      // マウスが止まって3秒後に隠す。ただしパネルが開いている時やバーにホバー中は隠さない。
+      uiTimer = setTimeout(() => {
+        if (!UI.panel.classList.contains('open') && !UI.topbar.matches(':hover')) {
+          UI.layout.classList.add('hide-ui');
+        }
+      }, 3000);
+    };
+
+    window.addEventListener('mousemove', showUI);
+    window.addEventListener('touchstart', showUI);
 
     async function loadGame() {
       try {
+        UI.error.classList.remove('show');
+        UI.loading.classList.remove('hidden');
         const res = await fetch('games.json');
-        if (!res.ok) throw new Error(res.statusText);
         const games = await res.json();
+        currentGame = games.find(g => g.key === gameKey);
+        if (!currentGame) throw new Error('ゲームが見つかりません');
 
-        // キーで検索
-        currentGame = games.find(g => g.key === gameKey) || null;
+        document.title = `${currentGame.name} — MIN-Tube-Pro`;
+        $('gameName').textContent = currentGame.name;
+        $('gameEmoji').textContent = currentGame.emoji;
+        $('loadingGameName').textContent = currentGame.name;
+        $('panelBody').innerHTML = `
+          <div><div class="info-label">説明</div><div>${currentGame.desc}</div></div>
+          <div><div class="info-label">タグ</div><div>${currentGame.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div></div>
+        `;
 
-        if (!currentGame) {
-          showError(`ゲーム「${gameKey || '?'}」はレジストリに登録されていません。ゲーム一覧へ戻ってください。`);
-          document.title = 'エラー — MIN-Tube-Pro Games';
-          return;
-        }
-
-        startGame(currentGame);
+        UI.frame.onload = () => { UI.loading.classList.add('hidden'); UI.badge.style.display = 'flex'; };
+        UI.frame.src = currentGame.file;
       } catch (err) {
-        showError('games.json の読み込みに失敗しました。');
-        console.error(err);
+        UI.loading.classList.add('hidden');
+        UI.error.classList.add('show');
+        $('errorMsg').textContent = err.message;
       }
     }
 
-    // ── リロード ────────────────────────────────────────────────────────
-    document.getElementById('reloadBtn').addEventListener('click', () => {
-      if (!currentGame) return;
-      liveBadge.style.display = 'none';
-      loading.classList.remove('hidden');
-      errorScreen.classList.remove('show');
-      frame.src = '';
-      setTimeout(() => { frame.src = currentGame.file; }, 80);
-    });
+    const retryAction = () => {
+      if (currentGame) {
+        UI.error.classList.remove('show');
+        UI.loading.classList.remove('hidden');
+        UI.frame.src = ''; 
+        setTimeout(() => { UI.frame.src = currentGame.file; }, 50);
+      } else loadGame();
+    };
 
-    document.getElementById('retryBtn').addEventListener('click', () => {
-      errorScreen.classList.remove('show');
-      loading.classList.remove('hidden');
-      loadGame();
-    });
+    $('reloadBtn').onclick = retryAction;
+    $('retryBtn').onclick = retryAction;
+    $('fsBtn').onclick = () => {
+      if (!document.fullscreenElement) UI.layout.requestFullscreen?.();
+      else document.exitFullscreen?.();
+    };
 
-    // ── Fullscreen API 連携 ─────────────────────────────────────────────
-    const layout = document.getElementById('layout');
-    const fsBtn = document.getElementById('fsBtn');
-    const fsIcon = document.getElementById('fsIcon');
+    document.onfullscreenchange = () => {
+      UI.layout.classList.toggle('is-fullscreen', !!document.fullscreenElement);
+    };
 
-    const FS_EXPAND = `<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>`;
-    const FS_SHRINK = `<polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/>`;
+    $('sideToggle').onclick = () => UI.panel.classList.toggle('open');
+    $('panelClose').onclick = () => UI.panel.classList.remove('open');
 
-    // 状態を更新する関数
-    function updateFullscreenUI() {
-      const isNativeFull = !!document.fullscreenElement;
-      layout.classList.toggle('is-fullscreen', isNativeFull);
-      fsBtn.classList.toggle('fullscreen-active', isNativeFull);
-      fsIcon.innerHTML = isNativeFull ? FS_SHRINK : FS_EXPAND;
-      
-      // 全画面時はサイドパネルを閉じる
-      if (isNativeFull) {
-        sidePanel.classList.remove('open');
-      }
-    }
-
-    // ボタンクリック時の挙動
-    fsBtn.addEventListener('click', async () => {
-      try {
-        if (!document.fullscreenElement) {
-          // 全画面開始
-          if (layout.requestFullscreen) {
-            await layout.requestFullscreen();
-          } else if (layout.webkitRequestFullscreen) { /* Safari */
-            await layout.webkitRequestFullscreen();
-          } else if (layout.msRequestFullscreen) { /* IE11 */
-            await layout.msRequestFullscreen();
-          }
-        } else {
-          // 全画面解除
-          if (document.exitFullscreen) {
-            await document.exitFullscreen();
-          } else if (document.webkitExitFullscreen) {
-            await document.webkitExitFullscreen();
-          }
-        }
-      } catch (err) {
-        console.error(`全画面の切り替えに失敗しました: ${err.message}`);
-      }
-    });
-
-    // ブラウザの全画面状態の変化を検知 (Escキー対策)
-    document.addEventListener('fullscreenchange', updateFullscreenUI);
-    document.addEventListener('webkitfullscreenchange', updateFullscreenUI);
-
-    // ── サイドパネル ────────────────────────────────────────────────────
-    const sidePanel = document.getElementById('sidePanel');
-    document.getElementById('sideToggle').addEventListener('click', () => sidePanel.classList.toggle('open'));
-    document.getElementById('panelClose').addEventListener('click', () => sidePanel.classList.remove('open'));
-
-    // ── 初期化 ──────────────────────────────────────────────────────────
     loadGame();
+    showUI(); // 初回表示
   </script>
 </body>
-
 </html>

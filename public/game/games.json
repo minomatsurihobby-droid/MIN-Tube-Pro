@@ -103,15 +103,14 @@
     "emoji": "🤖",
     "sub": "オンライン 心理戦",
     "file": "fun/R.E.P.O.html",
-    "image": "image/Repo.jpeg",
+    "image": "img/Repo.jpeg",
     "desc": "有料ゲームR.E.P.Oが無料でできます",
     "genre": "horror",
     "genreLabel": "online",
     "players": "1人",
     "tags": ["オンライン", "海賊版", "R.E.P.O"],
     "isNew": true,
-    "status": "done",
-    "href": "/REPO"
+    "status": "done"
   },
   {
     "key": "agario",

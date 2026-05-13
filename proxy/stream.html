@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ELIXIR | Stream ver2</title>
+    <title>ELIXIR | Stream Neural Link</title>
     <link rel="icon" type="image/x-icon" href="/favicon.png">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400&family=Inter:wght@400;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;500&family=Orbitron:wght@400;700;900&display=swap');
 
         * {
             margin: 0;
@@ -17,348 +17,296 @@
         html, body {
             height: 100%;
             overflow: hidden;
-            background: #050507;
-            font-family: 'Inter', sans-serif;
-            color: #ffffff;
+            background: #000;
+            font-family: 'Orbitron', sans-serif;
+            color: #fff;
         }
 
-        #particles-js {
+        /* --- Fullscreen Background Thumbnail --- */
+        #bg-thumbnail {
             position: fixed;
-            width: 100%;
-            height: 100%;
             top: 0;
             left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 0;
+            filter: brightness(0.4) blur(10px);
+            transform: scale(1.1); /* ぼかしの縁を隠すため */
+            transition: filter 1.5s ease;
+        }
+
+        /* Scanline effect */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 3px 100%;
             z-index: 1;
-            opacity: 0.4;
+            pointer-events: none;
         }
-        
-        #embed-frame {
-            width: 100vw;
-            height: 100vh;
-            border: none;
-            display: block;
+
+        /* --- Loading Layer --- */
+        #loading-ui {
             position: relative;
-            z-index: 2;
-        }
-        
-        /* --- Loading Container --- */
-        .loading-container {
+            z-index: 10;
+            height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            background: radial-gradient(circle at center, #0f172a 0%, #050507 100%);
-            position: relative;
-            z-index: 10;
-            padding: 20px;
+            background: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.8) 100%);
         }
-        
-        /* Thumbnail Preview */
-        .preview-box {
-            width: 320px;
-            height: 180px;
+
+        /* Central Orb */
+        .orb-container {
+            position: relative;
+            width: 150px;
+            height: 150px;
             margin-bottom: 2rem;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid rgba(168, 85, 247, 0.4);
-            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(168, 85, 247, 0.2);
-            position: relative;
-            background: #000;
-            display: none; /* 初期は非表示、ID取得後に表示 */
-            animation: fadeIn 0.8s ease-out;
         }
 
-        .preview-box img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            opacity: 0.8;
-        }
-
-        .preview-overlay {
+        .outer-ring {
             position: absolute;
-            top: 0;
-            left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(0deg, rgba(5,5,7,0.8) 0%, transparent 100%);
+            border: 2px solid rgba(168, 85, 247, 0.3);
+            border-top: 2px solid #a855f7;
+            border-radius: 50%;
+            animation: spin 2s linear infinite;
         }
 
-        /* Elixir Orb Animation */
-        .elixir-orb {
-            width: 60px;
-            height: 60px;
-            margin-bottom: 1.5rem;
-            position: relative;
-            background: linear-gradient(45deg, #6366f1, #a855f7);
-            border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
-            box-shadow: 0 0 40px rgba(168, 85, 247, 0.4);
-            animation: liquid-morph 3s ease-in-out infinite, orb-glow 2s ease-in-out infinite alternate;
+        .inner-ring {
+            position: absolute;
+            top: 15%; left: 15%;
+            width: 70%; height: 70%;
+            border: 2px solid rgba(99, 102, 241, 0.2);
+            border-bottom: 2px solid #6366f1;
+            border-radius: 50%;
+            animation: spin-reverse 1.5s linear infinite;
         }
 
-        @keyframes liquid-morph {
-            0%, 100% { border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; }
-            33% { border-radius: 70% 30% 50% 50% / 50% 50% 30% 70%; }
-            66% { border-radius: 50% 50% 30% 70% / 70% 30% 50% 50%; }
+        .elixir-core {
+            position: absolute;
+            top: 30%; left: 30%;
+            width: 40%; height: 40%;
+            background: radial-gradient(circle, #fff 0%, #a855f7 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 30px #a855f7;
+            animation: pulse 2s ease-in-out infinite;
         }
 
-        @keyframes orb-glow {
-            from { transform: scale(1); box-shadow: 0 0 30px rgba(99, 102, 241, 0.3); }
-            to { transform: scale(1.1); box-shadow: 0 0 50px rgba(168, 85, 247, 0.5); }
-        }
-
-        .brand-name {
-            font-size: 1.5rem;
-            font-weight: 800;
-            letter-spacing: 0.3rem;
+        /* Status Text */
+        .brand {
+            font-size: 2.5rem;
+            font-weight: 900;
+            letter-spacing: 0.8rem;
             text-transform: uppercase;
-            background: linear-gradient(to right, #fff, #a855f7);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(168, 85, 247, 0.8);
             margin-bottom: 0.5rem;
         }
 
-        .status-text {
-            color: #a855f7;
-            font-size: 0.9rem;
-            font-weight: bold;
-            margin-bottom: 1.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1rem;
-        }
-
-        /* Console Log Area */
-        .console-container {
-            width: 100%;
-            max-width: 600px;
-            height: 150px;
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            padding: 12px;
+        .loading-msg {
             font-family: 'Fira Code', monospace;
-            font-size: 11px;
-            overflow-y: hidden;
-            position: relative;
-            backdrop-filter: blur(5px);
+            color: #a855f7;
+            font-size: 1rem;
+            letter-spacing: 0.2rem;
+            margin-bottom: 2rem;
+            text-transform: uppercase;
         }
 
-        .console-log {
-            color: #00ff9d;
-            line-height: 1.4;
+        /* --- Log Console --- */
+        .console-box {
+            width: 80%;
+            max-width: 800px;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.75rem;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        .console-content {
             display: flex;
-            flex-direction: column-reverse; /* 新しいログを上に */
+            flex-direction: column-reverse;
         }
 
         .log-line {
-            margin-bottom: 2px;
-            opacity: 0.9;
-        }
-
-        .log-line span.timestamp { color: #555; margin-right: 8px; }
-        .log-line span.info { color: #6366f1; }
-        .log-line span.success { color: #00ff9d; }
-
-        /* Error UI */
-        .error-container {
+            margin-bottom: 4px;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            background: #050507;
-            position: relative;
-            z-index: 20;
-        }
-        
-        .error-content {
-            text-align: center;
-            padding: 2.5rem;
-            background: rgba(20, 20, 25, 0.8);
-            border: 1px solid rgba(255, 107, 107, 0.3);
-            border-radius: 16px;
-            backdrop-filter: blur(20px);
-            max-width: 500px;
-        }
-        
-        .error-content h1 {
-            font-size: 1.4rem;
-            margin-bottom: 1rem;
-            color: #ff6b6b;
-            text-transform: uppercase;
-        }
-        
-        #error-details {
-            background: rgba(0, 0, 0, 0.4);
-            padding: 1rem;
-            border-radius: 8px;
-            font-family: 'Fira Code', monospace;
-            font-size: 0.8rem;
-            color: #ccc;
-            text-align: left;
-            margin-top: 1rem;
-            border-left: 3px solid #ff6b6b;
-            white-space: pre-wrap;
+            animation: logFadeIn 0.3s ease-out forwards;
         }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .log-ts { color: #555; margin-right: 10px; }
+        .log-tag { color: #6366f1; margin-right: 10px; font-weight: bold; }
+        .log-msg { color: #00ff9d; }
+        .log-err { color: #ff4757; }
 
+        /* --- Transitions --- */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes spin-reverse { to { transform: rotate(-360deg); } }
+        @keyframes pulse { 
+            0%, 100% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 50px #a855f7; }
+        }
+        @keyframes logFadeIn { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateX(0); } }
+
+        /* --- Error Screen --- */
+        .error-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 0, 0, 0.95);
+            z-index: 100; display: none;
+            flex-direction: column; align-items: center; justify-content: center;
+        }
+
+        #embed-frame {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            border: none;
+            display: none;
+            z-index: 50;
+        }
     </style>
 </head>
 <body>
-    <div id="particles-js"></div>
-    
-    <div id="loading-container" class="loading-container">
-        <div id="preview-box" class="preview-box">
-            <img id="yt-thumb" src="" alt="Thumbnail">
-            <div class="preview-overlay"></div>
+    <img id="bg-thumbnail" src="" alt="">
+    <div class="scanlines"></div>
+
+    <div id="loading-ui">
+        <div class="orb-container">
+            <div class="outer-ring"></div>
+            <div class="inner-ring"></div>
+            <div class="elixir-core"></div>
         </div>
-
-        <div class="elixir-orb"></div>
-        <h1 class="brand-name">ELIXIR Network</h1>
-        <p id="loading-status" class="status-text">Loading streams...</p>
-
-        <div class="console-container">
-            <div id="console-log" class="console-log">
+        <h1 class="brand">ELIXIR</h1>
+        <p class="loading-msg" id="status-main">Establishing Stream Link...</p>
+        
+        <div class="console-box">
+            <div id="console-content" class="console-content">
                 </div>
         </div>
     </div>
-    
-    <div id="error-container" class="error-container" style="display: none;">
-        <div class="error-content">
-            <h1>Sanctuary Offline</h1>
-            <p style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">ストリーム接続の確立中に致命的なエラーが発生しました。</p>
-            <div id="error-details"></div>
-            <button onclick="location.reload()" style="margin-top: 1.5rem; background: transparent; border: 1px solid #a855f7; color: #fff; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-family: inherit;">再試行</button>
-        </div>
+
+    <div id="error-screen" class="error-overlay">
+        <h2 style="color: #ff4757; font-size: 2rem; margin-bottom: 1rem;">CRITICAL CONNECTION FAILURE</h2>
+        <div id="error-details" style="font-family: 'Fira Code', monospace; color: #ccc; max-width: 600px; text-align: left; background: #000; padding: 20px; border-left: 4px solid #ff4757;"></div>
+        <button onclick="location.reload()" style="margin-top: 2rem; background: #ff4757; color: #fff; border: none; padding: 10px 30px; font-family: inherit; cursor: pointer;">REBOOT SYSTEM</button>
     </div>
-    
-    <iframe id="embed-frame" style="display: none;"></iframe>
-    
-    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+
+    <iframe id="embed-frame"></iframe>
+
     <script src="uv/uv.bundle.js"></script>
     <script src="uv/uv.config.js"></script>
-    
     <script type="module">
         import { registerSW } from "/prxy/register-sw.mjs";
         import * as BareMux from "/prxy/baremux/index.mjs";
 
-        // --- Configuration ---
         const wispServers = [
-            "wss://wisp.rhw.one/",     
+            "wss://wisp.rhw.one/",
             "wss://anura.pro/",
             "wss://wisp.mercurywork.shop/"
         ];
 
-        const logElement = document.getElementById('console-log');
-        const statusElement = document.getElementById('loading-status');
+        const consoleContent = document.getElementById('console-content');
+        const statusMain = document.getElementById('status-main');
 
-        // --- Utilities ---
-        function addLog(message, type = 'info') {
+        // --- Log Engine ---
+        function addLog(msg, type = 'info') {
             const line = document.createElement('div');
             line.className = 'log-line';
-            const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
-            
-            let typeClass = 'info';
-            if (message.includes('SUCCESS') || message.includes('CONNECTED')) typeClass = 'success';
-            if (message.includes('ERR') || message.includes('FAILED')) typeClass = 'error';
-
-            line.innerHTML = `<span class="timestamp">[${time}]</span> <span class="${typeClass}">${message}</span>`;
-            logElement.prepend(line);
+            const ts = new Date().toISOString().split('T')[1].split('Z')[0];
+            line.innerHTML = `
+                <span class="log-ts">[${ts}]</span>
+                <span class="log-tag">SYS::STREAM</span>
+                <span class="${type === 'error' ? 'log-err' : 'log-msg'}">${msg.toUpperCase()}</span>
+            `;
+            consoleContent.prepend(line);
+            if (consoleContent.childNodes.length > 20) consoleContent.lastChild.remove();
         }
 
-        function extractVideoId(url) {
-            const regex = /(?:embed\/|v=)([^#\/\?&]+)/;
-            const match = url.match(regex);
+        // --- Video ID Parser ---
+        function getVideoId(url) {
+            const match = url.match(/(?:embed\/|v=)([^#\/\?&]+)/);
             return match ? match[1] : null;
         }
 
-        // --- Particle Background ---
-        particlesJS('particles-js', {
-            particles: {
-                number: { value: 50, density: { enable: true, value_area: 800 } },
-                color: { value: '#a855f7' },
-                shape: { type: 'circle' },
-                opacity: { value: 0.4 },
-                size: { value: 2 },
-                line_linked: { enable: true, distance: 150, color: '#6366f1', opacity: 0.2, width: 1 },
-                move: { enable: true, speed: 1 }
-            },
-            interactivity: { events: { onhover: { enable: true, mode: 'grab' } } },
-            retina_detect: true
-        });
-
-        // --- Core Logic ---
+        // --- Proxy Logic ---
         const connection = new BareMux.BareMuxConnection("/prxy/baremux/worker.js");
 
-        async function checkWispServer(url) {
-            addLog(`PINGING NODE: ${new URL(url).hostname}...`);
-            return new Promise((resolve) => {
-                const ws = new WebSocket(url);
-                const timeout = setTimeout(() => {
-                    ws.close();
-                    resolve(false);
-                }, 3500);
-                ws.onopen = () => {
-                    clearTimeout(timeout);
-                    ws.close();
-                    resolve(true);
-                };
-                ws.onerror = () => {
-                    clearTimeout(timeout);
-                    resolve(false);
-                };
-            });
-        }
+        async function initStream() {
+            const fragment = window.location.hash.substring(1);
+            const targetUrl = fragment ? decodeURIComponent(fragment) : null;
 
-        async function initializeProxy(destinationUrl) {
+            if (!targetUrl) {
+                showError("No destination hash detected. Protocol aborted.");
+                return;
+            }
+
+            // Set Thumbnail
+            const vid = getVideoId(targetUrl);
+            if (vid) {
+                const bg = document.getElementById('bg-thumbnail');
+                bg.src = `https://i.ytimg.com/vi/${vid}/maxresdefault.jpg`;
+                // Fallback if maxres doesn't exist
+                bg.onerror = () => bg.src = `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+                addLog(`Target detected: YouTube Video ID [${vid}]`);
+            }
+
             try {
-                addLog("INITIALIZING STREAM PROXY PROTOCOL...");
-                const videoId = extractVideoId(destinationUrl);
-                if (videoId) {
-                    addLog(`TARGET YOUTUBE_ID DETECTED: ${videoId}`);
-                    const thumb = document.getElementById('yt-thumb');
-                    const previewBox = document.getElementById('preview-box');
-                    thumb.src = `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
-                    previewBox.style.display = 'block';
-                    addLog("THUMBNAIL RESOURCE FETCHED.");
-                }
-
+                addLog("Initiating neural handshake with Wisp nodes...");
+                
                 let activeWisp = null;
-                for (const node of wispServers) {
-                    if (await checkWispServer(node)) {
-                        activeWisp = node;
-                        addLog(`NODE HANDSHAKE SUCCESS: ${new URL(node).hostname}`, 'success');
+                for (const url of wispServers) {
+                    addLog(`Attempting connection: ${new URL(url).hostname}...`);
+                    const isUp = await new Promise(res => {
+                        const ws = new WebSocket(url);
+                        const t = setTimeout(() => { ws.close(); res(false); }, 3000);
+                        ws.onopen = () => { clearTimeout(t); ws.close(); res(true); };
+                        ws.onerror = () => { clearTimeout(t); res(false); };
+                    });
+
+                    if (isUp) {
+                        activeWisp = url;
+                        addLog(`Handshake success: Node ${new URL(url).hostname}`, 'success');
                         break;
-                    } else {
-                        addLog(`NODE TIMEOUT: ${new URL(node).hostname}`, 'error');
                     }
                 }
 
-                if (!activeWisp) throw new Error("ALL ELIXIR NODES ARE CURRENTLY OFFLINE.");
+                if (!activeWisp) throw new Error("All uplink nodes are unreachable. Check your firewall.");
 
-                statusElement.textContent = "Infusing Elixir...";
-                addLog("SETTING UP EPOXY-WISP TRANSPORT...");
+                statusMain.textContent = "Injecting Proxy Layer...";
+                addLog("Injecting Ultraviolet transport layers...");
                 await connection.setTransport("/prxy/epoxy/index.mjs", [{ wisp: activeWisp }]);
-                addLog("TRANSPORT LAYER ESTABLISHED.");
-
-                addLog("REGISTERING SERVICE WORKER...");
-                await registerSW();
-                addLog("SW PROTOCOL ACTIVE.");
-
-                addLog("ENCODING DESTINATION REQUEST...");
-                const proxiedUrl = __uv$config.prefix + __uv$config.encodeUrl(destinationUrl);
                 
-                addLog("FINALIZING HANDSHAKE...");
-                setTimeout(() => {
-                    addLog("STREAM FLOWING. REDIRECTING...", 'success');
-                    const iframe = document.getElementById('embed-frame');
-                    iframe.onload = () => {
-                        document.getElementById('loading-container').style.display = 'none';
+                addLog("Registering Service Worker persistence...");
+                await registerSW();
+
+                addLog("Encoding stream packets for bypass...");
+                const proxiedUrl = __uv$config.prefix + __uv$config.encodeUrl(targetUrl);
+                
+                addLog("All systems nominal. Opening stream...");
+                const iframe = document.getElementById('embed-frame');
+                
+                iframe.onload = () => {
+                    addLog("Stream synchronized successfully.", 'success');
+                    setTimeout(() => {
+                        document.getElementById('loading-ui').style.display = 'none';
+                        document.getElementById('bg-thumbnail').style.filter = 'brightness(1) blur(0px)';
                         iframe.style.display = 'block';
-                    };
-                    iframe.src = proxiedUrl;
-                }, 800);
+                    }, 500);
+                };
+
+                iframe.src = proxiedUrl;
 
             } catch (err) {
                 showError(err.message);
@@ -366,39 +314,25 @@
         }
 
         function showError(msg) {
-            document.getElementById('loading-container').style.display = 'none';
-            const errBox = document.getElementById('error-container');
-            const errDetails = document.getElementById('error-details');
-            errBox.style.display = 'flex';
-            errDetails.textContent = `TRACE_ID: ${Math.random().toString(36).substring(7).toUpperCase()}\nERROR: ${msg}\nTIMESTAMP: ${new Date().toISOString()}`;
+            const screen = document.getElementById('error-screen');
+            const details = document.getElementById('error-details');
+            screen.style.display = 'flex';
+            details.textContent = `CRITICAL_ERR: ${msg}\nTIME: ${new Date().toLocaleString()}\nTRACE: ${Math.random().toString(16).slice(2)}`;
+            addLog(`Error: ${msg}`, 'error');
         }
 
-        function getUrlFromFragment() {
-            const hash = window.location.hash.substring(1);
-            return hash ? decodeURIComponent(hash) : null;
-        }
-
-        const init = () => {
-            const url = getUrlFromFragment();
-            if (!url) {
-                showError("URL Fragment is missing. Please provide a destination.");
-                return;
-            }
-
-            if (typeof __uv$config !== 'undefined') {
-                initializeProxy(url);
-            } else {
+        // Run on load
+        window.addEventListener('load', () => {
+            if (typeof __uv$config !== 'undefined') initStream();
+            else {
                 const check = setInterval(() => {
                     if (typeof __uv$config !== 'undefined') {
                         clearInterval(check);
-                        initializeProxy(url);
+                        initStream();
                     }
-                }, 50);
+                }, 100);
             }
-        };
-
-        window.addEventListener('load', init);
-        window.addEventListener('hashchange', () => location.reload());
+        });
     </script>
 </body>
 </html>

@@ -2321,42 +2321,50 @@ app.get('/get-other/:videoId', async (req, res) => {
     }
 });
 
-const getVersionScore = (versionStr) => {
-    const [major, minor, patch] = versionStr.split('.').map(Number);
+const calculateScore = (v) => {
+    const [major, minor, patch] = v.split('.').map(Number);
     return (major * 1000) + (minor * 100) + (patch * 10);
 };
 
 app.get('/check-version', async (req, res) => {
+    const remoteUrl = 'https://raw.githubusercontent.com/raku-ringo/MIN-Tube-Pro/refs/heads/main/public/raw/version.json';
+    const localPath = path.join(__dirname, 'public', 'raw', 'version.json');
+
     try {
-        const remoteUrl = 'https://raw.githubusercontent.com/mino-hobby-pro/MIN-Tube-Pro/refs/heads/main/public/raw/version.json';
-        const localPath = path.join(__dirname, 'public', 'raw', 'version.json');
+        const [remoteRes, localRaw] = await Promise.all([
+            fetch(remoteUrl),
+            fs.promises.readFile(localPath, 'utf8')
+        ]);
 
-        const response = await fetch(remoteUrl);
-        if (!response.ok) throw new Error('Failed to fetch remote version');
-        const remoteData = await response.json();
+        if (!remoteRes.ok) throw new Error('Could not reach remote version server');
+        
+        const remoteData = await remoteRes.json();
+        const localData = JSON.parse(localRaw);
+
         const latestVersion = remoteData.version;
-
-        const localRawData = await fs.readFile(localPath, 'utf8');
-        const localData = JSON.parse(localRawData);
         const currentVersion = localData.version;
 
-        const latestScore = getVersionScore(latestVersion);
-        const currentScore = getVersionScore(currentVersion);
+
+        const latestScore = calculateScore(latestVersion);
+        const currentScore = calculateScore(currentVersion);
         
-        const isLatest = currentScore >= latestScore;
-        const updateCount = Math.max(0, latestScore - currentScore);
+
+        const updateDiff = Math.max(0, latestScore - currentScore);
+
 
         res.json({
-            is_latest: isLatest,
+            is_latest: currentScore >= latestScore,
             latest_version: latestVersion,
             current_version: currentVersion,
-            updates_between: updateCount / 10, 
-            total_updates_missed: updateCount 
+            updates_count: updateDiff,
+            status: "success"
         });
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Internal Server Error', message: error.message });
+        res.status(500).json({
+            status: "error",
+            message: error.message
+        });
     }
 });
 

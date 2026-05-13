@@ -2321,6 +2321,45 @@ app.get('/get-other/:videoId', async (req, res) => {
     }
 });
 
+const getVersionScore = (versionStr) => {
+    const [major, minor, patch] = versionStr.split('.').map(Number);
+    return (major * 1000) + (minor * 100) + (patch * 10);
+};
+
+app.get('/check-version', async (req, res) => {
+    try {
+        const remoteUrl = 'https://raw.githubusercontent.com/mino-hobby-pro/MIN-Tube-Pro/refs/heads/main/public/raw/version.json';
+        const localPath = path.join(__dirname, 'public', 'raw', 'version.json');
+
+        const response = await fetch(remoteUrl);
+        if (!response.ok) throw new Error('Failed to fetch remote version');
+        const remoteData = await response.json();
+        const latestVersion = remoteData.version;
+
+        const localRawData = await fs.readFile(localPath, 'utf8');
+        const localData = JSON.parse(localRawData);
+        const currentVersion = localData.version;
+
+        const latestScore = getVersionScore(latestVersion);
+        const currentScore = getVersionScore(currentVersion);
+        
+        const isLatest = currentScore >= latestScore;
+        const updateCount = Math.max(0, latestScore - currentScore);
+
+        res.json({
+            is_latest: isLatest,
+            latest_version: latestVersion,
+            current_version: currentVersion,
+            updates_between: updateCount / 10, 
+            total_updates_missed: updateCount 
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal Server Error', message: error.message });
+    }
+});
+
 app.use((req, res) => res.status(404).sendFile(path.join(__dirname, "public", "error.html")));
 app.use((err, req, res, next) => {
   res.status(500).sendFile(path.join(__dirname, "public", "error.html"));

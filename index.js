@@ -2045,7 +2045,7 @@ app.get('/stream-network/:videoId', (req, res) => {
     // 強制的にhttpsURLスキームを返すためhttpしか対応していないとエラーを返します。。
     const baseUrl = `https://${host}`;
     
-    const responseText = `${baseUrl}/proxy/embed.html#https://www.youtube-nocookie.com/embed/${videoId}`;
+    const responseText = `${baseUrl}/proxy/stream.html#https://www.youtube-nocookie.com/embed/${videoId}`;
     
     res.send(responseText);
 });

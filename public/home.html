@@ -591,7 +591,38 @@
       padding: 4px 0; margin-bottom: 12px; transition: color 0.1s;
     }
     .drawer-back-btn:hover { color: var(--text); }
+/* ===== ホームボタン宣伝用スタイル ===== */
+    .promo-container { position: relative; display: flex; align-items: center; }
 
+    .promo-bubble {
+      position: absolute; top: calc(100% + 10px); right: 0;
+      background: #3ea6ff; color: white; padding: 8px 14px;
+      border-radius: 8px; font-size: 12px; font-weight: 700;
+      white-space: nowrap; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+      z-index: 2100; opacity: 0; transform: translateY(-10px);
+      transition: all 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      pointer-events: none;
+    }
+
+    .promo-bubble::after {
+      content: ""; position: absolute; bottom: 100%; right: 12px;
+      border-width: 8px; border-style: solid;
+      border-color: transparent transparent #3ea6ff transparent;
+    }
+
+    .promo-bubble.show { opacity: 1; transform: translateY(0); }
+
+    @keyframes promo-pulse {
+      0% { box-shadow: 0 0 0 0 rgba(62, 166, 255, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(62, 166, 255, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(62, 166, 255, 0); }
+    }
+
+    .home-promo-active {
+      animation: promo-pulse 2s infinite;
+      background: rgba(62, 166, 255, 0.2) !important;
+      border-radius: 50%;
+    }
     /* Card context menu */
     .card-dropdown {
       position: fixed; background: var(--card); border: 1px solid var(--border);
@@ -821,9 +852,12 @@
 
       <div id="appVersion" class="version-badge"><span class="version-badge-text"></span></div>
 
-      <a href="/youtube-pro" class="icon-btn" title="ホーム" style="text-decoration:none;">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-      </a>
+        <div class="promo-container">
+        <a href="/youtube-pro" class="icon-btn" id="homePromoBtn" title="ホーム" style="text-decoration:none;">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        </a>
+        <div class="promo-bubble" id="homePromoBubble">その他の機能はコチラから</div>
+      </div>
     </div>
   </header>
 
@@ -2034,6 +2068,37 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     window.recordHistory = recordHistory;
     window.openDrawer = openDrawer;
     window.closeDrawer = closeDrawer;
+    function runHomePromotionOnce() {
+      // すでに表示済みかチェック
+      const hasSeen = localStorage.getItem('mt_home_promo_seen');
+      if (hasSeen) return;
+
+      const btn = document.getElementById('homePromoBtn');
+      const bubble = document.getElementById('homePromoBubble');
+      if (!btn || !bubble) return;
+
+      // 1.5秒後に宣伝を開始
+      setTimeout(() => {
+        btn.classList.add('home-promo-active');
+        bubble.classList.add('show');
+        
+        // 1回表示したことを記録
+        localStorage.setItem('mt_home_promo_seen', 'true');
+
+        // 7秒後に自動でエフェクトを終了（ずっと動いていると邪魔なため）
+        setTimeout(() => {
+          bubble.classList.remove('show');
+          btn.classList.remove('home-promo-active');
+        }, 5000);
+      }, 1500);
+    }
+
+    // 既存の window.onload もしくは最後に追記
+    const originalOnload = window.onload;
+    window.onload = () => {
+      if (originalOnload) originalOnload();
+      runHomePromotionOnce(); // 1回目だけ実行
+    };
   </script>
   
   <nav class="mobile-bottom-nav">

@@ -564,6 +564,21 @@
     "status": "done"
   },
   {
+    "key": "Idle Mining Empire",
+    "name": "Idle Mining Empire",
+    "emoji": "⛏️",
+    "sub": "アクション · 棒人間",
+    "file": "fun/Idle Mining Empire.html",
+    "image": "img/Idle.jpeg",
+    "desc": "屈指の放置作業ゲー",
+    "genre": "AFK",
+    "genreLabel": "AFK",
+    "players": "1人プレイ",
+    "tags": ["AFK", "RPG", "ロール"],
+    "isNew": true,
+    "status": "done"
+  },
+  {
     "key": "geometry-dash",
     "name": "Geometry Dash",
     "emoji": "⬛",

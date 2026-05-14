@@ -578,6 +578,22 @@
     "isNew": true,
     "status": "done"
   },
+  
+  {
+    "key": "Slope",
+    "name": "Slope",
+    "emoji": "⚽️",
+    "sub": "アクション · 球",
+    "file": "fun/Slope.html",
+    "image": "img/Slope.jpeg",
+    "desc": "ボールを転がせ",
+    "genre": "action",
+    "genreLabel": "action",
+    "players": "1人プレイ",
+    "tags": ["球", "RPG", "ロール"],
+    "isNew": true,
+    "status": "done"
+  },
   {
     "key": "geometry-dash",
     "name": "Geometry Dash",

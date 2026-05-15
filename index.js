@@ -1478,6 +1478,10 @@ app.get("/science", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "app/iframe/science.html"));
 });
 
+app.get("/earth", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "app/iframe/earth.html"));
+});
+
 
 app.get("/api/channel", async (req, res) => {
   const channelName = req.query.name || req.query.id;

@@ -204,24 +204,13 @@
                 onProgress: UnityProgress
             });
 
-            function UnityProgress(gameInstance, progress) {
-                if (!gameInstance.Module) {
-                    return;
-                }
-                const loader = document.querySelector("#loader");
-                if (!gameInstance.progress) {
-                    const progress = document.querySelector("#loader .progress");
-                    progress.style.display = "block";
-                    gameInstance.progress = progress.querySelector(".full");
-                    loader.querySelector(".spinner").style.display = "none";
-                }
-                gameInstance.progress.style.transform = `scaleX(${progress})`;
-                if (progress === 1 && !gameInstance.removeTimeout) {
-                    gameInstance.removeTimeout = setTimeout(function() {
-                        loader.style.display = "none";
-                    }, 2000);
-                }
-            }
+       // UnityProgress関数の中をこれに書き換え
+function UnityProgress(gameInstance, progress) {
+    document.getElementById("myBar").style.transform = `scaleX(${progress})`;
+    if (progress === 1) {
+        setTimeout(() => { document.getElementById("loader").style.display = "none"; }, 1000);
+    }
+}
         </script>
         <script>
             document.addEventListener('DOMContentLoaded', function() {

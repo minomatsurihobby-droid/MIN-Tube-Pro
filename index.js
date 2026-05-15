@@ -1504,7 +1504,7 @@ app.get("/earth", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "app/iframe/earth.html"));
 });
 
-app.get("/update", (req, res) => {
+app.get("/sys-update", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "app/update.html"));
 });
 

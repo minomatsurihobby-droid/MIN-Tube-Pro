@@ -2059,32 +2059,7 @@ app.get("/abyss.png", (req, res) => {
   res.sendFile(filePath);
 });
 
-/**
- * PROXY_DIR/
- * ├── uv/ (sw.js, uv.bundle.js, etc.)
- * └── prxy/
- *     ├── baremux/ (index.js, worker.js, etc.)
- *     ├── epoxy/ (index.js, etc.)
- *     ├── libcurl/ (index.js, etc.)
- *     └── register-sw.mjs
- */
-app.use('/proxy', express.static(PROXY_DIR));
-app.use((req, res, next) => {
-    if (res.headersSent) return next();
 
-    const targetPath = path.join(PROXY_DIR, req.path);
-    const normalizedPath = path.normalize(targetPath);
-
-    if (!normalizedPath.startsWith(PROXY_DIR)) {
-        return next();
-    }
-
-    if (fs.existsSync(targetPath) && fs.lstatSync(targetPath).isFile()) {
-        return res.sendFile(targetPath);
-    }
-
-    next();
-});
 
 // API提供toka-kun様　siawaseok様　sennen様　xeroxyt様　woolisbest様に感謝します
 const MAX_API_WAIT_TIME = 5000; 
@@ -2371,6 +2346,144 @@ app.get('/check-version', async (req, res) => {
         });
     }
 });
+
+const memoryCache = new Map();
+const CACHE_TTL = 10 * 60 * 100; 
+const MAX_CACHE_SIZE = 50;      
+
+
+function setCache(key, value) {
+  if (memoryCache.size >= MAX_CACHE_SIZE) {
+    const oldestKey = memoryCache.keys().next().value;
+    memoryCache.delete(oldestKey);
+  }
+  memoryCache.set(key, { data: value, timestamp: Date.now() });
+}
+
+const isValidId = (id) => /^[a-zA-Z0-9_-]{11}$/.test(id); 
+const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+
+app.get("/short-check/:id", async (req, res) => {
+  const videoId = req.params.id;
+
+  if (!isValidId(videoId)) {
+    return res.status(400).json({ error: "Invalid video ID format" });
+  }
+
+  const cacheKey = `short:${videoId}`;
+  const cached = memoryCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+    return res.json(cached.data);
+  }
+
+  try {
+    const response = await fetch(`https://www.youtube.com/shorts/${videoId}`, {
+      method: "HEAD",
+      redirect: "manual",
+      headers: { "User-Agent": USER_AGENT }
+    });
+
+    if (response.status === 429) {
+      return res.status(429).json({ error: "YouTube rate limit exceeded." });
+    }
+
+    let isShort = false;
+    let exists = true;
+
+    if (response.status === 200) {
+      isShort = true;
+    } else if (response.status === 302 || response.status === 303) {
+      isShort = false; 
+    } else if (response.status === 404) {
+      exists = false;
+    }
+
+    const result = { videoId, exists, isShort };
+    setCache(cacheKey, result);
+
+    res.setHeader("Cache-Control", "public, max-age=180, s-maxage=300");
+    return res.json(result);
+
+  } catch (error) {
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+app.get("/live-check/:id", async (req, res) => {
+  const videoId = req.params.id;
+
+  if (!isValidId(videoId)) {
+    return res.status(400).json({ error: "Invalid video ID format" });
+  }
+
+  const cacheKey = `live:${videoId}`;
+  const cached = memoryCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+    return res.json(cached.data);
+  }
+
+  try {
+    const response = await fetch(`https://www.youtube.com/live/${videoId}`, {
+      method: "HEAD",
+      redirect: "manual",
+      headers: { "User-Agent": USER_AGENT }
+    });
+
+    if (response.status === 429) {
+      return res.status(429).json({ error: "YouTube rate limit exceeded." });
+    }
+
+    let isLive = false;
+    let exists = true;
+
+    if (response.status === 200) {
+      isLive = true;
+    } else if (response.status === 404) {
+      exists = false;
+    } else {
+      isLive = false;
+    }
+
+    const result = { videoId, exists, isLive };
+    setCache(cacheKey, result);
+
+    res.setHeader("Cache-Control", "public, max-age=180, s-maxage=300");
+    return res.json(result);
+
+  } catch (error) {
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+/**
+ * PROXY_DIR/
+ * ├── uv/ (sw.js, uv.bundle.js, etc.)
+ * └── prxy/
+ *     ├── baremux/ (index.js, worker.js, etc.)
+ *     ├── epoxy/ (index.js, etc.)
+ *     ├── libcurl/ (index.js, etc.)
+ *     └── register-sw.mjs
+ */
+app.use('/proxy', express.static(PROXY_DIR));
+app.use((req, res, next) => {
+    if (res.headersSent) return next();
+
+    const targetPath = path.join(PROXY_DIR, req.path);
+    const normalizedPath = path.normalize(targetPath);
+
+    if (!normalizedPath.startsWith(PROXY_DIR)) {
+        return next();
+    }
+
+    if (fs.existsSync(targetPath) && fs.lstatSync(targetPath).isFile()) {
+        return res.sendFile(targetPath);
+    }
+
+    next();
+});
+
 
 app.use((req, res) => res.status(404).sendFile(path.join(__dirname, "public", "error.html")));
 app.use((err, req, res, next) => {

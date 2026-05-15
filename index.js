@@ -2411,52 +2411,6 @@ app.get("/short-check/:id", async (req, res) => {
 });
 
 
-app.get("/live-check/:id", async (req, res) => {
-  const videoId = req.params.id;
-
-  if (!isValidId(videoId)) {
-    return res.status(400).json({ error: "Invalid video ID format" });
-  }
-
-  const cacheKey = `live:${videoId}`;
-  const cached = memoryCache.get(cacheKey);
-  if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-    return res.json(cached.data);
-  }
-
-  try {
-    const response = await fetch(`https://www.youtube.com/live/${videoId}`, {
-      method: "HEAD",
-      redirect: "manual",
-      headers: { "User-Agent": USER_AGENT }
-    });
-
-    if (response.status === 429) {
-      return res.status(429).json({ error: "YouTube rate limit exceeded." });
-    }
-
-    let isLive = false;
-    let exists = true;
-
-    if (response.status === 200) {
-      isLive = true;
-    } else if (response.status === 404) {
-      exists = false;
-    } else {
-      isLive = false;
-    }
-
-    const result = { videoId, exists, isLive };
-    setCache(cacheKey, result);
-
-    res.setHeader("Cache-Control", "public, max-age=180, s-maxage=300");
-    return res.json(result);
-
-  } catch (error) {
-    return res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
 /**
  * PROXY_DIR/
  * ├── uv/ (sw.js, uv.bundle.js, etc.)

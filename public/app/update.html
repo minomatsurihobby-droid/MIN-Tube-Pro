@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MIN-Tube-Pro - システムアップデート</title>
+    <style>
+        :root {
+            --bg-color: #030303;
+            --surface-color: #0f0f0f;
+            --surface-hover: #212121;
+            --border-color: #2d2d2d;
+            --text-color: #f1f1f1;
+            --text-muted: #aaaaaa;
+            --accent-color: #3ea6ff;
+            --success-color: #2ba640;
+            --error-color: #ff4e45;
+            --terminal-bg: #050505;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 640px;
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        .header {
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 16px;
+        }
+
+        .brand {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 500;
+        }
+
+        .status-card {
+            background-color: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .status-row:last-child {
+            border-bottom: none;
+        }
+
+        .status-label {
+            color: var(--text-muted);
+        }
+
+        .status-value {
+            font-weight: 600;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .message-box {
+            margin-top: 16px;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .message-box.info {
+            background-color: rgba(62, 166, 255, 0.1);
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .message-box.success {
+            background-color: rgba(43, 166, 64, 0.1);
+            border-left: 4px solid var(--success-color);
+        }
+
+        .message-box.error {
+            background-color: rgba(255, 78, 69, 0.1);
+            border-left: 4px solid var(--error-color);
+        }
+
+        .github-link {
+            color: var(--accent-color);
+            text-decoration: none;
+            word-break: break-all;
+        }
+
+        .github-link:hover {
+            text-decoration: underline;
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            background-color: var(--text-color);
+            color: var(--bg-color);
+            border: none;
+            padding: 14px;
+            font-size: 15px;
+            font-weight: 600;
+            border-radius: 24px;
+            cursor: pointer;
+            transition: background-color 0.2s, opacity 0.2s;
+            margin-top: 24px;
+            text-align: center;
+        }
+
+        .btn:hover {
+            background-color: #e1e1e1;
+        }
+
+        .btn:disabled {
+            background-color: var(--border-color);
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .updater-screen {
+            display: none;
+        }
+
+        .terminal {
+            background-color: var(--terminal-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Fira Code', 'Courier New', Courier, monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #39ff14; 
+            height: 250px;
+            overflow-y: hidden;
+            position: relative;
+            margin-bottom: 16px;
+        }
+
+        .terminal-log {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            right: 16px;
+            max-height: 220px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+
+        .log-line {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .log-line.cyan { color: #00ffff; }
+        .log-line.yellow { color: #ffff00; }
+        .log-line.white { color: #ffffff; }
+
+        .progress-bar-container {
+            background-color: var(--border-color);
+            height: 4px;
+            border-radius: 2px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            background-color: var(--accent-color);
+            height: 100%;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="checkScreen" class="updater-screen" style="display: block;">
+        <div class="header">
+            <div class="brand">MIN-Tube-Pro</div>
+            <h1>システムアップデート</h1>
+        </div>
+
+        <div class="status-card">
+            <div class="status-row">
+                <span class="status-label">現在のバージョン</span>
+                <span id="currentVersion" class="status-value">---</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">最新のバージョン</span>
+                <span id="latestVersion" class="status-value">---</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">ステータス</span>
+                <span id="updateStatus" class="status-value">確認中...</span>
+            </div>
+        </div>
+
+        <div id="messageArea"></div>
+
+        <button id="updateBtn" class="btn" disabled>アップデートを確認中</button>
+    </div>
+
+    <div id="processScreen" class="updater-screen">
+        <div class="header">
+            <div class="brand">MIN-Tube-Pro</div>
+            <h1>アップデートをインストール中...</h1>
+        </div>
+
+        <div class="terminal">
+            <div id="terminalLog" class="terminal-log"></div>
+        </div>
+
+        <div class="progress-bar-container">
+            <div id="progressBar" class="progress-bar"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let targetLatestVersion = "";
+  
+    const commandTemplates = [
+        "FETCH: GET /api/v1/updates/manifest.json [200 OK]",
+        "HASH: Verifying SHA-256 checksum of remote objects...",
+        "CLEAN: Initializing destructive environment wipe sequence...",
+        "WIPE: localStorage.clear() invoked successfully.",
+        "WIPE: sessionStorage flushed.",
+        "WIPE: Unregistering ServiceWorkers...",
+        "WIPE: Purging CacheStorage caches...",
+        "WIPE: Dropping IndexedDB databases (TubeDataStore, AppCache)...",
+        "MKDIR: Preparing fresh virtual architecture...",
+        "DOWNLOAD: Fetching build patch_delta_1.4.2.bin (14.8 MB)...",
+        "PACK: Unpacking core-modules.tar.gz [================>] 100%",
+        "INSPECT: Analyzing dependency tree for vulnerabilities...",
+        "BUILD: Compiling production client assets via esbuild...",
+        "TRANSPILE: Transforming modern JS syntax tree...",
+        "MINIFY: Optimizing bundle payload size (reduced by 42%)",
+        "INJECT: Injecting custom service layer routing algorithms...",
+        "CONFIG: Rewriting local network configurations...",
+        "SYNC: Synchronizing client state with deployment mirror...",
+        "VERIFY: Initiating handshake with endpoint '/version'..."
+    ];
+
+    window.addEventListener('DOMContentLoaded', () => {
+        checkVersion();
+    });
+
+    async function checkVersion() {
+        const currentVersionEl = document.getElementById('currentVersion');
+        const latestVersionEl = document.getElementById('latestVersion');
+        const updateStatusEl = document.getElementById('updateStatus');
+        const updateBtn = document.getElementById('updateBtn');
+        const messageArea = document.getElementById('messageArea');
+
+        try {
+            const response = await fetch('/check-version');
+            if (!response.ok) throw new Error('Network response was not ok');
+            const data = await response.json();
+
+            targetLatestVersion = data.latest_version;
+            currentVersionEl.textContent = data.current_version;
+            latestVersionEl.textContent = data.latest_version;
+
+            if (data.is_latest) {
+                updateStatusEl.textContent = '最新の状態です';
+                updateStatusEl.style.color = 'var(--success-color)';
+                messageArea.innerHTML = `
+                    <div class="message-box success">
+                        お使いのバージョンは最新です。アップデートの必要はありません。
+                    </div>
+                `;
+                updateBtn.textContent = '最新版がインストールされています';
+                updateBtn.disabled = true;
+            } else {
+                updateStatusEl.textContent = 'アップデートが可能です';
+                updateStatusEl.style.color = 'var(--accent-color)';
+                messageArea.innerHTML = `
+                    <div class="message-box info">
+                        ${data.updates_count}件のアップデートが可能です。<br>
+                        <strong>現在のversion:</strong> ${data.current_version}<br>
+                        <strong>最新のバージョン:</strong> ${data.latest_version}
+                    </div>
+                `;
+                updateBtn.textContent = '今すぐアップデート';
+                updateBtn.disabled = false;
+                updateBtn.onclick = confirmUpdate;
+            }
+
+        } catch (error) {
+            updateStatusEl.textContent = 'エラー';
+            updateStatusEl.style.color = 'var(--error-color)';
+            messageArea.innerHTML = `
+                <div class="message-box error">
+                    バージョン情報の取得に失敗しました。ネットワーク接続を確認してください。
+                </div>
+            `;
+            updateBtn.textContent = '再試行';
+            updateBtn.disabled = false;
+            updateBtn.onclick = checkVersion;
+        }
+    }
+
+    function confirmUpdate() {
+        const firstConfirm = confirm("アップデートを実行します。\nこのサイトに保存されたすべての情報が削除されます。よろしいですか？");
+        if (firstConfirm) {
+            const secondConfirm = confirm("本当にすべてのデータ（設定、キャッシュ、ローカルデータ全般）を削除して初期化してもよろしいですか？この操作は取り消せません。");
+            if (secondConfirm) {
+                runUpdateSequence();
+            }
+        }
+    }
+
+    async function runUpdateSequence() {
+        document.getElementById('checkScreen').style.display = 'none';
+        document.getElementById('processScreen').style.display = 'block';
+
+        const logContainer = document.getElementById('terminalLog');
+        const progressBar = document.getElementById('progressBar');
+
+        try {
+            localStorage.clear();
+            sessionStorage.clear();
+            
+
+            const cookies = document.cookie.split(";");
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i];
+                const eqPos = cookie.indexOf("=");
+                const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+                document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+            }
+
+            if (window.indexedDB && indexedDB.databases) {
+                const dbs = await indexedDB.databases();
+                dbs.forEach(db => indexedDB.deleteDatabase(db.name));
+            }
+
+            if (window.caches) {
+                const cacheNames = await caches.keys();
+                await Promise.all(cacheNames.map(name => caches.delete(name)));
+            }
+        } catch (e) {
+            console.error("Storage clear partial fail:", e);
+        }
+
+        const totalDuration = 5000; 
+        const intervalTime = 80;   
+        const totalSteps = totalDuration / intervalTime;
+        let currentStep = 0;
+
+        const runTerminal = setInterval(async () => {
+            currentStep++;
+            const progressPercentage = (currentStep / totalSteps) * 100;
+            progressBar.style.width = `${progressPercentage}%`;
+
+            const logLine = document.createElement('div');
+            logLine.className = 'log-line';
+            
+            if (currentStep === 1) {
+                logLine.textContent = "--> SYSTEM INITIALIZATION COMPLETED.";
+                logLine.className += " cyan";
+            } else if (currentStep === Math.floor(totalSteps * 0.2)) {
+                logLine.textContent = "--> Wiping active storage grids... SUCCESS.";
+                logLine.className += " yellow";
+            } else if (currentStep >= totalSteps - 2) {
+                logLine.textContent = "--> Finalizing handshakes with host backend...";
+                logLine.className += " cyan";
+            } else {
+                const template = commandTemplates[Math.floor(Math.random() * commandTemplates.length)];
+                const hexAddress = `0x${Math.floor(Math.random() * 16777215).toString(16).toUpperCase()}`;
+                logLine.textContent = `[${hexAddress}] ${template}`;
+                
+                if (Math.random() > 0.8) logLine.className += " white";
+            }
+
+            logContainer.appendChild(logLine);
+
+            logContainer.scrollTop = logContainer.scrollHeight;
+
+            if (currentStep >= totalSteps) {
+                clearInterval(runTerminal);
+                await verifyVersion();
+            }
+        }, intervalTime);
+    }
+
+    async function verifyVersion() {
+        const checkScreen = document.getElementById('checkScreen');
+        const processScreen = document.getElementById('processScreen');
+        const messageArea = document.getElementById('messageArea');
+        const updateBtn = document.getElementById('updateBtn');
+        const updateStatusEl = document.getElementById('updateStatus');
+
+        processScreen.style.display = 'none';
+        checkScreen.style.display = 'block';
+
+        try {
+            const response = await fetch('/version');
+            if (!response.ok) throw new Error('Verification network error');
+            const data = await response.json();
+
+            if (data.version === targetLatestVersion) {
+                updateStatusEl.textContent = 'アップデート完了';
+                updateStatusEl.style.color = 'var(--success-color)';
+                messageArea.innerHTML = `
+                    <div class="message-box success">
+                        <strong>完了！</strong> 引き続き利用をお楽しみください。<br>
+                        最新バージョン (${data.version}) が正常に適用され、環境はクリーンになりました。
+                    </div>
+                `;
+                updateBtn.textContent = '最新版へ更新済み';
+                updateBtn.disabled = true;
+            } else {
+                throw new Error('Version mismatch');
+            }
+
+        } catch (error) {
+            updateStatusEl.textContent = 'アップデート失敗';
+            updateStatusEl.style.color = 'var(--error-color)';
+            messageArea.innerHTML = `
+                <div class="message-box error">
+                    <strong>失敗！</strong> バージョンの整合性が確認できませんでした。<br>
+                    もしサイトの管理者に連絡し、最新バージョンを入手してください。<br><br>
+                    <strong>公式Github:</strong> <a href="https://github.com/mino-hobby-pro/MIN-Tube-Pro" target="_blank" class="github-link">https://github.com/mino-hobby-pro/MIN-Tube-Pro</a>
+                </div>
+            `;
+            updateBtn.textContent = 'もう一度試す';
+            updateBtn.disabled = false;
+            updateBtn.onclick = () => { location.reload(); };
+        }
+    }
+</script>
+</body>
+</html>

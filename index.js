@@ -272,7 +272,29 @@ if (!videoData) {
 }
 
 console.log(commentsData)
-    const isShortForm = videoData.videoTitle.includes('#');
+let isShortForm = videoData.videoTitle.includes('#');
+
+if (isShortForm) {
+    try {
+        const shortCheckRes = await fetchWithTimeout(
+            `${protocol}://${host}/short-check/${videoId}`,
+            {},
+            5000
+        );
+
+        if (shortCheckRes.ok) {
+            const shortCheckData = await shortCheckRes.json();
+
+            isShortForm = shortCheckData.isShort === true;
+        } else {
+            isShortForm = false;
+        }
+
+    } catch (e) {
+        console.warn('ショート判定失敗:', e);
+        isShortForm = false;
+    }
+}
 
     if (isShortForm) {
 const shortsHtml = `

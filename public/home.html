@@ -2653,28 +2653,47 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         }
       }
 
-      /* ===== Call Groq ===== */
+      /* ===== Call Groq (タイムアウト + 複数キーフォールバック) ===== */
+      const FALLBACK_GROQ_KEYS = [
+        GROQ_API_KEY,
+        "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",
+        "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",
+        "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"
+      ];
+      const FALLBACK_MODELS = [
+        MODEL_NAME,
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant"
+      ];
       async function callGroq(messages) {
-        const res = await fetch(GROQ_URL, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${GROQ_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: MODEL_NAME,
-            messages,
-            temperature: 0.75,
-            max_tokens: 900
-          })
-        });
-        if (!res.ok) {
-          const errText = await res.text().catch(() => '');
-          throw new Error(`AI API error ${res.status}: ${errText.slice(0,200)}`);
+        let lastErr = null;
+        for (const key of FALLBACK_GROQ_KEYS) {
+          for (const model of FALLBACK_MODELS) {
+            try {
+              const ctrl = new AbortController();
+              const to = setTimeout(() => ctrl.abort(), 15000);
+              const res = await fetch(GROQ_URL, {
+                method: 'POST',
+                signal: ctrl.signal,
+                headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model, messages, temperature: 0.75, max_tokens: 900 })
+              });
+              clearTimeout(to);
+              if (!res.ok) {
+                lastErr = new Error(`AI ${res.status}`);
+                if (res.status === 401 || res.status === 403 || res.status === 429) break; // このキーを諳めて次のキーへ
+                continue; // 同キーで次モデル
+              }
+              const data = await res.json();
+              const txt = data?.choices?.[0]?.message?.content || '';
+              if (txt) return txt;
+              lastErr = new Error('empty response');
+            } catch (e) {
+              lastErr = e;
+            }
+          }
         }
-        const data = await res.json();
-        const txt = data?.choices?.[0]?.message?.content || '';
-        return txt;
+        throw lastErr || new Error('AI API 全失敗');
       }
 
       /* ===== Parse titles ===== */
@@ -2725,9 +2744,18 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         }
       }
 
-      /* ===== Main generation pipeline ===== */
+      /* ===== Main generation pipeline (全体タイムアウト付き - 絶対終わる) ===== */
+      const GENERATION_HARD_TIMEOUT_MS = 35000; // 35秒で絶対終了
       async function startGeneration(opts) {
         renderLoading();
+        // ハードタイムアウト: 長期スタックを防ぐ
+        let hardTimedOut = false;
+        const hardTimer = setTimeout(() => {
+          hardTimedOut = true;
+          stopLoadingTimer();
+          renderError('生成に時間がかかりすぎるため中断しました。もう一度お試しください。');
+        }, GENERATION_HARD_TIMEOUT_MS);
+
         try {
           const messages = [
             { role: 'system', content: STRICT_SYSTEM_PROMPT },
@@ -2735,28 +2763,32 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           ];
           updateLoadingSub('MIN-Pro-AI に問い合わせ中...');
           const raw = await callGroq(messages);
+          if (hardTimedOut) return;
           const titles = parseTitles(raw);
           if (titles.length < 3) {
             throw new Error('AIから十分なタイトルを取得できませんでした。もう一度お試しください。');
           }
           updateLoadingSub(`${titles.length}本の動画をYouTubeで検索中...`);
 
-          // Search in parallel but with concurrency limit
           const results = [];
           const CONCURRENCY = 4;
           let cursor = 0;
           async function worker() {
             while (cursor < titles.length) {
+              if (hardTimedOut) return;
               const myIdx = cursor++;
               const t = titles[myIdx];
-              const r = await searchTitle(t);
+              const r = await Promise.race([
+                searchTitle(t),
+                new Promise(resolve => setTimeout(() => resolve(null), 5000))
+              ]);
               if (r) results.push({ ...r, _idx: myIdx });
             }
           }
           await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
+          if (hardTimedOut) return;
           results.sort((a, b) => a._idx - b._idx);
 
-          // Dedup by video id
           const seen = new Set();
           const unique = [];
           for (const r of results) {
@@ -2773,7 +2805,9 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           renderResult(unique);
         } catch (err) {
           stopLoadingTimer();
-          renderError(err.message || String(err));
+          if (!hardTimedOut) renderError(err.message || String(err));
+        } finally {
+          clearTimeout(hardTimer);
         }
       }
 
@@ -4000,55 +4034,91 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       }
 
       // ============================================================
-      // 10. CARD RENDERING (既存と同じ構造を踏襲)
-      //     + MyMIX スロット差し込み
+      // 10. CARD RENDERING v2 (2段階チャンクレンダリング)
+      //     - DocumentFragment で一括 append (レイアウトスラッシング防止)
+      //     - 1チャンク = 8枚; 中間で requestAnimationFrame を振る (ブロックしない)
+      //     - ページ応答停止を絶対に防ぐ
       // ============================================================
       function renderVideoCards(taggedList, page, mymixSlots, displayedIdsSet) {
         if (!videoGrid) return;
-        // MyMIX 配置位置 (4枚目、9枚目、15枚目)
         const mixPositions = mymixSlots.map(s => s.position);
+        const CHUNK = 8;
 
+        // まず Stage 1: 最初の CHUNK 枚を sync で表示 (UXの即時フィードバック)
+        // Stage 2 以降は rAF チェーンでバッチ処理
         let cardIdx = 0;
         let listIdx = 0;
-        while (listIdx < taggedList.length) {
-          // 配置するか?
-          if (page === 0 && mixPositions.includes(cardIdx) && mymixSlots.length > 0) {
-            const slot = mymixSlots.shift();
-            mixPositions.shift();
-            const ph = document.createElement('div');
-            ph.className = 'video-card mpx-mymix-placeholder';
-            ph.dataset.mixSlot = slot.id;
-            ph.innerHTML = `
-              <div class="mpx-mix-loading-card">
-                <div class="mpx-mxl-content">
-                  <div class="mpx-mxl-dots"><span></span><span></span><span></span></div>
-                  <div class="mpx-mxl-text">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2 9.5 8.5 3 11l6.5 2.5L12 20l2.5-6.5L21 11l-6.5-2.5z"/></svg>
-                    MyMIX を生成中...
-                  </div>
+
+        function makeMixPlaceholder(slot) {
+          const ph = document.createElement('div');
+          ph.className = 'video-card mpx-mymix-placeholder';
+          ph.dataset.mixSlot = slot.id;
+          ph.innerHTML = `
+            <div class="mpx-mix-loading-card">
+              <div class="mpx-mxl-content">
+                <div class="mpx-mxl-dots"><span></span><span></span><span></span></div>
+                <div class="mpx-mxl-text">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2 9.5 8.5 3 11l6.5 2.5L12 20l2.5-6.5L21 11l-6.5-2.5z"/></svg>
+                  MyMIX を収集中...
                 </div>
               </div>
-              <div class="meta">
-                <div class="mpx-skel-avatar" style="width:36px;height:36px;border-radius:50%;"></div>
-                <div class="mpx-skel-lines" style="flex:1;display:flex;flex-direction:column;gap:6px;">
-                  <div class="mpx-skel-line long"></div>
-                  <div class="mpx-skel-line short"></div>
-                </div>
-              </div>`;
-            videoGrid.appendChild(ph);
-            cardIdx++;
-            continue;
-          }
-
-          const { item, src } = taggedList[listIdx];
-          listIdx++;
-          if (!item || !item.id || displayedIdsSet.has(item.id)) continue;
-          displayedIdsSet.add(item.id);
-
-          const card = buildRegularCard(item, src, signalsCache);
-          videoGrid.appendChild(card);
-          cardIdx++;
+            </div>
+            <div class="meta">
+              <div class="mpx-skel-avatar" style="width:36px;height:36px;border-radius:50%;"></div>
+              <div class="mpx-skel-lines" style="flex:1;display:flex;flex-direction:column;gap:6px;">
+                <div class="mpx-skel-line long"></div>
+                <div class="mpx-skel-line short"></div>
+              </div>
+            </div>`;
+          return ph;
         }
+
+        function buildOneChunk(maxCount) {
+          const frag = document.createDocumentFragment();
+          let appended = 0;
+          while (appended < maxCount && listIdx < taggedList.length) {
+            // MyMIX スロットを位置にヒットしたら挿入
+            if (page === 0 && mixPositions.includes(cardIdx) && mymixSlots.length > 0) {
+              const slot = mymixSlots.shift();
+              const pi = mixPositions.indexOf(cardIdx);
+              if (pi >= 0) mixPositions.splice(pi, 1);
+              frag.appendChild(makeMixPlaceholder(slot));
+              cardIdx++; appended++;
+              continue;
+            }
+            const { item, src } = taggedList[listIdx];
+            listIdx++;
+            if (!item || !item.id || displayedIdsSet.has(item.id)) continue;
+            displayedIdsSet.add(item.id);
+            try {
+              const card = buildRegularCard(item, src, signalsCache);
+              frag.appendChild(card);
+            } catch (err) {
+              console.warn('[render] card err:', err);
+              continue;
+            }
+            cardIdx++; appended++;
+          }
+          if (frag.childNodes.length > 0) videoGrid.appendChild(frag);
+          return appended > 0;
+        }
+
+        // Stage 1: 即時表示
+        buildOneChunk(CHUNK);
+
+        // Stage 2: 残りを rAF チェーン (ページ応答をブロックしない)
+        function tick() {
+          if (listIdx >= taggedList.length && mixPositions.length === 0) return;
+          const startedAt = performance.now();
+          while (listIdx < taggedList.length && performance.now() - startedAt < 8) {
+            const did = buildOneChunk(CHUNK);
+            if (!did) break;
+          }
+          if (listIdx < taggedList.length) {
+            requestAnimationFrame(tick);
+          }
+        }
+        if (listIdx < taggedList.length) requestAnimationFrame(tick);
       }
 
       let signalsCache = null;
@@ -4069,7 +4139,6 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
             <img src="${thumbUrl}" loading="lazy" alt="${escapeAttr(item.title || '動画')}">
             ${item.lengthText ? `<div class="duration-badge">${escapeHtmlText(item.lengthText)}</div>` : ''}
             ${isWatched ? `<div class="mpx-watched-chip">視聴済み</div>` : ''}
-            ${src === 'discover' ? `<div class="mpx-ai-source-badge">✨ AIおすすめ</div>` : ''}
             ${src === 'rewatch' ? `<div class="mpx-ai-source-badge" style="background:rgba(255,179,71,.9)">🔁 もう一度</div>` : ''}
           </div>
           <div class="meta">
@@ -4102,146 +4171,240 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       }
 
       // ============================================================
-      // 11. MyMIX (AI不要・アルゴリズミック・プレイリスト自動生成)
+      // 11. MyMIX v3.0 (完全書き直し - MIN-AIスタイルの9本収集)
+      //     - MIN-AI と同じ複数クエリ並列検索 + スコアリング
+      //     - 6秒で全スロット完了保証 (無限ローディングなし)
+      //     - 9本以上集まらなければtrendingで補充
+      //     - それでもだめなら静かにスロットを削除 (絶対に表示し続けない)
       // ============================================================
       const MyMIX = (function () {
-        const SLOT_POSITIONS = [3, 11, 19]; // 4枚目, 12枚目, 20枚目 に挿入
+        const SLOT_POSITIONS = [4, 12, 20]; // 5枚目, 13枚目, 21枚目に挿入 (AI表示後)
+        const TARGET_VIDEOS = 9;             // 各MIXの目標本数
+        const MIN_VIDEOS = 5;                // これ以下はスロット削除
+        const SLOT_TIMEOUT_MS = 6000;        // タイムアウト短縮 (8 -> 6)
+        const GLOBAL_TIMEOUT_MS = 9000;      // 全スロット一括キルスイッチ
 
-        // ユーザーシグナルから複数の MIX タイプを選ぶ
+        // ユーザーシグナルから MIX タイプを選ぶ (ジャンル多性を重視)
         function pickMixTypes(signals) {
           const types = [];
-          // (1) お気に入りチャンネルMIX (Top チャンネルがあれば)
-          if (signals.topChannels.length > 0) {
-            // 上位 2チャンネルそれぞれで MIX を作る候補
-            signals.topChannels.slice(0, 3).forEach((ch, i) => {
-              types.push({
-                kind: 'channel',
-                key: ch,
-                title: `${ch} ミックス`,
-                subtitle: 'お気に入りチャンネル'
-              });
-            });
-          }
-          // (2) ジャンル別 MIX (top wordsから)
-          if (signals.topWords.length > 0) {
+          const cluster = buildHistoryGenreClusterSafe(signals);
+
+          // (1) チャンネルMIX (上位2チャンネル)
+          (signals.topChannels || []).slice(0, 2).forEach(ch => {
+            types.push({ kind: 'channel', key: ch, title: `${ch} ミックス`, subtitle: 'お気に入りチャンネル' });
+          });
+          // (2) ジャンルMIX (クラスタ上位ワード)
+          if (cluster.sorted && cluster.sorted.length > 0) {
+            const g = cluster.sorted[0][0];
+            types.push({ kind: 'genre', key: g, title: `${g} ミックス`, subtitle: 'お気に入りジャンル' });
+          } else if ((signals.topWords || []).length > 0) {
             const g = signals.topWords[0];
-            types.push({
-              kind: 'genre',
-              key: g,
-              title: `My ${g} MIX`,
-              subtitle: 'お気に入りジャンル'
-            });
+            types.push({ kind: 'genre', key: g, title: `${g} ミックス`, subtitle: 'お気に入りジャンル' });
           }
-          // (3) "もう一度 MIX" (高評価・履歴の類似)
-          if (signals.liked.length >= 3) {
-            types.push({
-              kind: 'liked',
-              key: 'liked-mix',
-              title: '高評価ミックス',
-              subtitle: 'あなたが高評価した動画から'
-            });
+          // (3) 高評価MIX
+          if ((signals.liked || []).length >= 3) {
+            types.push({ kind: 'liked', key: 'liked-mix', title: '高評価ミックス', subtitle: 'あなたが高評価した動画から' });
           }
-          // (4) 発見MIX (履歴と関連ジャンル)
-          if (signals.topWords.length > 1) {
-            types.push({
-              kind: 'discover',
-              key: signals.topWords[1],
-              title: `Discover ${signals.topWords[1]}`,
-              subtitle: 'もしかしたら好きかも'
-            });
+          // (4) 発見MIX (2番目のクラスタワード)
+          if (cluster.sorted && cluster.sorted.length > 1) {
+            const g = cluster.sorted[1][0];
+            types.push({ kind: 'discover', key: g, title: `発見・${g}`, subtitle: 'もしかしたら好きかも' });
           }
           return shuffle(types).slice(0, SLOT_POSITIONS.length);
+        }
+
+        // ジャンルクラスタ (スコープ外の関数参照用 - 同じロジックをコピー)
+        function buildHistoryGenreClusterSafe(signals) {
+          try {
+            const hist = (signals && signals.hist) || [];
+            const liked = (signals && signals.liked) || [];
+            const tokenFreq = new Map();
+            const addTokens = (text, weight) => {
+              String(text || '').toLowerCase()
+                .replace(/[\u3010\u3011\u300c\u300d\u300e\u300f\(\)\uff08\uff09!\uff01?\uff1f\[\]#\u266a\u2605\u2606\u25c6\u25c7\.,\u3001\u3002:\uff1a;\uff1b\-_\/\\|]/g, ' ')
+                .split(/\s+/)
+                .filter(w => w.length >= 2 && w.length <= 25).slice(0, 8)
+                .forEach(w => tokenFreq.set(w, (tokenFreq.get(w) || 0) + weight));
+            };
+            hist.slice(0, 50).forEach((h, i) => addTokens(h.title, 1 / (1 + i * 0.06)));
+            liked.slice(0, 25).forEach(h => addTokens(h.title, 1.4));
+            const noise = new Set(['the','and','for','with','from','this','that','official','video','music','mv','ft','feat','vol','part','full','live','hd','4k','tv','ch','channel','ver','version']);
+            const sorted = Array.from(tokenFreq.entries()).filter(([w]) => !noise.has(w)).sort((a,b) => b[1] - a[1]);
+            const coreTokens = new Set(sorted.slice(0, 20).map(([w]) => w));
+            return { coreTokens, sorted };
+          } catch { return { coreTokens: new Set(), sorted: [] }; }
         }
 
         function scheduleSlotsForGrid(signals) {
           const types = pickMixTypes(signals);
           const slots = [];
           types.forEach((t, i) => {
-            slots.push({
-              id: 'mxs_' + Date.now() + '_' + i,
-              position: SLOT_POSITIONS[i],
-              type: t
-            });
+            slots.push({ id: 'mxs_' + Date.now() + '_' + i, position: SLOT_POSITIONS[i], type: t });
           });
           return slots;
         }
 
-        // 実際の動画を集める
-        async function buildMixVideos(type, signals) {
-          let items = [];
+        // クエリ生成 (MIN-AI スタイルの多面クエリ)
+        function buildQueriesForMix(type, signals) {
+          const qs = [];
           if (type.kind === 'channel') {
-            // チャンネル名で検索 -> そのチャンネルの動画を絞る
-            const search = await apiSearch(type.key, 0);
-            // 同じチャンネルだけにフィルター
-            let chOnly = search.filter(it => (it.channelTitle || '').trim() === type.key.trim() && !isShortItem(it));
-            if (chOnly.length < 4) {
-              // 緩めて部分一致
-              chOnly = search.filter(it => (it.channelTitle || '').toLowerCase().includes(type.key.toLowerCase()) && !isShortItem(it));
-            }
-            items = chOnly;
-            // 足りなければ "人気" の追加検索
-            if (items.length < 6) {
-              const more = await apiSearch(type.key + ' 人気', 0);
-              const moreCh = more.filter(it => (it.channelTitle || '').toLowerCase().includes(type.key.toLowerCase()) && !isShortItem(it));
-              items = items.concat(moreCh);
-            }
+            qs.push(type.key);
+            qs.push(type.key + ' 人気');
+            qs.push(type.key + ' おすすめ');
           } else if (type.kind === 'liked') {
-            const liked = signals.liked.slice(0, 10);
-            // 高評価動画を起点に、類似タイトルを検索して追加
-            items = liked.map(l => ({
-              id: l.id, title: l.title, channelTitle: l.channel || '',
-              channelThumbnail: '', viewCountText: '', publishedTimeText: '', lengthText: l.lengthText || ''
-            })).filter(x => x.id);
-            // 追加: 1つだけ関連検索
-            if (liked.length > 0) {
-              const seed = liked[0];
-              const more = await apiSearch(seed.title || seed.channel || '', 0);
-              const moreNonShort = more.filter(it => !isShortItem(it)).slice(0, 6);
-              items = items.concat(moreNonShort);
-            }
+            const liked = (signals.liked || []).slice(0, 3);
+            liked.forEach(l => { if (l.title) qs.push(l.title); });
+            if (signals.topChannels && signals.topChannels[0]) qs.push(signals.topChannels[0]);
           } else {
-            // genre or discover
-            const search = await apiSearch(type.key, 0);
-            items = search.filter(it => !isShortItem(it));
-            // 履歴チャンネルがいたら優遇 (前に並ぶ)
-            const histChSet = new Set(signals.topChannels.map(c => c.toLowerCase()));
-            items.sort((a, b) => {
-              const aHist = histChSet.has((a.channelTitle || '').toLowerCase()) ? 1 : 0;
-              const bHist = histChSet.has((b.channelTitle || '').toLowerCase()) ? 1 : 0;
-              return bHist - aHist;
-            });
+            // genre / discover
+            qs.push(type.key);
+            // クラスタコアワードと組み合わせてジャンルを絞る
+            const cluster = buildHistoryGenreClusterSafe(signals);
+            if (cluster.sorted && cluster.sorted.length > 0 && cluster.sorted[0][0] !== type.key) {
+              qs.push(type.key + ' ' + cluster.sorted[0][0]);
+            }
+            qs.push(type.key + ' 人気');
           }
-          // dedup + 上限
-          const seen = new Set(); const out = [];
-          for (const it of items) {
-            if (!it || !it.id) continue;
-            if (seen.has(it.id)) continue;
+          return qs.slice(0, 3);
+        }
+
+        // 実際の動画を集める (MIN-AI スタイルの並列クエリ + スコアリング)
+        async function buildMixVideos(type, signals) {
+          const queries = buildQueriesForMix(type, signals);
+          const cluster = buildHistoryGenreClusterSafe(signals);
+
+          // 並列検索 (個別タイムアウト)
+          const tasks = queries.map(q => Promise.race([
+            apiSearch(q, 0).catch(() => []),
+            new Promise(resolve => setTimeout(() => resolve([]), 4500))
+          ]));
+          let allResults = [];
+          try {
+            allResults = await Promise.race([
+              Promise.all(tasks),
+              new Promise(resolve => setTimeout(() => resolve([]), 5000))
+            ]) || [];
+          } catch { allResults = []; }
+
+          const merged = [];
+          const seen = new Set();
+          (allResults || []).forEach(arr => (arr || []).forEach(it => {
+            if (!it || !it.id || seen.has(it.id)) return;
+            if (isShortItem(it)) return;
             seen.add(it.id);
-            out.push({
-              id: it.id,
-              title: it.title || '',
-              channelTitle: it.channelTitle || '',
-              thumbnail: getThumbForId(it.id),
-              lengthText: it.lengthText || ''
-            });
-            if (out.length >= 25) break;
+            merged.push(it);
+          }));
+
+          // type 別スコアリング
+          const histChSet = new Set((signals.topChannels || []).map(c => String(c || '').toLowerCase()));
+          function scoreItem(it) {
+            if (!it || !it.id) return -Infinity;
+            if (signals.historyIds && signals.historyIds.has(it.id)) return -10; // 視聴済みも軽く加える (Mixは列を漂う)
+            const title = String(it.title || '').toLowerCase();
+            const ch = String(it.channelTitle || '').toLowerCase();
+            const tokens = tokensFromTitleLite(title);
+            let s = 0;
+            // チャンネル一致
+            if (type.kind === 'channel') {
+              const k = String(type.key).toLowerCase();
+              if (ch === k) s += 14;
+              else if (ch.includes(k) || k.includes(ch)) s += 7;
+              else s -= 4; // チャンネルMIXで别チャンネルは大きく減点
+            } else {
+              if (histChSet.has(ch)) s += 5;
+            }
+            // ジャンルクラスタ一致 (同ジャンル保証)
+            const overlap = genreOverlapScoreLite(tokens, cluster.coreTokens);
+            if (overlap >= 3) s += 7;
+            else if (overlap === 2) s += 3.5;
+            else if (overlap === 1) s += 1;
+            else if (type.kind !== 'channel') s -= 1.5;
+
+            // typeキーとタイトル一致 (genre/discover)
+            if (type.kind === 'genre' || type.kind === 'discover') {
+              if (title.includes(String(type.key).toLowerCase())) s += 4;
+            }
+            // 実在動画シグナル
+            if (it.lengthText) s += 1;
+            if (/(万|\u5104|M views|K views|回視聴|views)/i.test(it.viewCountText || '')) s += 0.8;
+            s += Math.random() * 0.5;
+            return s;
+          }
+
+          merged.sort((a, b) => scoreItem(b) - scoreItem(a));
+
+          // 連続同チャンネルを限る (channelタイプ以外)
+          let videos = [];
+          if (type.kind === 'channel') {
+            videos = merged.slice(0, 25);
+          } else {
+            const lastChCount = new Map();
+            for (const it of merged) {
+              const ch = String(it.channelTitle || '').toLowerCase();
+              if ((lastChCount.get(ch) || 0) >= 3) continue;
+              lastChCount.set(ch, (lastChCount.get(ch) || 0) + 1);
+              videos.push(it);
+              if (videos.length >= 25) break;
+            }
+          }
+
+          // マッピング
+          const out = videos.map(it => ({
+            id: String(it.id),
+            title: it.title || '',
+            channelTitle: it.channelTitle || '',
+            thumbnail: getThumbForId(it.id),
+            lengthText: it.lengthText || ''
+          })).slice(0, 25);
+
+          // 十分集まるまでtrendingで補充 (ただし channel タイプは補充しない)
+          if (out.length < TARGET_VIDEOS && type.kind !== 'channel') {
+            try {
+              const trend = await Promise.race([
+                apiTrending(0).catch(() => []),
+                new Promise(resolve => setTimeout(() => resolve([]), 3000))
+              ]) || [];
+              const trendItems = trend.filter(it => it && it.id && !isShortItem(it) && !seen.has(it.id));
+              for (const it of trendItems) {
+                if (out.length >= TARGET_VIDEOS) break;
+                out.push({
+                  id: String(it.id),
+                  title: it.title || '',
+                  channelTitle: it.channelTitle || '',
+                  thumbnail: getThumbForId(it.id),
+                  lengthText: it.lengthText || ''
+                });
+                seen.add(it.id);
+              }
+            } catch {}
           }
           return out;
         }
 
-        async function fillSlotsAsync(slots, signals) {
-          // 並行実行 (各 MIX は独立) + 各スロットに 8 秒タイムアウト
-          const MIN_VIDEOS = 3;             // 4 -> 3 に閾値を緩和(プレースホルダー残留を防ぐ)
-          const SLOT_TIMEOUT_MS = 8000;
+        // ヘルパー: lite 版 (スコープ外参照と重複しないよう名前をぶらしている)
+        function genreOverlapScoreLite(itemTokens, coreTokens) {
+          if (!itemTokens || !itemTokens.length || !coreTokens || !coreTokens.size) return 0;
+          let hits = 0;
+          for (const t of itemTokens) if (coreTokens.has(t)) hits++;
+          return hits;
+        }
 
-          await Promise.all(slots.map(async (slot) => {
-            // タイムアウト用 setTimeout を確保
+        async function fillSlotsAsync(slots, signals) {
+          if (!slots || !slots.length) return;
+          // 全スロット一括キルスイッチ
+          const globalKill = setTimeout(() => {
+            slots.forEach(slot => {
+              const ph = document.querySelector(`[data-mix-slot="${slot.id}"]`);
+              if (ph) ph.remove();
+            });
+          }, GLOBAL_TIMEOUT_MS);
+
+          await Promise.allSettled(slots.map(async (slot) => {
             let timedOut = false;
             const timeoutId = setTimeout(() => {
               timedOut = true;
               const ph = document.querySelector(`[data-mix-slot="${slot.id}"]`);
               if (ph) ph.remove();
-              console.warn('[MyMIX] slot timeout:', slot.type.title);
             }, SLOT_TIMEOUT_MS);
 
             try {
@@ -4250,36 +4413,14 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
               const cacheKey = `${slot.type.kind}::${slot.type.key}`;
               const cached = cacheAll[cacheKey];
               let videos = null;
-              if (cached && (Date.now() - cached.ts) < CACHE_TTL_MIX && cached.videos && cached.videos.length >= MIN_VIDEOS) {
+              if (cached && (Date.now() - cached.ts) < CACHE_TTL_MIX && Array.isArray(cached.videos) && cached.videos.length >= MIN_VIDEOS) {
                 videos = cached.videos;
               } else {
                 try {
                   videos = await buildMixVideos(slot.type, signals);
                 } catch (innerErr) {
-                  console.warn('[MyMIX] buildMixVideos failed:', innerErr);
+                  console.warn('[MyMIX v3] build err:', innerErr);
                   videos = null;
-                }
-                // 足りないときは緊急フォールバック: 関連語でもう一度トライ
-                if ((!videos || videos.length < MIN_VIDEOS) && !timedOut) {
-                  const fallbackQ = slot.type.kind === 'channel'
-                    ? (slot.type.key + ' おすすめ')
-                    : (slot.type.key + ' 人気');
-                  try {
-                    const fb = await apiSearch(fallbackQ, 0);
-                    const fbItems = (fb || []).filter(it => it && it.id && !isShortItem(it)).map(it => ({
-                      id: it.id,
-                      title: it.title || '',
-                      channelTitle: it.channelTitle || '',
-                      thumbnail: getThumbForId(it.id),
-                      lengthText: it.lengthText || ''
-                    }));
-                    const seen = new Set((videos || []).map(v => v.id));
-                    const combo = (videos || []).slice();
-                    fbItems.forEach(it => { if (!seen.has(it.id)) { seen.add(it.id); combo.push(it); } });
-                    if (combo.length >= MIN_VIDEOS) videos = combo.slice(0, 25);
-                  } catch (fbErr) {
-                    console.warn('[MyMIX] fallback failed:', fbErr);
-                  }
                 }
                 if (videos && videos.length >= MIN_VIDEOS) {
                   try {
@@ -4289,26 +4430,29 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
                 }
               }
 
-              if (timedOut) return; // 既にタイムアウトで除去済み
+              if (timedOut) return;
 
               if (!videos || videos.length < MIN_VIDEOS) {
                 const ph = document.querySelector(`[data-mix-slot="${slot.id}"]`);
                 if (ph) ph.remove();
                 return;
               }
-              // プレースホルダーを実体カードに置換
               const ph = document.querySelector(`[data-mix-slot="${slot.id}"]`);
               if (!ph) return;
               const card = buildMyMixCard(slot, videos);
-              ph.replaceWith(card);
+              // requestAnimationFrame でスムーズにスワップ
+              requestAnimationFrame(() => {
+                if (ph.parentNode) ph.replaceWith(card);
+              });
             } catch (e) {
-              console.warn('[MyMIX] slot fill error:', e);
+              console.warn('[MyMIX v3] fill err:', e);
               const ph = document.querySelector(`[data-mix-slot="${slot.id}"]`);
               if (ph) ph.remove();
             } finally {
               clearTimeout(timeoutId);
             }
           }));
+          clearTimeout(globalKill);
         }
 
         function buildMyMixCard(slot, videos) {
@@ -4336,7 +4480,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
               <div class="details">
                 <h3>${escapeHtmlText(slot.type.title)}</h3>
                 <span class="channel-name" style="color:var(--text-muted);">MIN-Tube-Pro ・ ${escapeHtmlText(slot.type.subtitle)}</span>
-                <div class="video-stats">${escapeHtmlText(first.title.slice(0, 40))}${first.title.length > 40 ? '...' : ''}</div>
+                <div class="video-stats">${escapeHtmlText((first.title||'').slice(0, 40))}${(first.title||'').length > 40 ? '...' : ''}</div>
               </div>
             </div>`;
           card.addEventListener('click', (e) => {
@@ -4346,8 +4490,32 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           return card;
         }
 
+        // 低品質キャッシュをクリーンアップ (古い仕様の3本しかないMIXなどを除去)
+        function purgeOldCache() {
+          try {
+            const cacheAll = safeGet(KEY_MYMIX_CACHE, {});
+            let changed = false;
+            Object.keys(cacheAll).forEach(k => {
+              const v = cacheAll[k];
+              if (!v || !Array.isArray(v.videos) || v.videos.length < MIN_VIDEOS) {
+                delete cacheAll[k]; changed = true;
+              }
+            });
+            if (changed) safeSet(KEY_MYMIX_CACHE, cacheAll);
+          } catch {}
+        }
+        purgeOldCache();
+
         return { scheduleSlotsForGrid, fillSlotsAsync, buildMyMixCard };
       })();
+
+      // tokensFromTitleLite を MyMIX や MIN-AI 両方で使うため、クロージャスコープ上位に見えるよう面倒を見るヘルパー
+      function tokensFromTitleLite(t) {
+        return String(t || '').toLowerCase()
+          .replace(/[\u3010\u3011\u300c\u300d\u300e\u300f\(\)\uff08\uff09!\uff01?\uff1f\[\]#\u266a\u2605\u2606\u25c6\u25c7\.,\u3001\u3002:\uff1a;\uff1b\-_\/\\|]/g, ' ')
+          .split(/\s+/)
+          .filter(w => w.length >= 2);
+      }
 
       // ============================================================
       // 12. MyMIX PLAYER (既存 AI プレイリストプレイヤーと同じ構造)
@@ -4919,50 +5087,173 @@ render();play();
       const shownIds = getShownSet();
       const sessionShown = new Set();
 
-      function scoreCandidate(item, signals) {
-        if (!item || !item.id) return -Infinity;
-        if (shownIds.has(item.id)) return -100;       // 既出強くペナルティ
-        if (sessionShown.has(item.id)) return -100;
-        if (signals.historyIds && signals.historyIds.has(item.id)) return -50; // 視聴済み回避
-        if (isShortItem(item)) return -30;            // ショートは MIN-AI で出さない
+      // ============================================================
+      //  至高 MIN-AI アルゴリズム v3.0
+      //  ジャンル分類 + 多面スコアリング + 類似タイトル防止 + チャンネル品質判定
+      // ============================================================
 
-        let s = 0;
+      // 履歴タイトルから"ジャンルクラスタ"を抽出 (頻出 token 群)
+      function buildHistoryGenreCluster(signals) {
+        try {
+          const hist = (signals && signals.hist) || [];
+          const liked = (signals && signals.liked) || [];
+          const tokenFreq = new Map();
+          const channelGenres = new Map(); // channel -> top token set
+
+          const addTokens = (text, weight) => {
+            String(text || '').toLowerCase()
+              .replace(/[\u3010\u3011\u300c\u300d\u300e\u300f\(\)\uff08\uff09!\uff01?\uff1f\[\]#\u266a\u2605\u2606\u25c6\u25c7\.,\u3001\u3002:\uff1a;\uff1b\-_\/\\|]/g, ' ')
+              .split(/\s+/)
+              .filter(w => w.length >= 2 && w.length <= 25)
+              .slice(0, 8)
+              .forEach(w => tokenFreq.set(w, (tokenFreq.get(w) || 0) + weight));
+          };
+
+          hist.slice(0, 50).forEach((h, i) => {
+            const w = 1 / (1 + i * 0.06);
+            addTokens(h.title, w);
+            if (h.channel) {
+              const set = channelGenres.get(h.channel) || new Set();
+              tokensFromTitleLite(h.title).forEach(t => set.add(t));
+              channelGenres.set(h.channel, set);
+            }
+          });
+          liked.slice(0, 25).forEach(h => {
+            addTokens(h.title, 1.4);
+          });
+
+          // ノイズワード除去
+          const noise = new Set(['the','and','for','with','from','this','that','official','video','music','mv','ft','feat','vol','part','full','live','hd','4k','live','tv','ch','channel','ver','ver.','version']);
+          const sorted = Array.from(tokenFreq.entries())
+            .filter(([w]) => !noise.has(w))
+            .sort((a, b) => b[1] - a[1]);
+
+          const coreTokens = new Set(sorted.slice(0, 20).map(([w]) => w));
+          return { coreTokens, channelGenres, sorted };
+        } catch {
+          return { coreTokens: new Set(), channelGenres: new Map(), sorted: [] };
+        }
+      }
+
+      function tokensFromTitleLite(t) {
+        return String(t || '').toLowerCase()
+          .replace(/[\u3010\u3011\u300c\u300d\u300e\u300f\(\)\uff08\uff09!\uff01?\uff1f\[\]#\u266a\u2605\u2606\u25c6\u25c7\.,\u3001\u3002:\uff1a;\uff1b\-_\/\\|]/g, ' ')
+          .split(/\s+/)
+          .filter(w => w.length >= 2);
+      }
+
+      function genreOverlapScore(itemTokens, coreTokens) {
+        if (!itemTokens || !itemTokens.length || !coreTokens || !coreTokens.size) return 0;
+        let hits = 0;
+        for (const t of itemTokens) if (coreTokens.has(t)) hits++;
+        return hits;
+      }
+
+      // 類似タイトル判定 (jaccard) ─ 同名乱発を防ぐ
+      function tooSimilarTitle(itemTokens, refTokensList, threshold = 0.85) {
+        if (!refTokensList || !refTokensList.length) return false;
+        const A = new Set(itemTokens);
+        for (const ref of refTokensList) {
+          const B = new Set(ref);
+          if (!A.size || !B.size) continue;
+          let inter = 0;
+          A.forEach(x => { if (B.has(x)) inter++; });
+          const jacc = inter / (A.size + B.size - inter);
+          if (jacc >= threshold) return true;
+        }
+        return false;
+      }
+
+      // スパム/コピー動画判定 (タイトルだけ同じで全く別チャンネルを排除)
+      function looksLikeCopyOrSpam(item, signals) {
         const title = String(item.title || '').toLowerCase();
         const ch = String(item.channelTitle || '').toLowerCase();
+        // 既存履歴と完全/ほぼ同タイトルで"チャンネルが違う"のは多分コピー動画
+        const itTokens = tokensFromTitleLite(title);
+        for (const h of (signals.hist || []).slice(0, 30)) {
+          const ht = tokensFromTitleLite(h.title);
+          if (!ht.length) continue;
+          const A = new Set(itTokens), B = new Set(ht);
+          let inter = 0;
+          A.forEach(x => { if (B.has(x)) inter++; });
+          const jacc = inter / (A.size + B.size - inter);
+          if (jacc >= 0.8 && String(h.channel || '').toLowerCase() !== ch) {
+            return true;
+          }
+        }
+        // タイトルがスパム頻発フレーズ
+        if (/(完全版|総集編|reaction|reupload|再up|まとめ\d+選)/i.test(item.title || '')) {
+          // この種は"上位履歴チャンネルから"でない限り減点で良い
+          const topChSet = new Set((signals.topChannels || []).slice(0, 6).map(c => String(c).toLowerCase()));
+          if (!topChSet.has(ch)) return true;
+        }
+        return false;
+      }
 
-        // チャンネル一致(履歴上位チャンネル)
-        const topChSet = new Set((signals.topChannels || []).slice(0, 8).map(c => String(c).toLowerCase()));
-        if (topChSet.has(ch)) s += 8;
+      function scoreCandidate(item, signals, ctx) {
+        if (!item || !item.id) return -Infinity;
+        if (shownIds.has(item.id)) return -100;
+        if (sessionShown.has(item.id)) return -100;
+        if (signals.historyIds && signals.historyIds.has(item.id)) return -50;
+        if (isShortItem(item)) return -30;
+        if (looksLikeCopyOrSpam(item, signals)) return -25;
+
+        const title = String(item.title || '').toLowerCase();
+        const ch = String(item.channelTitle || '').toLowerCase();
+        const itTokens = tokensFromTitleLite(title);
+
+        // 同一フィード内 (もしくは表示済み) と類似しすぎたら却下相当
+        if (ctx && ctx.shownTokens && tooSimilarTitle(itTokens, ctx.shownTokens, 0.78)) return -20;
+
+        let s = 0;
+
+        // 1) チャンネル一致 (履歴上位)
+        const topChSet = new Set((signals.topChannels || []).slice(0, 10).map(c => String(c).toLowerCase()));
+        if (topChSet.has(ch)) s += 9;
         else {
-          for (const c of topChSet) { if (c && ch.includes(c)) { s += 5; break; } }
+          for (const c of topChSet) { if (c && (ch.includes(c) || c.includes(ch))) { s += 5; break; } }
         }
 
-        // 履歴ワード一致 (重み: 上位ほど高い)
-        (signals.topWords || []).slice(0, 10).forEach((w, idx) => {
+        // 2) ジャンルクラスタとの重なり (これが"至高"スコアの核)
+        if (ctx && ctx.cluster) {
+          const overlap = genreOverlapScore(itTokens, ctx.cluster.coreTokens);
+          //  3 個以上重なれば"同ジャンル"として強優遇
+          if (overlap >= 3) s += 8;
+          else if (overlap === 2) s += 4;
+          else if (overlap === 1) s += 1.5;
+          else s -= 2; // ジャンル無関係は減点
+        }
+
+        // 3) 履歴ワード一致 (重み付き)
+        (signals.topWords || []).slice(0, 12).forEach((w, idx) => {
           if (!w) return;
           const lw = String(w).toLowerCase();
-          if (title.includes(lw)) s += Math.max(1, 5 - Math.floor(idx / 2));
+          if (title.includes(lw)) s += Math.max(1, 5 - Math.floor(idx / 3));
         });
 
-        // 再生時間がある(=実在動画)を優遇
+        // 4) 実在動画 (lengthText を持つ) を優遇
         if (item.lengthText) s += 1;
+        // 異常に短い動画は減点 (=ノイズの可能性)
+        if (item.lengthText && /^0:?[0-5]?\d?$/.test(String(item.lengthText).trim())) s -= 2;
 
-        // 視聴回数が多そうな数字を優遇
-        if (/(万|億|M views|K views|回視聴|views)/i.test(item.viewCountText || '')) s += 1;
+        // 5) 視聴回数表記がある = 普及動画
+        if (/(万|\u5104|M views|K views|回視聴|views)/i.test(item.viewCountText || '')) s += 1;
 
-        // 微小なランダム性(同点候補の入れ替えで毎回違う1本に)
-        s += Math.random() * 0.9;
+        // 6) ランダム性 (同点同士の入れ替え)
+        s += Math.random() * 0.6;
 
         return s;
       }
 
       async function pickMinAiVideo() {
-        // signals
         let signals;
         try { signals = getHistorySignals(); }
         catch { signals = { topChannels: [], topWords: [], historyIds: new Set(), hist: [], liked: [], subs: [] }; }
 
-        // クエリ構築: 1) 上位チャンネル名 + 2) 上位ワードペア + 3) ワード単独 + 4) trending
+        // ジャンルクラスタを構築
+        const cluster = buildHistoryGenreCluster(signals);
+
+        // クエリ構築: チャンネル + ワードペア + クラスタ上位
         const queries = [];
         const chs = signals.topChannels || [];
         const ws = signals.topWords || [];
@@ -4971,34 +5262,51 @@ render();play();
         if (ws.length >= 2) queries.push(`${ws[0]} ${ws[1]}`);
         else if (ws.length === 1) queries.push(ws[0]);
         if (chs.length > 1) queries.push(chs[1]);
+        // クラスタ上位ワードペアも追加 (ジャンル多面性)
+        if (cluster.sorted.length >= 2) {
+          queries.push(`${cluster.sorted[0][0]} ${cluster.sorted[1][0]}`);
+        }
         if (ws.length >= 3) queries.push(ws[2]);
-        if (queries.length === 0) queries.push('trending'); // fallback
+        if (queries.length === 0) queries.push('trending');
 
         // 並列検索 (タイムアウト付き)
-        const tasks = queries.slice(0, 4).map(async q => {
+        const tasks = queries.slice(0, 5).map(async q => {
           try {
             if (q === 'trending') return await apiTrending(0);
             return await apiSearch(q, 0);
           } catch { return []; }
         });
 
-        // 全体タイムアウト
         const all = await Promise.race([
           Promise.all(tasks),
           new Promise(resolve => setTimeout(() => resolve([]), MINAI_TIMEOUT_MS))
         ]);
 
         const merged = [];
-        (all || []).forEach(arr => (arr || []).forEach(it => merged.push(it)));
+        const idsSeen = new Set();
+        (all || []).forEach(arr => (arr || []).forEach(it => {
+          if (it && it.id && !idsSeen.has(it.id)) { idsSeen.add(it.id); merged.push(it); }
+        }));
         if (merged.length === 0) return null;
 
-        // スコアリング
+        // すでにグリッドに表示されている動画のタイトル token を取って類似排除
+        const shownTokens = [];
+        try {
+          if (videoGrid) {
+            videoGrid.querySelectorAll('.video-card h3').forEach(h => {
+              shownTokens.push(tokensFromTitleLite(h.textContent || ''));
+            });
+          }
+        } catch {}
+
+        // スコアリング (ジャンルクラスタ込み)
+        const ctx = { cluster, shownTokens };
         let best = null, bestScore = -Infinity;
         for (const item of merged) {
-          const sc = scoreCandidate(item, signals);
+          const sc = scoreCandidate(item, signals, ctx);
           if (sc > bestScore) { bestScore = sc; best = item; }
         }
-        if (!best || bestScore <= -10) return null;
+        if (!best || bestScore <= -5) return null;
 
         // reasoning text
         let reason = 'あなたが好きそうな動画';
@@ -5010,6 +5318,11 @@ render();play();
             const titleLower = String(best.title || '').toLowerCase();
             const matched = (signals.topWords || []).find(w => w && titleLower.includes(String(w).toLowerCase()));
             if (matched) reason = `「${matched}」に関心があるあなたへ`;
+            else {
+              const itTokens = tokensFromTitleLite(titleLower);
+              const overlapTokens = itTokens.filter(t => cluster.coreTokens.has(t)).slice(0, 2);
+              if (overlapTokens.length) reason = `「${overlapTokens.join(' \u00b7 ')}」関連のおすすめ`;
+            }
           }
         } catch {}
 
@@ -5233,7 +5546,7 @@ render();play();
         if (!hasData) return;
 
         const loadingNode = buildLoadingCard(
-          'MIN-AI',
+          'minai',
           'AIがあなたにおすすめの動画を検索しています',
           'MIN-AI が分析中...'
         );
@@ -5295,27 +5608,28 @@ render();play();
 
       // ============================================================
       //  STARTUP
+      //   - Pro-AI は 1枚目の後ろに挿入 (画面トップ中・上部)
+      //   - MIN-AI は setupGridObserver 側で 2枚目の後ろに自動挿入
       // ============================================================
       function startup() {
         try { setupGridObserver(); } catch (e) { console.warn(e); }
 
-        // 3回に1回 Pro-AI を表示
         let count = 0;
         try { count = bumpLoadCount(); } catch {}
-        const shouldShowProAi = (count > 0 && (count % PROAI_INTERVAL === 0));
+        // 2回に1回 Pro-AI を表示 (より頻繁に / 初回も対象)
+        const shouldShowProAi = ((count - 1) % PROAI_INTERVAL === 0);
 
         if (shouldShowProAi) {
-          // 最初のリアルカードが出てから Pro-AI ローディングを挿入する
-          // (画面トップ近くに目立つ場所で出すため)
           let placed = false;
           const place = () => {
-            if (placed) return;
-            const real = videoGrid && videoGrid.querySelector('.video-card:not(.mpx-skeleton-card):not(.mpx-mymix-placeholder):not([data-ai-loading])');
+            if (placed) return false;
+            if (!videoGrid) return false;
+            const real = videoGrid.querySelector('.video-card:not(.mpx-skeleton-card):not(.mpx-mymix-placeholder):not([data-ai-loading])');
             if (!real) return false;
             placed = true;
-            // 3枚目あたりに差し込む
+            // 1枚目の直後に挿入 (＝2番目の位置・画面トップ・上部)
             const realCards = Array.from(videoGrid.querySelectorAll('.video-card:not(.mpx-skeleton-card):not(.mpx-mymix-placeholder):not([data-ai-loading])'));
-            const anchor = realCards[Math.min(2, realCards.length - 1)];
+            const anchor = realCards[Math.min(0, realCards.length - 1)];
             const loadingNode = buildLoadingCard(
               'proai',
               'MIN-Pro-AIがあなたへの一本を選んでいます',
@@ -5331,9 +5645,7 @@ render();play();
           };
           const tryMo = new MutationObserver(() => { if (place()) tryMo.disconnect(); });
           try { tryMo.observe(videoGrid || document.body, { childList: true }); } catch {}
-          // 7秒経っても実体カードが無いなら諦める
-          setTimeout(() => { try { tryMo.disconnect(); } catch {} }, 12000);
-          // 既に実体カードがある場合に備えて即試行
+          setTimeout(() => { try { tryMo.disconnect(); } catch {} }, 10000);
           place();
         }
       }
@@ -5386,6 +5698,7 @@ render();play();
     ライブラリ
   </button>
 </nav>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>

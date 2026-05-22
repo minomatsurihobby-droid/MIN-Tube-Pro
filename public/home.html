@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -1329,6 +1328,98 @@
 
   <style>
     @keyframes spin { to { transform: rotate(360deg); } }
+    /* ===== 自動プレイリスト (✨ MIN-Mix) ===== */
+    .auto-playlists-section {
+      margin: 0 0 24px 0;
+      padding: 0;
+      animation: fadeInUp 0.5s ease;
+    }
+    .auto-playlists-section .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .auto-playlists-section .section-title {
+      font-size: 18px; font-weight: 700; color: var(--text);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .auto-pl-badge {
+      background: linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6);
+      color: #fff; padding: 4px 10px; border-radius: 12px;
+      font-size: 12px; font-weight: 700; letter-spacing: 0.3px;
+      box-shadow: 0 2px 8px rgba(162,107,255,0.3);
+    }
+    .auto-pl-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .auto-pl-card {
+      position: relative;
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: none; cursor: pointer; overflow: hidden;
+      color: #fff; text-align: left;
+      font-family: inherit;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      min-height: 78px;
+    }
+    .auto-pl-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(circle at 90% 50%, rgba(255,255,255,0.15), transparent 50%);
+      pointer-events: none;
+    }
+    .auto-pl-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.35); }
+    .auto-pl-card:active { transform: translateY(-1px); }
+    .auto-pl-icon {
+      font-size: 32px; line-height: 1; flex-shrink: 0;
+      width: 50px; height: 50px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.18);
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+    }
+    .auto-pl-meta { flex: 1; min-width: 0; }
+    .auto-pl-name {
+      font-size: 14.5px; font-weight: 700; line-height: 1.3;
+      overflow: hidden; text-overflow: ellipsis;
+      display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical;
+      margin-bottom: 3px;
+    }
+    .auto-pl-sub {
+      font-size: 11.5px; opacity: 0.88; line-height: 1.3;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .auto-pl-play {
+      width: 38px; height: 38px;
+      background: rgba(0,0,0,0.35);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s ease, transform 0.15s ease;
+    }
+    .auto-pl-card:hover .auto-pl-play {
+      background: rgba(0,0,0,0.6);
+      transform: scale(1.1);
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (max-width: 600px) {
+      .auto-pl-row { grid-template-columns: 1fr; }
+      .auto-pl-card { min-height: 68px; padding: 12px 14px; }
+      .auto-pl-icon { width: 44px; height: 44px; font-size: 28px; }
+    }
+    /* チャンネルアバターをよりリッチに */
+    .video-card .channel-avatar img.loaded {
+      animation: avatarFadeIn 0.3s ease;
+    }
+    @keyframes avatarFadeIn {
+      from { opacity: 0; transform: scale(0.85); }
+      to { opacity: 1; transform: scale(1); }
+    }
   </style>
 
   <script type="module">
@@ -1466,6 +1557,9 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         shortsRow.innerHTML = '';
         shortsSection.style.display = 'none';
         shortsExpanded = true;
+        // 他クエリ検索時は自動プレイリストを隠す
+        const apl = document.getElementById('autoPlaylistsSection');
+        if (apl) apl.remove();
       }
 
       const isDefault = query === 'trending';
@@ -1567,53 +1661,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           }
         }
 
-        normals.forEach(item => {
-          if (!item || !item.id || displayedIds.has(item.id)) return;
-          displayedIds.add(item.id);
-
-          const card = document.createElement('a');
-          card.className = 'video-card';
-          card.href = `/video/${item.id}`;
-          const thumbUrl = getThumbUrl(item.id, 'mq');
-          const channel = item.channelTitle || '';
-          const viewText = item.viewCountText || '';
-          const published = item.publishedTimeText || '';
-          const initial = channel ? channel[0].toUpperCase() : 'C';
-          // チャンネルアバター画像URL（ui-avatars フォールバック）
-          const avatarUrl = item.channelThumbnail || item.channelImage || '';
-          const subKey = 'subscribed_' + channel;
-          const isSub = localStorage.getItem(subKey) === 'true';
-
-          card.innerHTML = `
-            <div class="thumb">
-              <img src="${thumbUrl}" loading="lazy" alt="${item.title || '動画'}">
-              ${item.lengthText ? `<div class="duration-badge">${item.lengthText}</div>` : ''}
-            </div>
-            <div class="meta">
-              <a href="/channel/${encodeURIComponent(channel)}" class="channel-avatar" data-initial="${initial}" onclick="event.stopPropagation()" style="text-decoration:none;">
-                <span class="avatar-initial">${initial}</span>
-                ${avatarUrl ? `<img src="${avatarUrl}" alt="${channel}" onload="this.classList.add('loaded')" onerror="this.remove()">` : ''}
-              </a>
-              <div class="details">
-                <h3>${item.title || ''}</h3>
-                <a href="/channel/${encodeURIComponent(channel)}" class="channel-name" onclick="event.stopPropagation()" style="text-decoration:none;color:var(--text-muted);">${channel}</a>
-                <div class="video-stats">${viewText}${viewText && published ? ' • ' : ''}${published || item.publishedTimeText || ''}</div>
-              </div>
-              <button class="card-menu-btn" aria-label="メニュー" data-id="${item.id}" data-title="${(item.title||'').replace(/"/g,'&quot;')}" data-channel="${channel.replace(/"/g,'&quot;')}" data-views="${viewText}" data-published="${published}">⋮</button>
-            </div>
-          `;
-          // アバター画像がない場合はui-avatarsから取得
-          if (!avatarUrl) {
-            const avatarEl = card.querySelector('.channel-avatar');
-            const img = document.createElement('img');
-            img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(channel)}&background=random&color=fff&size=64&bold=true`;
-            img.alt = channel;
-            img.onload = () => img.classList.add('loaded');
-            img.onerror = () => img.remove();
-            avatarEl.appendChild(img);
-          }
-          videoGrid.appendChild(card);
-        });
+        normals.forEach(item => renderVideoCard(item));
 
       } catch (err) {
         console.error("Fetch error", err);
@@ -1884,7 +1932,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     }
     fetchAndShowVersion();
 
-    // ===== パーソナライズ =====
+    // ===== パーソナライズ（超高度アルゴリズム v2）=====
     // チャンネル登録リストを取得
     function getSubscribedChannels() {
       const channels = [];
@@ -1897,21 +1945,195 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       return channels;
     }
 
-    // 閲覧履歴からキーワードを抽出（チャンネル名 + タイトルの主要語）
-    function getHistoryKeywords() {
-      const hist = libGet(LIB_HISTORY);
-      const channels = [...new Set(hist.slice(0, 30).map(h => h.channel).filter(Boolean))];
-      const titleWords = [];
-      hist.slice(0, 20).forEach(h => {
-        if (!h.title) return;
-        // 短い語・記号を除いてキーワード抽出
-        const words = h.title.replace(/[【】「」()!！?？\[\]#♪★☆◆◇]/g, ' ').split(/\s+/).filter(w => w.length >= 3);
-        words.slice(0, 2).forEach(w => titleWords.push(w));
-      });
-      return { channels: channels.slice(0, 5), titleWords: [...new Set(titleWords)].slice(0, 8) };
+    // ストップワード（タイトルから除外すべき一般語）
+    const STOP_WORDS = new Set([
+      'the','and','for','with','this','that','from','your','you','are','was','were','have','has','had',
+      'official','video','music','feat','feat.','featuring','live','full','new','best','top','part','mix',
+      'した','する','して','さん','さま','こと','その','これ','あれ','それ','よう','ました','です','ます','でした',
+      '動画','チャンネル','公式','今回','今日','最新','やって','やった','見た','見る','もの','こんな','そんな','どんな',
+      'mv','pv','ver','version','remix','cover','short','shorts','vlog','asmr','live','tour','tv','tvサイズ'
+    ]);
+
+    // トークナイザ（日本語・英語両対応/記号除去/N-gram）
+    function tokenize(text) {
+      if (!text) return [];
+      // 記号と括弧をスペースに
+      const cleaned = String(text)
+        .replace(/[【】「」《》〈〉()\[\]{}【】!！?？ー―‐‑‒–—…・、。.,;:“”‘’"'`~@#$%^&*+=|\\/<>♪★☆◆◇♠♣♥♦■□●○▲△▼▽]/g, ' ')
+        .replace(/[\u3000\s]+/g, ' ')
+        .toLowerCase()
+        .trim();
+      const tokens = [];
+      // スペース区切り語
+      for (const w of cleaned.split(' ')) {
+        if (w.length >= 2 && !STOP_WORDS.has(w) && !/^\d+$/.test(w)) tokens.push(w);
+      }
+      // 日本語連続カタカナ/漢字の2-3gram
+      const re = /[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]+/g;
+      let m;
+      while ((m = re.exec(cleaned)) !== null) {
+        const seg = m[0];
+        if (seg.length >= 2 && seg.length <= 6) tokens.push(seg);
+        // 2-gram
+        for (let i = 0; i + 2 <= seg.length && seg.length > 3; i++) {
+          const g = seg.slice(i, i + 2);
+          if (g.length === 2) tokens.push(g);
+        }
+      }
+      return tokens;
     }
 
-    // パーソナライズフィードを構築（登録チャンネル＋履歴キーワードで検索、シャッフル混合）
+    // 閲覧履歴からTF-IDF風重み付きキーワードを抽出
+    function getHistoryProfile() {
+      const hist = libGet(LIB_HISTORY).slice(0, 50);
+      const liked = libGet(LIB_LIKED).slice(0, 30);
+      const subs = getSubscribedChannels();
+      const now = Date.now();
+      // チャンネルスコア（頻出×時間減衰）
+      const channelScore = new Map();
+      // トークンスコア
+      const tokenScore = new Map();
+      // チャンネルごとのトークン集合
+      const channelTokens = new Map();
+      // 除外タイトルセット（完全一致を防ぐ）
+      const watchedIds = new Set();
+      const watchedTitleSet = new Set();
+
+      // 重み付け: 最新ほど重要（指数減衰, 半減期7日）
+      const HALF_LIFE_DAYS = 7;
+      function timeWeight(ts) {
+        if (!ts) return 0.3;
+        const ageDays = (now - ts) / (1000*60*60*24);
+        return Math.pow(0.5, ageDays / HALF_LIFE_DAYS);
+      }
+
+      const addEntry = (entry, baseWeight) => {
+        if (!entry) return;
+        if (entry.id) watchedIds.add(entry.id);
+        const ch = entry.channel || entry.channelTitle || '';
+        const w = baseWeight * timeWeight(entry.ts || 0);
+        if (ch) {
+          channelScore.set(ch, (channelScore.get(ch) || 0) + w);
+        }
+        const tokens = tokenize(entry.title || '');
+        if (entry.title) watchedTitleSet.add(entry.title.toLowerCase());
+        for (const t of tokens) {
+          tokenScore.set(t, (tokenScore.get(t) || 0) + w);
+          if (ch) {
+            if (!channelTokens.has(ch)) channelTokens.set(ch, new Map());
+            const cm = channelTokens.get(ch);
+            cm.set(t, (cm.get(t) || 0) + w);
+          }
+        }
+      };
+      hist.forEach(h => addEntry(h, 1.0));
+      liked.forEach(h => addEntry(h, 2.5)); // 高評価は重み大
+      // 登録チャンネルはボーナススコア
+      subs.forEach(s => channelScore.set(s, (channelScore.get(s) || 0) + 5.0));
+
+      // ジャンル推定（チャンネルトークンから）
+      const GENRE_HINTS = {
+        '音楽': ['music','mv','音楽','official','song','ライブ','live','album','アルバム','アーティスト','ボーカロ','vocaloid','初音'],
+        'ゲーム実況': ['実況','ゲーム','gaming','gameplay','マイクラ','アポックス','fortnite','minecraft','スプラトゥーン','fps','rpg'],
+        'エンタメ': ['やってみた','検証','ドッキリ','企画','コメディ','お笑い','バラエティ','vlog'],
+        'アニメ': ['アニメ','anime','アニソン','op','ed','opening','ending','キャラクター'],
+        'テック': ['tech','iphone','android','review','レビュー','ガジェット','pc','ai','テクノロジー','apple'],
+        '動物': ['猜','犬','動物','cat','dog','pet','ペット','ひねこ','そばさん'],
+        'スポーツ': ['スポーツ','野球','サッカー','soccer','baseball','ハイライト','sports']
+      };
+      const genreScore = new Map();
+      for (const [tok, sc] of tokenScore) {
+        for (const [genre, hints] of Object.entries(GENRE_HINTS)) {
+          if (hints.some(h => tok.includes(h) || h.includes(tok))) {
+            genreScore.set(genre, (genreScore.get(genre) || 0) + sc);
+          }
+        }
+      }
+
+      // ソートして上位を返す
+      const topChannels = [...channelScore.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+      const topTokens = [...tokenScore.entries()]
+        .filter(([t,_]) => t.length >= 2 && !/^[a-z]$/.test(t))
+        .sort((a,b)=>b[1]-a[1])
+        .map(x=>x[0]);
+      const topGenres = [...genreScore.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+
+      return {
+        topChannels: topChannels.slice(0, 12),
+        topTokens: topTokens.slice(0, 18),
+        topGenres: topGenres.slice(0, 5),
+        channelScore, tokenScore, channelTokens,
+        watchedIds, watchedTitleSet,
+        hist, liked, subs
+      };
+    }
+
+    // 旧API互換
+    function getHistoryKeywords() {
+      const p = getHistoryProfile();
+      return { channels: p.topChannels.slice(0,5), titleWords: p.topTokens.slice(0,8) };
+    }
+
+    // ===== 高度スコアリング・部分一致タイトル除外 =====
+    // タイトル類似度（Jaccard）: 全く同じタイトル・近似タイトルを除外するため
+    function titleSimilarity(a, b) {
+      const ta = new Set(tokenize(a));
+      const tb = new Set(tokenize(b));
+      if (!ta.size || !tb.size) return 0;
+      let inter = 0;
+      for (const x of ta) if (tb.has(x)) inter++;
+      const union = ta.size + tb.size - inter;
+      return union ? inter / union : 0;
+    }
+    // 入力タイトルが、履歴タイトルのいずれかと類似度高すぎるか（同じコンテンツの重複とみなす）
+    function isTooSimilarToWatched(title, watchedTitles, threshold = 0.62) {
+      if (!title) return false;
+      const lc = title.toLowerCase();
+      for (const w of watchedTitles) {
+        if (!w) continue;
+        if (w === lc) return true;
+        // 完全に含まれる関係（どちらかがもう一方に含まれる）
+        if (lc.length > 8 && w.length > 8 && (lc.includes(w) || w.includes(lc))) {
+          if (Math.abs(lc.length - w.length) < Math.max(lc.length, w.length) * 0.4) return true;
+        }
+        if (titleSimilarity(title, w) >= threshold) return true;
+      }
+      return false;
+    }
+
+    // アイテム・スコアリング
+    function scoreItem(item, profile) {
+      let score = 0;
+      const ch = item.channelTitle || '';
+      // チャンネルスコア（最も重要）
+      const chSc = profile.channelScore.get(ch) || 0;
+      score += chSc * 3.0;
+      // タイトルトークンスコア
+      const tokens = tokenize(item.title || '');
+      let tokSum = 0;
+      for (const t of tokens) {
+        const ts = profile.tokenScore.get(t);
+        if (ts) tokSum += ts;
+      }
+      score += Math.sqrt(tokSum) * 1.5;
+      // 視聴回数ボーナス（人気動画を少し優遇）
+      const viewStr = item.viewCountText || '';
+      const viewMatch = viewStr.match(/([\d.]+)\s*([KM万億]?)/i);
+      if (viewMatch) {
+        let v = parseFloat(viewMatch[1]) || 0;
+        const unit = viewMatch[2];
+        if (unit === 'K') v *= 1e3;
+        else if (unit === 'M') v *= 1e6;
+        else if (unit === '万') v *= 1e4;
+        else if (unit === '億') v *= 1e8;
+        score += Math.min(Math.log10(v + 10), 9) * 0.5;
+      }
+      // ランダム探索ボーナス（多様性を保つ）
+      score += Math.random() * 1.5;
+      return score;
+    }
+
+    // パーソナライズフィード（v2: TF-IDF + チャンネル類似度 + 部分一致除外）
     async function loadPersonalizedFeed(page = 0) {
       if (isFetching) return;
       isFetching = true;
@@ -1925,38 +2147,80 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         shortsExpanded = true;
       }
 
-      const subscribedChannels = getSubscribedChannels();
-      const { channels: histChannels, titleWords } = getHistoryKeywords();
+      const profile = getHistoryProfile();
+      const hasData = profile.topChannels.length > 0 || profile.topTokens.length > 0;
 
-      // 登録チャンネルと履歴チャンネルを合算（重複除去）
-      const allChannels = [...new Set([...subscribedChannels, ...histChannels])];
-      const allKeywords = [...allChannels, ...titleWords];
-
-      // キーワードがなければトレンドにフォールバック
-      if (allKeywords.length === 0) {
+      if (!hasData) {
         isFetching = false;
         loading.style.display = 'none';
         loadContent('trending', page);
         return;
       }
 
-      try {
-        // ページに応じてキーワードをローテーション（無限スクロール対応）
-        const shuffled = shuffleArray([...allKeywords]);
-        const pick = shuffled.slice((page % Math.max(shuffled.length, 1)) * 2, (page % Math.max(shuffled.length, 1)) * 2 + 3);
-        const queries = pick.length > 0 ? pick : shuffled.slice(0, 3);
+      // page=0のときだけ、自動プレイリストを描画
+      if (page === 0) {
+        renderAutoPlaylists(profile);
+      }
 
-        const promises = queries.map(q => fetchEndpoint(`/api/search?q=${encodeURIComponent(q)}&page=${Math.floor(page / Math.max(queries.length, 1))}`));
-        // トレンドも少し混ぜる（page=0のみ）
+      try {
+        // クエリ構築: チャンネル名 (高い重み) + トークン + ジャンル・トレンドをミックス
+        const queries = [];
+        const channelsForPage = profile.topChannels.slice(page * 2, page * 2 + 2);
+        // チャンネルクエリ（そのチャンネルの人気動画）
+        channelsForPage.forEach(c => queries.push({ q: c, kind: 'channel' }));
+        // トークンクエリ（類似動画）
+        const tokensRot = profile.topTokens.slice(page * 3, page * 3 + 3);
+        if (tokensRot.length === 0) tokensRot.push(...profile.topTokens.slice(0, 2));
+        // 2-3トークンを組み合わせて具体的なクエリに
+        for (let i = 0; i < tokensRot.length; i++) {
+          const t1 = tokensRot[i];
+          const t2 = profile.topTokens[(i + 5) % Math.max(profile.topTokens.length,1)];
+          queries.push({ q: t1 + (t2 && t2 !== t1 ? ' ' + t2 : ''), kind: 'token' });
+        }
+        // ジャンルクエリ（1つだけ）
+        if (profile.topGenres.length) {
+          queries.push({ q: profile.topGenres[page % profile.topGenres.length], kind: 'genre' });
+        }
+        // トレンドも少し混ざる
+        const promises = queries.map(qo => fetchEndpoint(`/api/search?q=${encodeURIComponent(qo.q)}&page=${page % 3}`));
         if (page === 0) promises.push(fetchEndpoint(`/api/trending?page=0`));
 
         const results = await Promise.all(promises);
         let items = normalizeAndFilterList(results.flat());
 
-        // 重複除去
+        // ステップ1: 視聴済み/表示済みIDを除去
         const seen = new Set([...displayedIds]);
-        items = items.filter(it => { if (seen.has(it.id)) return false; seen.add(it.id); return true; });
-        items = shuffleArray(items);
+        items = items.filter(it => {
+          if (seen.has(it.id)) return false;
+          if (profile.watchedIds.has(it.id)) return false; // すでに見た動画は除外
+          seen.add(it.id);
+          return true;
+        });
+
+        // ステップ2: タイトル類似度高すぎ、部分一致タイトルを除外
+        const watchedTitles = [...profile.watchedTitleSet];
+        items = items.filter(it => !isTooSimilarToWatched(it.title || '', watchedTitles, 0.7));
+
+        // ステップ3: 同じチャンネルの連続を避けるため、チャンネルごとに上限設定
+        const chCount = new Map();
+        const MAX_PER_CHANNEL = 3;
+        items = items.filter(it => {
+          const ch = it.channelTitle || '';
+          const c = (chCount.get(ch) || 0) + 1;
+          chCount.set(ch, c);
+          return c <= MAX_PER_CHANNEL;
+        });
+
+        // ステップ4: スコアリングして並べ替え
+        items.forEach(it => { it._score = scoreItem(it, profile); });
+        items.sort((a,b) => b._score - a._score);
+
+        // ステップ5: 上位をシャッフル（例えば上位20の中でランダム性を足す）
+        const TOP_PICKS = Math.min(items.length, 30);
+        const top = items.slice(0, TOP_PICKS);
+        const rest = items.slice(TOP_PICKS);
+        shuffleArray(top);
+        items = top.concat(rest);
 
         if (items.length === 0 && page === 0) {
           videoGrid.innerHTML = '<p class="empty">動画が見つかりませんでした。</p>';
@@ -1969,7 +2233,6 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           else normals.push(item);
         });
 
-        // ショート表示（page=0のみ）
         if (page === 0 && shorts.length > 4) {
           shortsSection.style.display = 'block';
           shorts.forEach(item => {
@@ -1993,49 +2256,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           updateShortsToggleUI();
         }
 
-        normals.forEach(item => {
-          if (!item || !item.id || displayedIds.has(item.id)) return;
-          displayedIds.add(item.id);
-          const card = document.createElement('a');
-          card.className = 'video-card';
-          card.href = `/video/${item.id}`;
-          const thumbUrl = getThumbUrl(item.id, 'mq');
-          const channel = item.channelTitle || '';
-          const viewText = item.viewCountText || '';
-          const published = item.publishedTimeText || '';
-          const initial = channel ? channel[0].toUpperCase() : 'C';
-          const avatarUrl = item.channelThumbnail || item.channelImage || '';
-          const subKey = 'subscribed_' + channel;
-          const isSub = localStorage.getItem(subKey) === 'true';
-          card.innerHTML = `
-            <div class="thumb">
-              <img src="${thumbUrl}" loading="lazy" alt="${item.title || '動画'}">
-              ${item.lengthText ? `<div class="duration-badge">${item.lengthText}</div>` : ''}
-            </div>
-            <div class="meta">
-              <a href="/channel/${encodeURIComponent(channel)}" class="channel-avatar" data-initial="${initial}" onclick="event.stopPropagation()" style="text-decoration:none;">
-                <span class="avatar-initial">${initial}</span>
-                ${avatarUrl ? `<img src="${avatarUrl}" alt="${channel}" onload="this.classList.add('loaded')" onerror="this.remove()">` : ''}
-              </a>
-              <div class="details">
-                <h3>${item.title || ''}</h3>
-                <a href="/channel/${encodeURIComponent(channel)}" class="channel-name" onclick="event.stopPropagation()" style="text-decoration:none;color:var(--text-muted);">${channel}</a>
-                <div class="video-stats">${viewText}${viewText && published ? ' • ' : ''}${published || item.publishedTimeText || ''}</div>
-              </div>
-              <button class="card-menu-btn" aria-label="メニュー" data-id="${item.id}" data-title="${(item.title||'').replace(/"/g,'&quot;')}" data-channel="${channel.replace(/"/g,'&quot;')}" data-views="${viewText}" data-published="${published}">⋮</button>
-            </div>
-          `;
-          if (!avatarUrl) {
-            const avatarEl = card.querySelector('.channel-avatar');
-            const img = document.createElement('img');
-            img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(channel)}&background=random&color=fff&size=64&bold=true`;
-            img.alt = channel;
-            img.onload = () => img.classList.add('loaded');
-            img.onerror = () => img.remove();
-            avatarEl.appendChild(img);
-          }
-          videoGrid.appendChild(card);
-        });
+        normals.forEach(item => renderVideoCard(item));
 
       } catch (err) {
         console.error('Personalized feed error', err);
@@ -2044,6 +2265,298 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         loading.style.display = 'none';
       }
     }
+
+    // 動画カード描画を共通関数化（チャンネルアバター・本家画像取得付き）
+    function renderVideoCard(item) {
+      if (!item || !item.id || displayedIds.has(item.id)) return;
+      displayedIds.add(item.id);
+      const card = document.createElement('a');
+      card.className = 'video-card';
+      card.href = `/video/${item.id}`;
+      const thumbUrl = getThumbUrl(item.id, 'mq');
+      const channel = item.channelTitle || '';
+      const viewText = item.viewCountText || '';
+      const published = item.publishedTimeText || '';
+      const initial = channel ? channel[0].toUpperCase() : 'C';
+      const avatarUrl = item.channelThumbnail || item.channelImage || item.channelAvatar || '';
+      card.innerHTML = `
+        <div class="thumb">
+          <img src="${thumbUrl}" loading="lazy" alt="${(item.title||'動画').replace(/"/g,'&quot;')}">
+          ${item.lengthText ? `<div class="duration-badge">${item.lengthText}</div>` : ''}
+        </div>
+        <div class="meta">
+          <a href="/channel/${encodeURIComponent(channel)}" class="channel-avatar" data-initial="${initial}" onclick="event.stopPropagation()" style="text-decoration:none;">
+            <span class="avatar-initial">${initial}</span>
+            ${avatarUrl ? `<img src="${avatarUrl}" alt="${channel.replace(/"/g,'&quot;')}" onload="this.classList.add('loaded')" onerror="this.remove()">` : ''}
+          </a>
+          <div class="details">
+            <h3>${item.title || ''}</h3>
+            <a href="/channel/${encodeURIComponent(channel)}" class="channel-name" onclick="event.stopPropagation()" style="text-decoration:none;color:var(--text-muted);">${channel}</a>
+            <div class="video-stats">${viewText}${viewText && published ? ' • ' : ''}${published || ''}</div>
+          </div>
+          <button class="card-menu-btn" aria-label="メニュー" data-id="${item.id}" data-title="${(item.title||'').replace(/"/g,'&quot;')}" data-channel="${channel.replace(/"/g,'&quot;')}" data-views="${viewText}" data-published="${published}">⋮</button>
+        </div>
+      `;
+      // アバター画像がない/読み込み失敗したら本家チャンネル画像を試みる
+      const avatarEl = card.querySelector('.channel-avatar');
+      if (!avatarUrl && channel) {
+        // 本家YouTubeのチャンネルアバターを取得しようと試みる
+        fetchChannelAvatar(channel).then(url => {
+          if (url) {
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = channel;
+            img.onload = () => img.classList.add('loaded');
+            img.onerror = () => {
+              img.remove();
+              fallbackUiAvatar(avatarEl, channel);
+            };
+            avatarEl.appendChild(img);
+          } else {
+            fallbackUiAvatar(avatarEl, channel);
+          }
+        }).catch(() => fallbackUiAvatar(avatarEl, channel));
+      }
+      videoGrid.appendChild(card);
+    }
+
+    function fallbackUiAvatar(avatarEl, channel) {
+      if (!avatarEl) return;
+      const img = document.createElement('img');
+      img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(channel)}&background=random&color=fff&size=64&bold=true`;
+      img.alt = channel;
+      img.onload = () => img.classList.add('loaded');
+      img.onerror = () => img.remove();
+      avatarEl.appendChild(img);
+    }
+
+    // 本家チャンネルアバター・キャッシュ
+    const _channelAvatarCache = new Map();
+    try {
+      const cached = JSON.parse(localStorage.getItem('mt_ch_avatar_cache') || '{}');
+      for (const [k, v] of Object.entries(cached)) _channelAvatarCache.set(k, v);
+    } catch(e) {}
+    let _avatarSaveTimer = null;
+    function _saveAvatarCache() {
+      clearTimeout(_avatarSaveTimer);
+      _avatarSaveTimer = setTimeout(() => {
+        const obj = {};
+        let cnt = 0;
+        for (const [k, v] of _channelAvatarCache) { obj[k] = v; if (++cnt > 300) break; }
+        try { localStorage.setItem('mt_ch_avatar_cache', JSON.stringify(obj)); } catch(e) {}
+      }, 800);
+    }
+    async function fetchChannelAvatar(channelName) {
+      if (!channelName) return null;
+      if (_channelAvatarCache.has(channelName)) return _channelAvatarCache.get(channelName);
+      // サーバーの /api/channel エンドポイントを試みる
+      try {
+        const res = await fetch(`/api/channel?q=${encodeURIComponent(channelName)}`);
+        if (res.ok) {
+          const data = await res.json();
+          const url = data?.avatar || data?.thumbnail || data?.channelThumbnail 
+            || data?.items?.[0]?.avatar || data?.items?.[0]?.thumbnail;
+          if (url) {
+            _channelAvatarCache.set(channelName, url);
+            _saveAvatarCache();
+            return url;
+          }
+        }
+      } catch(e) {}
+      // /api/search でチャンネルを探してアバターを取る
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(channelName)}&page=0`);
+        if (res.ok) {
+          const data = await res.json();
+          const arr = data.items || data.results || data || [];
+          for (const it of arr) {
+            if (!it) continue;
+            const ch = it.channelTitle || it.author || it.channel || '';
+            const av = it.channelThumbnail || it.channelImage || it.channelAvatar || it.authorThumbnails?.[0]?.url;
+            if (ch === channelName && av) {
+              _channelAvatarCache.set(channelName, av);
+              _saveAvatarCache();
+              return av;
+            }
+          }
+          // 一致チャンネルが見つからなければ, 最初の動画のチャンネルアバターを採用
+          for (const it of arr) {
+            const av = it?.channelThumbnail || it?.channelImage;
+            if (av) {
+              _channelAvatarCache.set(channelName, av);
+              _saveAvatarCache();
+              return av;
+            }
+          }
+        }
+      } catch(e) {}
+      _channelAvatarCache.set(channelName, null);
+      _saveAvatarCache();
+      return null;
+    }
+    window.fetchChannelAvatar = fetchChannelAvatar;
+
+    // ===== 自動プレイリスト(ミックス): よく見るチャンネル・ジャンルごとに自動生成 =====
+    function renderAutoPlaylists(profile) {
+      // 既存の自動プレイリストセクションを削除
+      const existing = document.getElementById('autoPlaylistsSection');
+      if (existing) existing.remove();
+
+      // データが不十分なら表示しない
+      if (!profile.topChannels.length && !profile.topGenres.length) return;
+
+      // 生成するプレイリストのスペック
+      const playlists = [];
+      // 上位3チャンネルのMix
+      profile.topChannels.slice(0, 3).forEach(ch => {
+        playlists.push({
+          id: 'auto_ch_' + btoa(unescape(encodeURIComponent(ch))).slice(0,16),
+          name: `${ch} 人気Mix`,
+          subtitle: 'よく見るチャンネルの人気動画',
+          icon: '👤',
+          gradient: 'linear-gradient(135deg,#4f8bff,#a26bff)',
+          query: ch,
+          relatedQueries: [ch + ' 人気']
+        });
+      });
+      // トップジャンルのMix
+      profile.topGenres.slice(0, 2).forEach(g => {
+        playlists.push({
+          id: 'auto_genre_' + btoa(unescape(encodeURIComponent(g))).slice(0,12),
+          name: `${g} ピックアップ`,
+          subtitle: 'あなた好みのジャンル',
+          icon: '🎵',
+          gradient: 'linear-gradient(135deg,#ff6bd6,#a26bff)',
+          query: g,
+          relatedQueries: [g + ' 最新', g + ' 人気']
+        });
+      });
+      // 視聴履歴トップトークンのMix
+      if (profile.topTokens.length >= 2) {
+        const kw = profile.topTokens.slice(0, 2).join(' ');
+        playlists.push({
+          id: 'auto_kw_' + btoa(unescape(encodeURIComponent(kw))).slice(0,12),
+          name: `あなたへのおすすめ`,
+          subtitle: '閲覧履歴から生成',
+          icon: '✨',
+          gradient: 'linear-gradient(135deg,#ffa500,#ff6bd6)',
+          query: kw,
+          relatedQueries: profile.topTokens.slice(2, 4)
+        });
+      }
+      // 高評価Mix（likedがあれば）
+      if (profile.liked && profile.liked.length >= 2) {
+        playlists.push({
+          id: 'auto_liked',
+          name: '高評価Mix',
+          subtitle: 'あなたが「👍」をした動画',
+          icon: '👍',
+          gradient: 'linear-gradient(135deg,#22c55e,#4f8bff)',
+          fromLiked: true
+        });
+      }
+
+      if (!playlists.length) return;
+
+      // DOM構築
+      const section = document.createElement('section');
+      section.id = 'autoPlaylistsSection';
+      section.className = 'auto-playlists-section';
+      section.innerHTML = `
+        <div class="section-header">
+          <div class="section-title"><span class="auto-pl-badge">✨ MIN-Mix</span> あなたのために作成されたプレイリスト</div>
+          <span style="font-size:12px;color:var(--text-muted);">タップして再生</span>
+        </div>
+        <div class="auto-pl-row" id="autoPlRow"></div>
+      `;
+      const row = section.querySelector('#autoPlRow');
+      playlists.forEach(pl => {
+        const card = document.createElement('button');
+        card.className = 'auto-pl-card';
+        card.type = 'button';
+        card.style.background = pl.gradient;
+        card.innerHTML = `
+          <div class="auto-pl-icon">${pl.icon}</div>
+          <div class="auto-pl-meta">
+            <div class="auto-pl-name">${pl.name.replace(/</g,'&lt;')}</div>
+            <div class="auto-pl-sub">${pl.subtitle}</div>
+          </div>
+          <div class="auto-pl-play">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="white"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+        `;
+        card.addEventListener('click', () => playAutoPlaylist(pl));
+        row.appendChild(card);
+      });
+
+      // ショートセクションの上、もしくはvideoGridの前に挿入
+      const contentArea = document.querySelector('.content-area');
+      if (contentArea) {
+        contentArea.insertBefore(section, contentArea.firstChild);
+      }
+    }
+
+    // 自動プレイリストを再生（動的に検索してキューを作成 -> プレイヤーへ）
+    async function playAutoPlaylist(pl) {
+      // トースト表示
+      try { showToast(`「${pl.name}」を作成中...`); } catch(e) {}
+      let items = [];
+      try {
+        if (pl.fromLiked) {
+          // likedから直接生成
+          const liked = libGet(LIB_LIKED).slice(0, 30);
+          items = liked.map(l => ({
+            id: l.id, title: l.title, channelTitle: l.channel,
+            thumbnail: `https://i.ytimg.com/vi/${l.id}/hqdefault.jpg`
+          }));
+        } else {
+          // 検索してキューを作る
+          const queries = [pl.query, ...(pl.relatedQueries || [])].filter(Boolean);
+          const promises = queries.map(q => fetchEndpoint(`/api/search?q=${encodeURIComponent(q)}&page=0`));
+          const results = await Promise.all(promises);
+          let arr = normalizeAndFilterList(results.flat());
+          // タイトルに#を含む（ショート）を除外
+          arr = arr.filter(it => !(it.title || '').includes('#'));
+          // ID重複除去
+          const seen = new Set();
+          arr = arr.filter(it => { if (seen.has(it.id)) return false; seen.add(it.id); return true; });
+          // チャンネルクエリなら, そのチャンネル動画を優先
+          if (pl.query && arr.length) {
+            arr.sort((a,b) => {
+              const aMatch = (a.channelTitle || '') === pl.query ? 1 : 0;
+              const bMatch = (b.channelTitle || '') === pl.query ? 1 : 0;
+              return bMatch - aMatch;
+            });
+          }
+          items = arr.slice(0, 20).map(it => ({
+            id: it.id,
+            title: it.title,
+            channelTitle: it.channelTitle || '',
+            thumbnail: `https://i.ytimg.com/vi/${it.id}/hqdefault.jpg`,
+            length: it.lengthText || ''
+          }));
+        }
+      } catch(e) { console.error(e); }
+      if (!items.length) { showToast('動画が見つかりませんでした'); return; }
+      // localStorageにキューを保存して、/video/{id}?pl=ai_active に遷移
+      try {
+        const queue = {
+          id: pl.id,
+          name: pl.name,
+          createdAt: Date.now(),
+          items: items.map(it => ({
+            id: it.id, title: it.title, channel: it.channelTitle || '',
+            thumbnail: it.thumbnail || `https://i.ytimg.com/vi/${it.id}/hqdefault.jpg`,
+            length: it.length || ''
+          })),
+          currentIndex: 0
+        };
+        localStorage.setItem('mt_active_playlist', JSON.stringify(queue));
+      } catch(e) {}
+      const firstId = items[0].id;
+      window.location.href = `${window.location.origin}/video/${encodeURIComponent(firstId)}?pl=ai_active&i=0`;
+    }
+    window.playAutoPlaylist = playAutoPlaylist;
 
     // パーソナライズモードかどうか
     let isPersonalized = true;
@@ -2432,12 +2945,22 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     }
 
     /* ===================================================================== */
-    /* =============== ✨ AI Playlist (MIN-Pro-AI) ========================== */
+    /* =============== ✨ AI Playlist (MIN-Pro-AI v2 -Multi-Key) ============= */
     /* ===================================================================== */
     (function initAiPlaylist() {
-      const GROQ_API_KEY = "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";
+      // 複数キーをランダム使い分け＋失敗時フォールバック
+      const GROQ_API_KEYS = [
+        "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",
+        "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",
+        "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",
+        "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"
+      ];
       const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
       const MODEL_NAME = "meta-llama/llama-4-scout-17b-16e-instruct";
+      // 共有: 他モジュールからも使えるようexpose
+      window.__GROQ_KEYS__ = GROQ_API_KEYS;
+      window.__GROQ_URL__ = GROQ_URL;
+      window.__GROQ_MODEL__ = MODEL_NAME;
 
       const PRESETS = [
         "Music", "EDM", "ゲーム実況", "J-POP", "アニソン",
@@ -2652,29 +3175,44 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         }
       }
 
-      /* ===== Call Groq ===== */
-      async function callGroq(messages) {
-        const res = await fetch(GROQ_URL, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${GROQ_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: MODEL_NAME,
-            messages,
-            temperature: 0.75,
-            max_tokens: 900
-          })
-        });
-        if (!res.ok) {
-          const errText = await res.text().catch(() => '');
-          throw new Error(`AI API error ${res.status}: ${errText.slice(0,200)}`);
+      /* ===== Call Groq (ランダムキー＋自動フォールバック) ===== */
+      async function callGroq(messages, opts = {}) {
+        // キーをシャッフルして順番にトライ
+        const keys = [...GROQ_API_KEYS].sort(() => Math.random() - 0.5);
+        let lastErr = null;
+        for (const key of keys) {
+          try {
+            const res = await fetch(GROQ_URL, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${key}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                model: MODEL_NAME,
+                messages,
+                temperature: opts.temperature ?? 0.75,
+                max_tokens: opts.max_tokens ?? 900
+              })
+            });
+            if (res.ok) {
+              const data = await res.json();
+              return data?.choices?.[0]?.message?.content || '';
+            }
+            // 429(rate limit) や 401/403 は次のキーへ
+            const errText = await res.text().catch(() => '');
+            lastErr = new Error(`AI API ${res.status}: ${errText.slice(0,120)}`);
+            if (res.status !== 429 && res.status !== 401 && res.status !== 403 && res.status < 500) {
+              throw lastErr;
+            }
+          } catch (e) {
+            lastErr = e;
+          }
         }
-        const data = await res.json();
-        const txt = data?.choices?.[0]?.message?.content || '';
-        return txt;
+        throw lastErr || new Error('AI API: all keys failed');
       }
+      // 他モジュールからも使えるようexpose
+      window.__callGroq__ = callGroq;
 
       /* ===== Parse titles ===== */
       function parseTitles(raw) {
@@ -2813,107 +3351,33 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         contentEl.querySelector('#aimPlay').addEventListener('click', () => openPlayer(items));
       }
 
-      /* ===== Open Player in new tab (about:blank trick) ===== */
+      /* ===== Open Player in new tab — 動画ページ(/video/{id})を順番に開く ===== */
       function openPlayer(items) {
-        const win = window.open('about:blank', '_blank');
+        if (!items || !items.length) return;
+        // プレイリストキューをlocalStorageに保存（動画ページ側で連続再生可能にする）
+        try {
+          const queue = {
+            id: 'ai_' + Date.now(),
+            name: '✨ AIプレイリスト',
+            createdAt: Date.now(),
+            items: items.map(it => ({
+              id: it.id,
+              title: it.title,
+              channel: it.channelTitle || it.channel || '',
+              thumbnail: it.thumbnail || `https://i.ytimg.com/vi/${it.id}/hqdefault.jpg`,
+              length: it.length || ''
+            })),
+            currentIndex: 0
+          };
+          localStorage.setItem('mt_active_playlist', JSON.stringify(queue));
+        } catch(e) { console.warn('playlist save failed', e); }
+        // 1本目を新しいタブで /video/{id} として開く（動画ページの完全UIを使う）
+        const firstId = items[0].id;
+        const url = `${window.location.origin}/video/${encodeURIComponent(firstId)}?pl=ai_active&i=0`;
+        const win = window.open(url, '_blank');
         if (!win) {
           alert('ポップアップがブロックされました。許可してもう一度試してください。');
-          return;
         }
-        const payload = JSON.stringify(items).replace(/<\/script/g, '<\\/script');
-        const html = `<!DOCTYPE html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>✨ AIプレイリスト ・ MIN-Tube-Pro</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-<style>
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;background:#0f0f0f;color:#f1f1f1;font-family:'Roboto',Arial,sans-serif;height:100%;}
-  .app{display:flex;height:100vh;width:100vw;}
-  .player-wrap{flex:1;min-width:0;display:flex;flex-direction:column;background:#000;}
-  .player-box{position:relative;width:100%;flex:1;background:#000;}
-  .player-box iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
-  .now-playing{padding:14px 18px;background:#0f0f0f;border-top:1px solid #2a2a2a;}
-  .np-title{font-size:16px;font-weight:600;margin:0 0 4px;line-height:1.35;}
-  .np-channel{font-size:13px;color:#aaa;}
-  .pl-side{width:360px;max-width:42vw;background:#181818;border-left:1px solid #2a2a2a;display:flex;flex-direction:column;}
-  .pl-head{padding:14px 16px;border-bottom:1px solid #2a2a2a;display:flex;align-items:center;gap:8px;}
-  .pl-head .spark{background:linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-size:18px;}
-  .pl-title{font-size:15px;font-weight:700;flex:1;}
-  .pl-count{font-size:12px;color:#aaa;}
-  .pl-list{flex:1;overflow-y:auto;}
-  .pl-list::-webkit-scrollbar{width:6px;} .pl-list::-webkit-scrollbar-thumb{background:#3f3f3f;border-radius:3px;}
-  .pl-item{display:flex;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);transition:background .12s;align-items:center;}
-  .pl-item:hover{background:#272727;}
-  .pl-item.active{background:linear-gradient(90deg,rgba(79,139,255,0.18),rgba(162,107,255,0.18));}
-  .pl-item.active .pl-idx{color:#c8aaff;}
-  .pl-idx{width:18px;text-align:center;font-size:12px;color:#888;flex-shrink:0;}
-  .pl-thumb{width:96px;height:54px;border-radius:6px;object-fit:cover;background:#000;flex-shrink:0;}
-  .pl-info{flex:1;min-width:0;}
-  .pl-it-title{font-size:13px;font-weight:500;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-  .pl-it-ch{font-size:11.5px;color:#aaa;margin-top:3px;}
-  .pl-controls{display:flex;gap:6px;padding:10px 12px;border-top:1px solid #2a2a2a;background:#0f0f0f;}
-  .pl-controls button{flex:1;background:#272727;border:none;color:#f1f1f1;padding:9px 8px;border-radius:8px;cursor:pointer;font-size:12.5px;font-family:inherit;transition:background .12s;}
-  .pl-controls button:hover{background:#3f3f3f;}
-  .pl-controls .play-pri{background:linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6);font-weight:600;}
-  @media (max-width:780px){
-    .app{flex-direction:column;}
-    .pl-side{width:100%;max-width:none;border-left:none;border-top:1px solid #2a2a2a;height:50vh;}
-    .player-wrap{height:50vh;}
-  }
-</style>
-</head><body>
-<div class="app">
-  <div class="player-wrap">
-    <div class="player-box"><iframe id="yt" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>
-    <div class="now-playing"><div class="np-title" id="npTitle">読み込み中...</div><div class="np-channel" id="npChannel"></div></div>
-  </div>
-  <aside class="pl-side">
-    <div class="pl-head"><span class="spark">✨</span><div class="pl-title">AIプレイリスト</div><div class="pl-count" id="plCount"></div></div>
-    <div class="pl-list" id="plList"></div>
-    <div class="pl-controls">
-      <button id="btnPrev">⏮ 前</button>
-      <button id="btnNext" class="play-pri">次 ⏭</button>
-    </div>
-  </aside>
-</div>
-<script>
-  const items = ${payload};
-  let current = 0;
-  const yt = document.getElementById('yt');
-  const list = document.getElementById('plList');
-  const npTitle = document.getElementById('npTitle');
-  const npChannel = document.getElementById('npChannel');
-  const plCount = document.getElementById('plCount');
-  plCount.textContent = items.length + ' 本';
-
-  function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-
-  function render(){
-    list.innerHTML = items.map((it,i)=>'<div class="pl-item'+(i===current?' active':'')+'" data-i="'+i+'"><div class="pl-idx">'+(i===current?'▶':(i+1))+'</div><img class="pl-thumb" src="'+esc(it.thumbnail)+'" onerror="this.src=\\'https://i.ytimg.com/vi/'+esc(it.id)+'/hqdefault.jpg\\'"><div class="pl-info"><div class="pl-it-title">'+esc(it.title)+'</div><div class="pl-it-ch">'+esc(it.channelTitle||'')+'</div></div></div>').join('');
-    list.querySelectorAll('.pl-item').forEach(el=>{
-      el.addEventListener('click',()=>{current=parseInt(el.dataset.i,10); play();});
-    });
-  }
-  function play(){
-    const it = items[current];
-    if(!it) return;
-    yt.src = 'https://www.youtube-nocookie.com/embed/'+encodeURIComponent(it.id)+'?autoplay=1&rel=0&modestbranding=1&enablejsapi=1';
-    npTitle.textContent = it.title || '';
-    npChannel.textContent = it.channelTitle || '';
-    render();
-    const active = list.querySelector('.pl-item.active');
-    if(active) active.scrollIntoView({block:'nearest',behavior:'smooth'});
-  }
-  document.getElementById('btnPrev').addEventListener('click',()=>{current=(current-1+items.length)%items.length;play();});
-  document.getElementById('btnNext').addEventListener('click',()=>{current=(current+1)%items.length;play();});
-  render();
-  play();
-<\/script>
-</body></html>`;
-        win.document.open();
-        win.document.write(html);
-        win.document.close();
       }
 
       /* ===== Entry point ===== */
@@ -2960,6 +3424,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     ライブラリ
   </button>
 </nav>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>

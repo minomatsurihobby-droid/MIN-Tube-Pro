@@ -1660,14 +1660,9 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         searchInput.value = '';
         if (chip.dataset.q === 'recommended') {
           isPersonalized = true;
-          if (window.MinProAI && typeof window.MinProAI.loadSmartHome === 'function') {
-            window.MinProAI.loadSmartHome(0);
-          } else {
-            loadPersonalizedFeed(0);
-          }
+          loadPersonalizedFeed(0);
         } else {
           isPersonalized = false;
-          if (window.MinProAI) window.MinProAI.deactivate();
           currentQuery = chip.dataset.q;
           loadContent(currentQuery, 0);
         }
@@ -1687,14 +1682,9 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         searchInput.value = '';
         if (q === 'recommended') {
           isPersonalized = true;
-          if (window.MinProAI && typeof window.MinProAI.loadSmartHome === 'function') {
-            window.MinProAI.loadSmartHome(0);
-          } else {
-            loadPersonalizedFeed(0);
-          }
+          loadPersonalizedFeed(0);
         } else {
           isPersonalized = false;
-          if (window.MinProAI) window.MinProAI.deactivate();
           currentQuery = q;
           loadContent(q, 0);
         }
@@ -2069,29 +2059,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         loadContent(q, 0);
       } else {
         isPersonalized = true;
-        // ✨ MIN-Pro-AI スマートホームエンジンを起動（存在しなければ従来フィードへフォールバック）
-        if (window.MinProAI && typeof window.MinProAI.loadSmartHome === 'function') {
-          window.MinProAI.loadSmartHome(0);
-        } else {
-          loadPersonalizedFeed(0);
-        }
-      }
-    };
-
-    // スクロールもスマートホームに対応（上書き）
-    const _origScroll = window.onscroll;
-    window.onscroll = () => {
-      const scrollPos = window.innerHeight + window.scrollY;
-      const threshold = document.documentElement.scrollHeight - 800;
-      if (scrollPos >= threshold && !isFetching) {
-        currentPage++;
-        if (window.MinProAI && window.MinProAI.isActive()) {
-          window.MinProAI.loadSmartHome(currentPage);
-        } else if (isPersonalized) {
-          loadPersonalizedFeed(currentPage);
-        } else {
-          loadContent(currentQuery, currentPage);
-        }
+        loadPersonalizedFeed(0);
       }
     };
 
@@ -2968,986 +2936,9 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     })();
     /* ===================================================================== */
 
-
-    /* ===================================================================== */
-    /* ============ 🚀 MIN-Pro-AI : Smart Home Engine v2 ================= */
-    /* ===================================================================== */
-    /*
-      ホーム画面を YouTube 超えのレコメンダーにするためのコアエンジン。
-      - シャッフル比率: 視聴履歴ベース 40% / ジャンル探索 40% / トレンド 20%
-      - 同一タイトルや近接タイトルの重複を Jaccard 類似度で除去
-      - Groq APIキー 3 本を重み付きランダムでローテーション（許容量を広げ、落ちにくくする）
-      - AI 出力は 24h キャッシュ、失敗時はローカルアルゴリズムにフォールバック
-      - MyMIX(自動プレイリスト): 履歴 3 本以上で簡易、 10 本以上で本格に計算
-    */
-    window.MinProAI = (function() {
-      'use strict';
-
-      /* ===== 設定 ===== */
-      const CFG = {
-        SHUFFLE_RATIO: { history: 0.40, genre: 0.40, trend: 0.20 },
-        MIN_HIST_FOR_LITE_MIX: 3,
-        MIN_HIST_FOR_FULL_MIX: 10,
-        AI_CACHE_TTL_MS: 24 * 60 * 60 * 1000,   // 24h
-        MAX_PAGES_PER_SOURCE: 3,
-        ITEMS_PER_PAGE_TARGET: 24,
-        MYMIX_INSERT_INTERVAL: 14,              // 14 枚ごとに 1 個の MyMIX
-        TITLE_SIM_THRESHOLD: 0.62,              // タイトル類似度閾値
-        OPENING_MIN_DURATION: 1800,
-        SMART_VERSION: 'v2.1',
-      };
-
-      // Groq API キープール（重み付きランダム）
-      const GROQ_KEYS = [
-        { key: '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', weight: 1.0, cooldownUntil: 0 },
-        { key: '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', weight: 1.0, cooldownUntil: 0 },
-        { key: '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', weight: 1.0, cooldownUntil: 0 },
-      ];
-      const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-      const GROQ_MODEL = 'llama-3.1-8b-instant'; // 軽量モデルで無料枠に優しい
-
-      /* ===== 状態 ===== */
-      let active = false;
-      let busy = false;
-      let pageItemsBuffer = [];     // ページ間で使うバッファ
-      let renderedTitleHashes = []; // タイトル重複防止
-      let renderedIds = null;
-      let aiQueriesCache = null;
-      let pageCounter = 0;
-      let mymixInsertedThisLoad = 0;
-
-      /* ===== ユーティリティ ===== */
-      function safeGetLS(key, def) {
-        try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(def)); } catch { return def; }
-      }
-      function safeSetLS(key, val) {
-        try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
-      }
-      function getHistory()  { return safeGetLS('mt_history', []); }
-      function getLiked()    { return safeGetLS('mt_liked', []); }
-      function getSubs() {
-        const arr = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && k.startsWith('subscribed_') && localStorage.getItem(k) === 'true') {
-            arr.push(k.replace('subscribed_', ''));
-          }
-        }
-        return arr;
-      }
-
-      // タイトル正規化（多言語文字もケア）
-      function normTitle(t) {
-        if (!t) return '';
-        return String(t)
-          .toLowerCase()
-          .replace(/[【】「」『』()!！?？\[\]#♪★☆◆◇・　《》“”'"]/g, ' ')
-          .replace(/[\u200B-\u200D\uFEFF]/g, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-      }
-      function titleNGrams(t, n = 3) {
-        const s = normTitle(t);
-        if (!s) return new Set();
-        if (s.length < n) return new Set([s]);
-        const out = new Set();
-        for (let i = 0; i <= s.length - n; i++) out.add(s.substr(i, n));
-        return out;
-      }
-      function jaccard(a, b) {
-        if (!a.size || !b.size) return 0;
-        let inter = 0; for (const x of a) if (b.has(x)) inter++;
-        return inter / (a.size + b.size - inter);
-      }
-      function isTitleDuplicate(title) {
-        const ng = titleNGrams(title);
-        if (!ng.size) return false;
-        for (const existing of renderedTitleHashes) {
-          if (jaccard(ng, existing) >= CFG.TITLE_SIM_THRESHOLD) return true;
-        }
-        return false;
-      }
-      function markTitleSeen(title) {
-        const ng = titleNGrams(title);
-        if (ng.size) {
-          renderedTitleHashes.push(ng);
-          if (renderedTitleHashes.length > 240) renderedTitleHashes.shift();
-        }
-      }
-
-      function shuffle(arr) {
-        const a = arr.slice();
-        for (let i = a.length - 1; i > 0; i--) {
-          const j = (Math.random() * (i + 1)) | 0;
-          [a[i], a[j]] = [a[j], a[i]];
-        }
-        return a;
-      }
-
-      /* ===== Groq キーローテーション ===== */
-      function pickGroqKey() {
-        const now = Date.now();
-        const available = GROQ_KEYS.filter(k => k.cooldownUntil < now);
-        if (!available.length) return null;
-        const totalW = available.reduce((s, k) => s + k.weight, 0);
-        let r = Math.random() * totalW;
-        for (const k of available) {
-          r -= k.weight;
-          if (r <= 0) return k;
-        }
-        return available[0];
-      }
-      async function callGroq(messages, maxTokens = 320) {
-        const slot = pickGroqKey();
-        if (!slot) return null;
-        try {
-          const ctrl = new AbortController();
-          const tid = setTimeout(() => ctrl.abort(), 8000);
-          const res = await fetch(GROQ_URL, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer ' + slot.key
-            },
-            body: JSON.stringify({
-              model: GROQ_MODEL,
-              messages,
-              temperature: 0.7,
-              max_tokens: maxTokens,
-              response_format: { type: 'json_object' }
-            }),
-            signal: ctrl.signal
-          });
-          clearTimeout(tid);
-          if (res.status === 429 || res.status === 401 || res.status === 403) {
-            slot.cooldownUntil = Date.now() + 5 * 60 * 1000; // 5分クールダウン
-            slot.weight = Math.max(0.1, slot.weight * 0.5);
-            return null;
-          }
-          if (!res.ok) return null;
-          const data = await res.json();
-          return data.choices?.[0]?.message?.content || null;
-        } catch (e) {
-          slot.cooldownUntil = Date.now() + 60 * 1000;
-          return null;
-        }
-      }
-
-      /* ===== クエリ生成（AI + ローカルフォールバック） ===== */
-      function buildUserProfileSnapshot() {
-        const hist = getHistory().slice(0, 20);
-        const liked = getLiked().slice(0, 12);
-        const subs = getSubs().slice(0, 10);
-        const titles = [...new Set([...hist, ...liked].map(h => h.title).filter(Boolean))].slice(0, 25);
-        const channels = [...new Set([...hist.map(h => h.channel), ...liked.map(l => l.channel), ...subs].filter(Boolean))].slice(0, 15);
-        return { titles, channels };
-      }
-
-      function localFallbackQueries(profile) {
-        // タイトルから主要語を抽出し、チャンネルと組み合わせる
-        const words = [];
-        profile.titles.forEach(t => {
-          const cleaned = (t || '').replace(/[【】「」『』()!！?？\[\]#♪★☆◆◇・]/g, ' ');
-          cleaned.split(/\s+/).forEach(w => {
-            if (w.length >= 3 && !/^[0-9]+$/.test(w)) words.push(w);
-          });
-        });
-        const wordFreq = {};
-        words.forEach(w => wordFreq[w] = (wordFreq[w] || 0) + 1);
-        const topWords = Object.entries(wordFreq).sort((a, b) => b[1] - a[1]).slice(0, 6).map(x => x[0]);
-        const presets = ['Music', 'ゲーム実況', 'アニメ', 'エンタメ', 'テック', '検証動画', 'Vlog', 'DIY', 'スポーツ', 'ダンス'];
-        return {
-          history_based: topWords.slice(0, 4),
-          genre_explore: shuffle(profile.channels.slice(0, 3).concat(shuffle(presets).slice(0, 4))).slice(0, 5),
-          trend: ['trending'],
-          genres_summary: topWords.slice(0, 3)
-        };
-      }
-
-      async function getSmartQueries() {
-        // キャッシュチェック
-        const cached = safeGetLS('mpa_queries_cache', null);
-        if (cached && cached.ts && Date.now() - cached.ts < CFG.AI_CACHE_TTL_MS && cached.profileHash === currentProfileHash()) {
-          return cached.data;
-        }
-
-        const profile = buildUserProfileSnapshot();
-        if (!profile.titles.length && !profile.channels.length) {
-          // データがない場合はトレンドのみ
-          return {
-            history_based: [],
-            genre_explore: ['Music', 'ゲーム', 'エンタメ', 'テック', 'Vlog'],
-            trend: ['trending'],
-            genres_summary: []
-          };
-        }
-
-        const systemPrompt = 'あなたは YouTube レコメンダーです。ユーザーの視聴履歴とチャンネルから、「同じ動画のタイトル重複」は避け、興味の中心とその周辺ジャンルをバランスよく提案します。出力は必ず JSON のみ。';
-        const userPrompt = `ユーザーデータ:
-- 視聴タイトル: ${JSON.stringify(profile.titles.slice(0,15))}
-- チャンネル: ${JSON.stringify(profile.channels.slice(0,10))}
-
-次の JSON スキーマで返してください（各クエリは YouTube で検索しやすい短いキーワード 1〜4 語、同一タイトルを避けるため複数の異なる角度）:
-{
-  "history_based": [視聴履歴に近いが同一動画ではないクエリ3、4個],
-  "genre_explore": [ユーザーが好きそうな隣接ジャンル・関連トピックの探索クエリ5個],
-  "trend": ["trending"],
-  "genres_summary": [興味ジャンルを表す短いタグ 2～3 個]
-}`;
-        const raw = await callGroq([
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ], 380);
-
-        let parsed = null;
-        if (raw) {
-          try {
-            parsed = JSON.parse(raw);
-            if (!Array.isArray(parsed.history_based)) parsed.history_based = [];
-            if (!Array.isArray(parsed.genre_explore)) parsed.genre_explore = [];
-            if (!Array.isArray(parsed.trend)) parsed.trend = ['trending'];
-          } catch (e) { parsed = null; }
-        }
-        if (!parsed) parsed = localFallbackQueries(profile);
-
-        safeSetLS('mpa_queries_cache', { ts: Date.now(), data: parsed, profileHash: currentProfileHash() });
-        return parsed;
-      }
-
-      function currentProfileHash() {
-        const h = getHistory().slice(0, 10).map(x => x.id).join('|');
-        const s = getSubs().slice(0, 8).join('|');
-        return h + '#' + s;
-      }
-
-      /* ===== 動画フェッチ ===== */
-      async function fetchEp(endpoint) {
-        try {
-          const res = await fetch(endpoint);
-          if (!res.ok) return [];
-          const data = await res.json();
-          return data.items || [];
-        } catch { return []; }
-      }
-      function normalize(list) {
-        const out = [];
-        for (const it of (list || [])) {
-          if (!it) continue;
-          let id = null;
-          if (typeof it.id === 'string') id = it.id;
-          else if (it.id && typeof it.id === 'object') id = it.id.videoId || it.id.channelId || it.id.playlistId;
-          else if (it.videoId) id = it.videoId;
-          if (!id) continue;
-          id = String(id);
-          if (id.startsWith('UC')) continue;
-          it.id = id;
-          out.push(it);
-        }
-        return out;
-      }
-
-      /* ===== スマートホームのメインロジック ===== */
-      async function loadSmartHome(page) {
-        if (busy) return;
-        busy = true;
-        active = true;
-        if (typeof isFetching !== 'undefined') isFetching = true;
-
-        const grid = document.getElementById('videoGrid');
-        const loadingEl = document.getElementById('loading');
-        const shortsSec = document.getElementById('shortsSection');
-        const shortsRowEl = document.getElementById('shortsRow');
-
-        if (loadingEl) loadingEl.style.display = 'block';
-
-        if (page === 0) {
-          renderedTitleHashes = [];
-          renderedIds = (typeof displayedIds !== 'undefined') ? displayedIds : new Set();
-          renderedIds.clear();
-          grid.innerHTML = '';
-          if (shortsRowEl) shortsRowEl.innerHTML = '';
-          if (shortsSec) shortsSec.style.display = 'none';
-          mymixInsertedThisLoad = 0;
-          renderSkeletons(grid, 8);
-        }
-        pageCounter = page;
-
-        try {
-          showAiPill(page === 0 ? 'MIN-Pro-AI がフィードを設計中…' : 'AI が次のセクションをチューニング中…', 2200);
-          const queries = await getSmartQueries();
-          const items = await assembleFeed(queries, page);
-
-          if (page === 0) {
-            grid.innerHTML = ''; // スケルトン除去
-          }
-          if (!items.length && page === 0) {
-            grid.innerHTML = '<p class="empty" style="padding:24px;text-align:center;color:var(--text-muted);">動画が見つかりませんでした。</p>';
-          } else {
-            renderMixedItems(items, page);
-          }
-        } catch (err) {
-          console.error('[MinProAI]', err);
-          if (page === 0) {
-            grid.innerHTML = '';
-            // フォールバック: 既存のパーソナライズドフィードへ
-            active = false;
-            busy = false;
-            if (typeof isFetching !== 'undefined') isFetching = false;
-            if (loadingEl) loadingEl.style.display = 'none';
-            if (typeof loadPersonalizedFeed === 'function') loadPersonalizedFeed(0);
-            return;
-          }
-        } finally {
-          busy = false;
-          if (typeof isFetching !== 'undefined') isFetching = false;
-          if (loadingEl) loadingEl.style.display = 'none';
-        }
-      }
-
-      /* ===== スケルトン ===== */
-      function renderSkeletons(grid, n) {
-        for (let i = 0; i < n; i++) {
-          const wrap = document.createElement('div');
-          wrap.className = 'video-card mpa-skel-card';
-          wrap.style.pointerEvents = 'none';
-          wrap.innerHTML = `
-            <div class="mpa-skeleton mpa-skel-thumb"></div>
-            <div class="meta" style="padding:8px 0 0;">
-              <div class="mpa-skel-row">
-                <div class="mpa-skeleton mpa-skel-avatar"></div>
-                <div class="mpa-skel-lines">
-                  <div class="mpa-skeleton mpa-skel-line"></div>
-                  <div class="mpa-skeleton mpa-skel-line short"></div>
-                </div>
-              </div>
-            </div>`;
-          grid.appendChild(wrap);
-        }
-      }
-
-      /* ===== フィード組み立て（シャッフル比率 40/40/20） ===== */
-      async function assembleFeed(queries, page) {
-        const histQs   = (queries.history_based || []).slice();
-        const genreQs  = (queries.genre_explore || []).slice();
-        const trendQs  = (queries.trend || ['trending']).slice();
-
-        // ページによるクエリローテーション
-        function pickRotated(arr, count) {
-          if (!arr.length) return [];
-          const out = [];
-          for (let i = 0; i < count; i++) {
-            out.push(arr[(page * count + i) % arr.length]);
-          }
-          return [...new Set(out)];
-        }
-        const pickedHist  = pickRotated(histQs, 3);
-        const pickedGenre = pickRotated(genreQs, 3);
-        const pickedTrend = pickRotated(trendQs, 1);
-
-        const subPage = page % CFG.MAX_PAGES_PER_SOURCE;
-        const promises = [];
-        const tag = [];
-        pickedHist.forEach(q => {
-          promises.push(fetchEp(`/api/search?q=${encodeURIComponent(q)}&page=${subPage}`));
-          tag.push({ type: 'history', q });
-        });
-        pickedGenre.forEach(q => {
-          promises.push(fetchEp(`/api/search?q=${encodeURIComponent(q)}&page=${subPage}`));
-          tag.push({ type: 'genre', q });
-        });
-        pickedTrend.forEach(q => {
-          promises.push(fetchEp(q === 'trending' ? `/api/trending?page=${subPage}` : `/api/search?q=${encodeURIComponent(q)}&page=${subPage}`));
-          tag.push({ type: 'trend', q });
-        });
-
-        const results = await Promise.all(promises);
-        const buckets = { history: [], genre: [], trend: [] };
-        results.forEach((r, i) => {
-          const norm = normalize(r);
-          norm.forEach(it => { it._mpaSource = tag[i].type; it._mpaQuery = tag[i].q; });
-          buckets[tag[i].type].push(...norm);
-        });
-
-        // チャンネルスコア（視聴・高評価・登録を加点）
-        const channelScore = buildChannelScore();
-        function score(it) {
-          let s = 0;
-          const ch = it.channelTitle || '';
-          if (channelScore[ch]) s += channelScore[ch];
-          // 視聴済みや重複タイトルは低下
-          if (renderedIds && renderedIds.has(it.id)) s -= 100;
-          return s;
-        }
-
-        // 重複・類似タイトル除去を含んだバケット整理
-        function cleanBucket(arr) {
-          const out = [];
-          const seenId = new Set();
-          arr.sort((a, b) => score(b) - score(a));
-          for (const it of arr) {
-            if (!it.id) continue;
-            if (seenId.has(it.id)) continue;
-            if (renderedIds && renderedIds.has(it.id)) continue;
-            if (isTitleDuplicate(it.title)) continue;
-            seenId.add(it.id);
-            out.push(it);
-          }
-          return out;
-        }
-
-        const cleanHist  = cleanBucket(buckets.history);
-        const cleanGenre = cleanBucket(buckets.genre);
-        const cleanTrend = cleanBucket(buckets.trend);
-
-        const target = CFG.ITEMS_PER_PAGE_TARGET;
-        const want = {
-          history: Math.round(target * CFG.SHUFFLE_RATIO.history),
-          genre:   Math.round(target * CFG.SHUFFLE_RATIO.genre),
-          trend:   Math.round(target * CFG.SHUFFLE_RATIO.trend),
-        };
-        // 不足分は他バケットから補充
-        function takeWithFallback(primary, want, fallbacks) {
-          const taken = primary.slice(0, want);
-          let i = 0;
-          while (taken.length < want && fallbacks.length) {
-            const src = fallbacks[i % fallbacks.length];
-            if (src.length) taken.push(src.shift());
-            else fallbacks.splice(i % fallbacks.length, 1);
-            i++;
-            if (i > 200) break;
-          }
-          return taken;
-        }
-        const fromHist  = takeWithFallback(cleanHist,  want.history, [cleanGenre, cleanTrend]);
-        const fromGenre = takeWithFallback(cleanGenre, want.genre,   [cleanHist, cleanTrend]);
-        const fromTrend = takeWithFallback(cleanTrend, want.trend,   [cleanGenre, cleanHist]);
-
-        // うまくシャッフルして連続を避ける（同ソース 3 連続を隣接交換）
-        let merged = interleaveBalanced(fromHist, fromGenre, fromTrend);
-        return merged;
-      }
-
-      function interleaveBalanced(a, b, c) {
-        const out = [];
-        const pools = [
-          { tag: 'history', arr: a.slice() },
-          { tag: 'genre',   arr: b.slice() },
-          { tag: 'trend',   arr: c.slice() },
-        ];
-        let lastTag = null;
-        let lastRun = 0;
-        while (pools.some(p => p.arr.length)) {
-          // 重み付きでピック　(残り検査)
-          const totalRem = pools.reduce((s, p) => s + p.arr.length, 0);
-          // 同タグが 2 連続したら他を優先
-          let candidates = pools.filter(p => p.arr.length && !(p.tag === lastTag && lastRun >= 2));
-          if (!candidates.length) candidates = pools.filter(p => p.arr.length);
-          const weights = candidates.map(p => p.arr.length);
-          const sumW = weights.reduce((s, x) => s + x, 0);
-          let r = Math.random() * sumW;
-          let chosen = candidates[0];
-          for (let i = 0; i < candidates.length; i++) {
-            r -= weights[i];
-            if (r <= 0) { chosen = candidates[i]; break; }
-          }
-          const item = chosen.arr.shift();
-          out.push(item);
-          if (chosen.tag === lastTag) lastRun++; else { lastTag = chosen.tag; lastRun = 1; }
-        }
-        return out;
-      }
-
-      function buildChannelScore() {
-        const score = {};
-        getSubs().forEach(c => { score[c] = (score[c] || 0) + 3; });
-        getLiked().forEach(it => { if (it.channel) score[it.channel] = (score[it.channel] || 0) + 2; });
-        const histCount = {};
-        getHistory().forEach(it => { if (it.channel) histCount[it.channel] = (histCount[it.channel] || 0) + 1; });
-        Object.entries(histCount).forEach(([c, n]) => { score[c] = (score[c] || 0) + Math.min(3, n * 0.4); });
-        return score;
-      }
-
-      /* ===== レンダリング ===== */
-      function getThumbU(id, type) {
-        if (typeof getThumbUrl === 'function') return getThumbUrl(id, type);
-        return `https://i3.ytimg.com/vi/${id}/${type === 'hq' ? 'hqdefault' : 'mqdefault'}.jpg`;
-      }
-      function escapeAttr(s) { return String(s || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-      function escapeText(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-
-      function renderMixedItems(items, page) {
-        const grid = document.getElementById('videoGrid');
-        if (!grid) return;
-        let inserted = 0;
-        for (const item of items) {
-          if (!item || !item.id) continue;
-          if (renderedIds.has(item.id)) continue;
-          if (isTitleDuplicate(item.title)) continue;
-          renderedIds.add(item.id);
-          markTitleSeen(item.title);
-          grid.appendChild(buildCard(item));
-          inserted++;
-          // 一定間隔で MyMIX カードをさりげなく振り掛ける
-          if (inserted % CFG.MYMIX_INSERT_INTERVAL === 0) {
-            tryInsertMyMixCard(grid);
-          }
-        }
-        // 初回ページでまだ MyMIX が一つも挫ざんていないなら 1 個入れる
-        if (page === 0 && mymixInsertedThisLoad === 0) {
-          tryInsertMyMixCard(grid, true);
-        }
-      }
-
-      function buildCard(item, opts = {}) {
-        const card = document.createElement('a');
-        card.className = 'video-card';
-        card.href = `/video/${item.id}`;
-        const thumbUrl = getThumbU(item.id, 'mq');
-        const channel = item.channelTitle || '';
-        const viewText = item.viewCountText || '';
-        const published = item.publishedTimeText || '';
-        const initial = channel ? channel[0].toUpperCase() : 'C';
-        const avatarUrl = item.channelThumbnail || item.channelImage || '';
-        card.innerHTML = `
-          <div class="thumb">
-            <img src="${escapeAttr(thumbUrl)}" loading="lazy" alt="${escapeAttr(item.title || '動画')}">
-            ${item.lengthText ? `<div class="duration-badge">${escapeText(item.lengthText)}</div>` : ''}
-          </div>
-          <div class="meta">
-            <a href="/channel/${encodeURIComponent(channel)}" class="channel-avatar" data-initial="${escapeAttr(initial)}" onclick="event.stopPropagation()" style="text-decoration:none;">
-              <span class="avatar-initial">${escapeText(initial)}</span>
-              ${avatarUrl ? `<img src="${escapeAttr(avatarUrl)}" alt="${escapeAttr(channel)}" onload="this.classList.add('loaded')" onerror="this.remove()">` : ''}
-            </a>
-            <div class="details">
-              <h3>${escapeText(item.title || '')}</h3>
-              <a href="/channel/${encodeURIComponent(channel)}" class="channel-name" onclick="event.stopPropagation()" style="text-decoration:none;color:var(--text-muted);">${escapeText(channel)}</a>
-              <div class="video-stats">${escapeText(viewText)}${viewText && published ? ' • ' : ''}${escapeText(published)}</div>
-            </div>
-            <button class="card-menu-btn" aria-label="メニュー" data-id="${escapeAttr(item.id)}" data-title="${escapeAttr(item.title||'')}" data-channel="${escapeAttr(channel)}" data-views="${escapeAttr(viewText)}" data-published="${escapeAttr(published)}">⋮</button>
-          </div>
-        `;
-        if (!avatarUrl) {
-          const avatarEl = card.querySelector('.channel-avatar');
-          const img = document.createElement('img');
-          img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(channel)}&background=random&color=fff&size=64&bold=true`;
-          img.alt = channel;
-          img.onload = () => img.classList.add('loaded');
-          img.onerror = () => img.remove();
-          avatarEl.appendChild(img);
-        }
-        return card;
-      }
-
-      /* ===== MyMIX (自動プレイリスト) ===== */
-      function getMyMixes() { return safeGetLS('mt_mymix_v2', []); }
-      function setMyMixes(v) { safeSetLS('mt_mymix_v2', v); }
-
-      function tryInsertMyMixCard(grid, forceCreateIfNone = false) {
-        const hist = getHistory();
-        if (hist.length < CFG.MIN_HIST_FOR_LITE_MIX) return;
-
-        let mixes = getMyMixes();
-        const stale = (mixes[0] && (Date.now() - (mixes[0].ts || 0) > 6 * 60 * 60 * 1000));
-        // 未作成または古い場合
-        if (!mixes.length || stale) {
-          // プレイスホルダーを挿し、裏で生成
-          const placeholder = createMyMixPlaceholder();
-          grid.appendChild(placeholder);
-          mymixInsertedThisLoad++;
-          // クイックモード (3本+) またはフルモード (10本+)
-          const fullMode = hist.length >= CFG.MIN_HIST_FOR_FULL_MIX;
-          generateMyMix(fullMode).then(mix => {
-            if (!mix || !mix.items || !mix.items.length) {
-              placeholder.remove();
-              return;
-            }
-            const all = getMyMixes();
-            all.unshift(mix);
-            setMyMixes(all.slice(0, 6));
-            const card = buildMyMixCard(mix);
-            placeholder.replaceWith(card);
-          }).catch(() => placeholder.remove());
-          return;
-        }
-
-        // 既存のミックスをローテーションして表示
-        const idx = mymixInsertedThisLoad % mixes.length;
-        const mix = mixes[idx];
-        if (mix && mix.items && mix.items.length) {
-          grid.appendChild(buildMyMixCard(mix));
-          mymixInsertedThisLoad++;
-        }
-      }
-
-      function createMyMixPlaceholder() {
-        const card = document.createElement('div');
-        card.className = 'video-card';
-        card.style.cursor = 'default';
-        card.innerHTML = `
-          <div class="mymix-placeholder">
-            <div class="mymix-placeholder-icon">✨</div>
-            <div class="mymix-placeholder-label">MIN-Pro-AI があなたの MyMIX を作成中…</div>
-          </div>
-          <div class="meta" style="padding-top:8px;">
-            <div style="display:flex;flex-direction:column;gap:6px;width:100%;">
-              <div class="mpa-skeleton mpa-skel-line" style="width:70%;"></div>
-              <div class="mpa-skeleton mpa-skel-line short"></div>
-            </div>
-          </div>`;
-        return card;
-      }
-
-      async function generateMyMix(fullMode) {
-        const hist = getHistory();
-        const liked = getLiked();
-        const subs = getSubs();
-        // シードを選ぶ: 高評価 > 視聴頻度高いチャンネル > 証録チャンネル
-        const chCount = {};
-        hist.forEach(h => { if (h.channel) chCount[h.channel] = (chCount[h.channel] || 0) + 1; });
-        const seedChannels = Object.entries(chCount).sort((a, b) => b[1] - a[1]).slice(0, fullMode ? 3 : 1).map(x => x[0]);
-        const allSeedCh = [...new Set([...seedChannels, ...subs.slice(0, fullMode ? 2 : 0)])];
-
-        // シードチャンネルの人気動画
-        const promises = allSeedCh.slice(0, 3).map(ch => fetchEp(`/api/search?q=${encodeURIComponent(ch)}&page=0`));
-        // 似たジャンルの動画も加える (fullMode のみ)
-        if (fullMode) {
-          const queries = await getSmartQueries();
-          (queries.genre_explore || []).slice(0, 2).forEach(q => {
-            promises.push(fetchEp(`/api/search?q=${encodeURIComponent(q)}&page=0`));
-          });
-        }
-        const results = await Promise.all(promises);
-        let pool = normalize(results.flat());
-
-        // 視聴済みは除外
-        const histIds = new Set(hist.map(h => h.id));
-        pool = pool.filter(it => !histIds.has(it.id));
-
-        // 重複 ID 除去
-        const seen = new Set();
-        pool = pool.filter(it => { if (seen.has(it.id)) return false; seen.add(it.id); return true; });
-
-        // タイトル類似を除去
-        const titleHashes = [];
-        const deduped = [];
-        for (const it of pool) {
-          const ng = titleNGrams(it.title);
-          let dup = false;
-          for (const h of titleHashes) {
-            if (jaccard(h, ng) >= 0.65) { dup = true; break; }
-          }
-          if (!dup) { titleHashes.push(ng); deduped.push(it); }
-        }
-
-        // シャッフルして上位 最大25 本をミックス化
-        const mixed = shuffle(deduped).slice(0, fullMode ? 25 : 15);
-        if (mixed.length < 3) return null;
-
-        const baseChannel = seedChannels[0] || (subs[0] || 'あなたのお気に入り');
-        return {
-          id: 'mymix_' + Date.now(),
-          name: 'My MIX',
-          subtitle: `${baseChannel}${seedChannels.length > 1 ? ' 他' : ''}`,
-          mode: fullMode ? 'full' : 'lite',
-          items: mixed.map(it => ({
-            id: it.id,
-            title: it.title,
-            channelTitle: it.channelTitle || '',
-            thumbnail: getThumbU(it.id, 'hq'),
-            lengthText: it.lengthText || ''
-          })),
-          ts: Date.now()
-        };
-      }
-
-      function buildMyMixCard(mix) {
-        const card = document.createElement('a');
-        card.className = 'video-card mymix-card';
-        card.href = 'javascript:void(0)';
-        card.setAttribute('data-mymix-id', mix.id);
-        const first = mix.items[0];
-        const thumbSrc = first ? getThumbU(first.id, 'hq') : '';
-        const sub = mix.subtitle || 'あなただけのミックス';
-        card.innerHTML = `
-          <div class="thumb" style="position:relative;">
-            <img src="${escapeAttr(thumbSrc)}" loading="lazy" alt="MyMIX">
-            <div class="mymix-count">
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
-              ${mix.items.length}
-            </div>
-            <div class="mymix-badge">
-              <svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8z"/></svg>
-              <span class="mymix-text">My MIX</span>
-            </div>
-            <div class="mymix-stack"></div>
-          </div>
-          <div class="meta">
-            <div class="channel-avatar" data-initial="M" style="background:linear-gradient(135deg,#ff3b5c,#b964ff,#3ea6ff);text-decoration:none;">
-              <span class="avatar-initial" style="color:#fff;">✨</span>
-            </div>
-            <div class="details">
-              <h3>My MIX ・ ${escapeText(sub)}</h3>
-              <span class="mymix-channel-pill"><span class="mymix-spark">✨</span> MIN-Pro-AI があなたのために生成</span>
-              <div class="video-stats">${mix.items.length} 本の動画 • ${timeAgo(mix.ts)}</div>
-            </div>
-          </div>`;
-        card.addEventListener('click', (e) => {
-          e.preventDefault();
-          openMyMixPlayer(mix);
-        });
-        return card;
-      }
-      function timeAgo(ts) {
-        const d = Math.max(0, Date.now() - ts);
-        const m = Math.floor(d / 60000);
-        if (m < 1) return 'たった今';
-        if (m < 60) return m + ' 分前';
-        const h = Math.floor(m / 60);
-        if (h < 24) return h + ' 時間前';
-        return Math.floor(h / 24) + ' 日前';
-      }
-
-      function openMyMixPlayer(mix) {
-        const items = mix.items;
-        if (!items || !items.length) return;
-        const win = window.open('about:blank', '_blank');
-        if (!win) { alert('ポップアップがブロックされました。許可してください。'); return; }
-        const html = mixPlayerHtml(mix);
-        win.document.open();
-        win.document.write(html);
-        win.document.close();
-      }
-
-      function mixPlayerHtml(mix) {
-        const itemsJSON = JSON.stringify(mix.items).replace(/<\/script/gi, '<\\/script');
-        return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>${escapeText(mix.name)} - MIN-Tube-Pro</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{background:#0f0f0f;color:#fff;font-family:'Roboto',sans-serif;display:grid;grid-template-columns:1fr 360px;height:100vh;overflow:hidden;}
-.player{display:flex;flex-direction:column;background:#000;}
-.player iframe{flex:1;width:100%;border:none;}
-.np{padding:12px 16px;background:#0f0f0f;border-top:1px solid #272727;}
-.np h2{font-size:16px;margin-bottom:4px;}
-.np p{color:#aaa;font-size:13px;}
-.side{background:#181818;display:flex;flex-direction:column;overflow:hidden;}
-.side-head{padding:14px 16px;border-bottom:1px solid #272727;display:flex;align-items:center;justify-content:space-between;}
-.side-head h1{font-size:14px;background:linear-gradient(90deg,#ff3b5c,#b964ff,#3ea6ff);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700;}
-.side-head .count{font-size:12px;color:#aaa;}
-.side-ctrl{display:flex;gap:8px;padding:8px 16px;border-bottom:1px solid #272727;}
-.side-ctrl button{flex:1;padding:8px;background:#272727;color:#fff;border:none;border-radius:18px;cursor:pointer;font-size:13px;}
-.side-ctrl button:hover{background:#3f3f3f;}
-.list{flex:1;overflow-y:auto;}
-.pl-item{display:flex;gap:10px;padding:8px 12px;cursor:pointer;transition:background .1s;}
-.pl-item:hover{background:#272727;}
-.pl-item.active{background:#3f3f3f;}
-.pl-idx{min-width:20px;color:#aaa;font-size:13px;text-align:center;align-self:center;}
-.pl-thumb{width:100px;height:60px;object-fit:cover;border-radius:6px;flex-shrink:0;}
-.pl-info{flex:1;min-width:0;}
-.pl-it-title{font-size:13px;line-height:1.3;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.pl-it-ch{font-size:11px;color:#aaa;}
-@media(max-width:900px){body{grid-template-columns:1fr;grid-template-rows:auto 1fr;}.side{max-height:50vh;}}
-</style></head><body>
-<div class="player">
-  <iframe id="yt" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-  <div class="np"><h2 id="npTitle"></h2><p id="npChannel"></p></div>
-</div>
-<div class="side">
-  <div class="side-head"><h1>✨ ${escapeText(mix.name)}</h1><span class="count" id="countTxt"></span></div>
-  <div class="side-ctrl"><button id="btnPrev">⏮ 前</button><button id="btnShuffle">🔀 シャッフル</button><button id="btnNext">次 ⏭</button></div>
-  <div class="list" id="list"></div>
-</div>
-<script>
-const items = ${itemsJSON};
-let current = 0;
-const yt = document.getElementById('yt');
-const list = document.getElementById('list');
-const npTitle = document.getElementById('npTitle');
-const npChannel = document.getElementById('npChannel');
-const countTxt = document.getElementById('countTxt');
-function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function render(){
-  list.innerHTML = items.map((it,i)=>'<div class="pl-item'+(i===current?' active':'')+'" data-i="'+i+'"><div class="pl-idx">'+(i===current?'▶':(i+1))+'</div><img class="pl-thumb" src="'+esc(it.thumbnail)+'"><div class="pl-info"><div class="pl-it-title">'+esc(it.title)+'</div><div class="pl-it-ch">'+esc(it.channelTitle||'')+'</div></div></div>').join('');
-  list.querySelectorAll('.pl-item').forEach(el=>{el.addEventListener('click',()=>{current=parseInt(el.dataset.i,10);play();});});
-  countTxt.textContent = (current+1)+' / '+items.length;
-}
-function play(){
-  const it = items[current]; if(!it) return;
-  yt.src = 'https://www.youtube-nocookie.com/embed/'+encodeURIComponent(it.id)+'?autoplay=1&rel=0&modestbranding=1';
-  npTitle.textContent = it.title || '';
-  npChannel.textContent = it.channelTitle || '';
-  render();
-  const active = list.querySelector('.pl-item.active');
-  if(active) active.scrollIntoView({block:'nearest',behavior:'smooth'});
-}
-document.getElementById('btnPrev').addEventListener('click',()=>{current=(current-1+items.length)%items.length;play();});
-document.getElementById('btnNext').addEventListener('click',()=>{current=(current+1)%items.length;play();});
-document.getElementById('btnShuffle').addEventListener('click',()=>{for(let i=items.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[items[i],items[j]]=[items[j],items[i]];}current=0;play();});
-render();play();
-<\/script></body></html>`;
-      }
-
-      /* ===== AI Pill (右下のステータス表示) ===== */
-      let pillTimer = null;
-      function ensurePill() {
-        let p = document.getElementById('mpaAiPill');
-        if (!p) {
-          p = document.createElement('div');
-          p.id = 'mpaAiPill';
-          p.className = 'mpa-ai-pill';
-          p.innerHTML = `<span class="mpa-ai-pill-dot"></span><span class="mpa-ai-pill-text">MIN-Pro-AI</span>`;
-          document.body.appendChild(p);
-        }
-        return p;
-      }
-      function showAiPill(text, ms = 2000) {
-        const p = ensurePill();
-        p.querySelector('.mpa-ai-pill-text').textContent = text;
-        p.classList.add('show');
-        clearTimeout(pillTimer);
-        pillTimer = setTimeout(() => p.classList.remove('show'), ms);
-      }
-
-      /* ===== オープニングアニメーション（初回のみ） ===== */
-      function maybeRunOpening() {
-        const SEEN_KEY = 'mt_opening_v2_seen';
-        if (localStorage.getItem(SEEN_KEY)) return;
-        const overlay = document.getElementById('mpaOpening');
-        if (!overlay) return;
-        overlay.classList.add('show');
-        overlay.setAttribute('aria-hidden', 'false');
-        document.body.style.overflow = 'hidden';
-
-        const taglines = [
-          'AI が裏でレコメンドを最適化しています…',
-          '何百万もの動画から、あなただけのフィードを設計中…',
-          'ジャンルのバランスを調整しています…'
-        ];
-        const tagEl = document.getElementById('mpaTaglineText');
-        let tagIdx = 0;
-        const tagTimer = setInterval(() => {
-          tagIdx = (tagIdx + 1) % taglines.length;
-          if (tagEl) tagEl.textContent = taglines[tagIdx];
-        }, 900);
-
-        // ステップ進行
-        const steps = overlay.querySelectorAll('.mpa-step');
-        steps.forEach((s, i) => {
-          setTimeout(() => {
-            steps.forEach(x => { if (parseInt(x.dataset.step) < i) x.classList.add('done'); x.classList.remove('active'); });
-            s.classList.add('active');
-            if (i === steps.length - 1) {
-              setTimeout(() => s.classList.add('done'), 380);
-            }
-          }, 350 + i * 480);
-        });
-
-        const start = Date.now();
-        const finish = () => {
-          const elapsed = Date.now() - start;
-          const remaining = Math.max(0, CFG.OPENING_MIN_DURATION - elapsed);
-          setTimeout(() => {
-            clearInterval(tagTimer);
-            overlay.classList.add('fade-out');
-            setTimeout(() => {
-              overlay.classList.remove('show');
-              overlay.setAttribute('aria-hidden', 'true');
-              document.body.style.overflow = '';
-              localStorage.setItem(SEEN_KEY, '1');
-            }, 600);
-          }, remaining);
-        };
-        // 動画カード読み込み完了まで待つが、最大12秒で強制終了
-        window.addEventListener('mpaFirstFeedReady', finish, { once: true });
-        setTimeout(finish, 12000);
-      }
-
-      /* ===== フィード初回レンダリング完了イベント ===== */
-      const _origLoadSmartHome = loadSmartHome;
-      async function loadSmartHomeWithEvent(page) {
-        await _origLoadSmartHome(page);
-        if (page === 0) {
-          window.dispatchEvent(new CustomEvent('mpaFirstFeedReady'));
-        }
-      }
-
-      /* ===== ブートストラップ ===== */
-      function init() {
-        maybeRunOpening();
-      }
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-      } else {
-        init();
-      }
-
-      return {
-        loadSmartHome: loadSmartHomeWithEvent,
-        isActive: () => active,
-        deactivate: () => { active = false; },
-        showAiPill,
-        version: CFG.SMART_VERSION
-      };
-    })();
-    /* ===================================================================== */
-
     
   </script>
   
-  <!-- ============================================================ -->
-  <!-- MIN-Pro-AI : Opening Animation Overlay (first visit only)    -->
-  <!-- ============================================================ -->
-  <div id="mpaOpening" class="mpa-opening" aria-hidden="true">
-    <div class="mpa-opening-bg">
-      <div class="mpa-orb mpa-orb-1"></div>
-      <div class="mpa-orb mpa-orb-2"></div>
-      <div class="mpa-orb mpa-orb-3"></div>
-      <div class="mpa-grid-overlay"></div>
-    </div>
-    <div class="mpa-opening-content">
-      <div class="mpa-logo-wrap">
-        <svg class="mpa-logo-mark" viewBox="0 0 120 120" aria-hidden="true">
-          <defs>
-            <linearGradient id="mpaG1" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#ff3b5c"/>
-              <stop offset="0.5" stop-color="#b964ff"/>
-              <stop offset="1" stop-color="#3ea6ff"/>
-            </linearGradient>
-          </defs>
-          <circle class="mpa-logo-ring" cx="60" cy="60" r="52" fill="none" stroke="url(#mpaG1)" stroke-width="3"/>
-          <path class="mpa-logo-play" d="M48 38 L84 60 L48 82 Z" fill="url(#mpaG1)"/>
-        </svg>
-        <div class="mpa-sparkles">
-          <span class="mpa-spark" style="--d:0s;--x:-60px;--y:-40px">✦</span>
-          <span class="mpa-spark" style="--d:.3s;--x:55px;--y:-50px">✧</span>
-          <span class="mpa-spark" style="--d:.6s;--x:70px;--y:40px">✦</span>
-          <span class="mpa-spark" style="--d:.9s;--x:-50px;--y:55px">✧</span>
-          <span class="mpa-spark" style="--d:1.2s;--x:0;--y:-70px">✦</span>
-        </div>
-      </div>
-      <h1 class="mpa-title">
-        <span class="mpa-title-main">MIN-Tube-Pro</span>
-        <span class="mpa-title-sep">with</span>
-        <span class="mpa-title-ai">
-          <span class="mpa-ai-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z" fill="url(#mpaG1)"/></svg>
-          </span>
-          MIN-Pro-AI
-        </span>
-      </h1>
-      <div class="mpa-tagline">
-        <span class="mpa-dot"></span>
-        <span class="mpa-tagline-text" id="mpaTaglineText">AI が裏でレコメンドを最適化しています…</span>
-      </div>
-      <div class="mpa-progress"><div class="mpa-progress-bar"></div></div>
-      <div class="mpa-steps">
-        <div class="mpa-step" data-step="0"><span class="mpa-step-check">✓</span>視聴履歴の解析</div>
-        <div class="mpa-step" data-step="1"><span class="mpa-step-check">✓</span>ジャンル親和度を計算</div>
-        <div class="mpa-step" data-step="2"><span class="mpa-step-check">✓</span>あなただけのフィードを構築</div>
-      </div>
-    </div>
-  </div>
-
   <nav class="mobile-bottom-nav">
   <a href="/" class="mobile-nav-item active">
     <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
@@ -3970,322 +2961,1428 @@ render();play();
     ライブラリ
   </button>
 </nav>
-<style id="mpa-style">
-/* ============================================================== */
-/*  MIN-Pro-AI : Visual Layer (Opening / MyMIX / Skeletons / AI)   */
-/* ============================================================== */
-@keyframes mpaSpin { to { transform: rotate(360deg); } }
-@keyframes mpaFloat {
-  0%,100% { transform: translate(0,0) scale(1); }
-  50%     { transform: translate(20px,-30px) scale(1.05); }
-}
-@keyframes mpaPulse {
-  0%,100% { opacity:.5; transform: scale(1); }
-  50%     { opacity:1;  transform: scale(1.08); }
-}
-@keyframes mpaSparkPop {
-  0%   { opacity:0; transform: translate(0,0) scale(.5); }
-  40%  { opacity:1; transform: translate(var(--x), var(--y)) scale(1.2); }
-  100% { opacity:0; transform: translate(var(--x), var(--y)) scale(.6); }
-}
-@keyframes mpaTitleIn {
-  0% { opacity:0; transform: translateY(20px) scale(.96); filter: blur(6px); }
-  100% { opacity:1; transform: translateY(0) scale(1); filter: blur(0); }
-}
-@keyframes mpaProgress {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-@keyframes mpaStepIn {
-  from { opacity:0; transform: translateX(-10px); }
-  to   { opacity:1; transform: translateX(0); }
-}
-@keyframes mpaFadeOut {
-  to { opacity:0; visibility:hidden; pointer-events:none; }
-}
-.mpa-opening {
-  position: fixed; inset: 0; z-index: 10000;
-  display: flex; align-items: center; justify-content: center;
-  background: radial-gradient(ellipse at 30% 20%, #1a0b2e 0%, #0a0a0f 70%);
-  overflow: hidden;
-  opacity: 0; visibility: hidden; pointer-events: none;
-  transition: opacity .5s ease;
-}
-.mpa-opening.show { opacity: 1; visibility: visible; pointer-events: auto; }
-.mpa-opening.fade-out { animation: mpaFadeOut .6s ease forwards; }
-.mpa-opening-bg { position: absolute; inset: 0; overflow: hidden; }
-.mpa-orb {
-  position: absolute; border-radius: 50%; filter: blur(60px); opacity: .55;
-  animation: mpaFloat 8s ease-in-out infinite;
-}
-.mpa-orb-1 { width: 380px; height: 380px; background:#ff3b5c; top: -80px; left: -60px; }
-.mpa-orb-2 { width: 320px; height: 320px; background:#3ea6ff; bottom: -60px; right: -40px; animation-delay: -3s; }
-.mpa-orb-3 { width: 260px; height: 260px; background:#b964ff; top: 40%; left: 50%; animation-delay: -5s; }
-.mpa-grid-overlay {
-  position: absolute; inset: 0;
-  background-image:
-    linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
-  -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
-}
-.mpa-opening-content {
-  position: relative; z-index: 1;
-  text-align: center; color: #fff;
-  padding: 24px; max-width: 720px;
-}
-.mpa-logo-wrap { position: relative; display:inline-block; margin-bottom: 28px; }
-.mpa-logo-mark { width: 120px; height: 120px; filter: drop-shadow(0 8px 32px rgba(255,59,92,.45)); }
-.mpa-logo-ring { animation: mpaSpin 4s linear infinite; transform-origin:center; stroke-dasharray: 160 60; }
-.mpa-logo-play { animation: mpaPulse 2.4s ease-in-out infinite; transform-origin:center; }
-.mpa-sparkles { position: absolute; inset: 0; pointer-events:none; }
-.mpa-spark {
-  position: absolute; top:50%; left:50%; font-size: 18px; color:#ffd966;
-  opacity:0; animation: mpaSparkPop 2.6s ease-out infinite;
-  animation-delay: var(--d);
-  text-shadow: 0 0 12px rgba(255,217,102,.8);
-}
-.mpa-title {
-  font-size: clamp(28px, 5vw, 44px);
-  font-weight: 700; letter-spacing: -.5px;
-  margin: 0 0 12px; line-height: 1.15;
-  animation: mpaTitleIn .9s cubic-bezier(.2,.8,.2,1) both;
-  display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap: 6px 14px;
-}
-.mpa-title-main {
-  background: linear-gradient(90deg, #ffffff, #ffd6e0);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-}
-.mpa-title-sep { font-size:.6em; opacity:.65; font-weight:500; letter-spacing:2px; text-transform:uppercase; }
-.mpa-title-ai {
-  display:inline-flex; align-items:center; gap:6px;
-  background: linear-gradient(90deg, #ff3b5c, #b964ff, #3ea6ff);
-  background-size: 200% 100%;
-  -webkit-background-clip: text; background-clip:text; color: transparent;
-  animation: mpaTitleIn .9s .2s cubic-bezier(.2,.8,.2,1) both, mpaShimmer 4s ease infinite .9s;
-}
-.mpa-ai-icon { -webkit-text-fill-color: initial; filter: drop-shadow(0 0 8px rgba(185,100,255,.6)); }
-@keyframes mpaShimmer { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-.mpa-tagline {
-  display:inline-flex; align-items:center; gap:10px;
-  font-size: 14px; color: rgba(255,255,255,.75);
-  background: rgba(255,255,255,.06);
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  border:1px solid rgba(255,255,255,.1);
-  padding: 8px 16px; border-radius: 999px;
-  margin: 8px 0 22px;
-  animation: mpaTitleIn .9s .4s cubic-bezier(.2,.8,.2,1) both;
-}
-.mpa-dot {
-  width:8px; height:8px; border-radius:50%;
-  background: #3ea6ff;
-  box-shadow: 0 0 12px #3ea6ff;
-  animation: mpaPulse 1.4s ease-in-out infinite;
-}
-.mpa-progress {
-  width: min(360px, 80vw); height: 3px;
-  background: rgba(255,255,255,.08); border-radius: 3px;
-  overflow: hidden; margin: 0 auto 18px;
-}
-.mpa-progress-bar {
-  width: 50%; height: 100%;
-  background: linear-gradient(90deg, transparent, #ff3b5c, #b964ff, #3ea6ff, transparent);
-  animation: mpaProgress 1.6s ease-in-out infinite;
-}
-.mpa-steps { display:flex; flex-direction:column; gap:8px; align-items:flex-start; max-width:300px; margin:0 auto; text-align:left; }
-.mpa-step {
-  display:flex; align-items:center; gap:10px;
-  font-size: 13px; color: rgba(255,255,255,.45);
-  opacity:0; transform: translateX(-10px);
-  transition: opacity .4s, color .4s, transform .4s;
-}
-.mpa-step.active { animation: mpaStepIn .4s ease forwards; color: rgba(255,255,255,.9); }
-.mpa-step.done   { opacity:1; transform:translateX(0); color: rgba(255,255,255,.6); }
-.mpa-step.done .mpa-step-check { background:#3ea6ff; color:#fff; border-color:#3ea6ff; }
-.mpa-step.active .mpa-step-check { background:#b964ff; color:#fff; border-color:#b964ff; box-shadow: 0 0 12px rgba(185,100,255,.6); }
-.mpa-step-check {
-  width:18px; height:18px; border-radius:50%;
-  border: 1.5px solid rgba(255,255,255,.25);
-  display:inline-flex; align-items:center; justify-content:center;
-  font-size:11px; color: transparent;
-  transition: all .3s;
-}
 
-/* ===== AI Status Indicator (header micro-pill) ===== */
-.mpa-ai-pill {
-  position: fixed; bottom: 16px; right: 16px; z-index: 999;
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 14px; border-radius: 999px;
-  background: rgba(20,20,30,.85);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,.08);
-  color: #fff; font-size: 12px; font-weight: 500;
-  box-shadow: 0 8px 24px rgba(0,0,0,.35);
-  transform: translateY(80px); opacity: 0;
-  transition: transform .4s cubic-bezier(.2,.8,.2,1), opacity .4s;
-  pointer-events: none;
-}
-.mpa-ai-pill.show { transform: translateY(0); opacity: 1; }
-body.light-mode .mpa-ai-pill { background: rgba(255,255,255,.92); color:#0f0f0f; border-color: rgba(0,0,0,.08); }
-.mpa-ai-pill-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: linear-gradient(135deg, #ff3b5c, #b964ff);
-  box-shadow: 0 0 10px rgba(185,100,255,.7);
-  animation: mpaPulse 1.4s ease-in-out infinite;
-}
-@media (max-width: 640px) {
-  .mpa-ai-pill { bottom: 80px; right: 10px; font-size: 11px; padding: 6px 10px; }
-}
+<!-- ==================================================================== -->
+<!-- ============== ✨ MIN-Pro-AI v2 :: Smart Feed Engine ================ -->
+<!-- ============== (Added without touching existing code)  ============== -->
+<!-- ==================================================================== -->
 
-/* ===== Skeleton Cards (Gemini-style shimmer) ===== */
-@keyframes mpaShimmerBg {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-.mpa-skeleton {
-  background: linear-gradient(90deg, rgba(255,255,255,.04) 25%, rgba(255,255,255,.10) 50%, rgba(255,255,255,.04) 75%);
-  background-size: 200% 100%;
-  animation: mpaShimmerBg 1.6s linear infinite;
-  border-radius: 12px;
-}
-body.light-mode .mpa-skeleton {
-  background: linear-gradient(90deg, rgba(0,0,0,.04) 25%, rgba(0,0,0,.10) 50%, rgba(0,0,0,.04) 75%);
-  background-size: 200% 100%;
-}
-.mpa-skel-card { display:flex; flex-direction:column; gap:12px; }
-.mpa-skel-thumb { width:100%; aspect-ratio:16/9; border-radius:12px; }
-.mpa-skel-row { display:flex; gap:10px; }
-.mpa-skel-avatar { width:36px; height:36px; border-radius:50%; flex:0 0 36px; }
-.mpa-skel-lines { flex:1; display:flex; flex-direction:column; gap:6px; }
-.mpa-skel-line { height:12px; border-radius:6px; }
-.mpa-skel-line.short { width: 60%; }
+<style>
+  /* ============ Splash Screen ============ */
+  #mtSplash{
+    position:fixed; inset:0; z-index:99999;
+    background:radial-gradient(circle at 30% 40%, #1a1233 0%, #0a0612 45%, #050309 100%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    overflow:hidden;
+    transition:opacity .6s ease, visibility .6s ease;
+  }
+  body.light-mode #mtSplash{
+    background:radial-gradient(circle at 30% 40%, #f5f0ff 0%, #ffffff 50%, #f0f0f5 100%);
+  }
+  #mtSplash.hidden{ opacity:0; visibility:hidden; pointer-events:none; }
+  #mtSplash::before, #mtSplash::after{
+    content:""; position:absolute; border-radius:50%; filter:blur(80px); opacity:.55; pointer-events:none;
+  }
+  #mtSplash::before{
+    width:520px; height:520px; left:-10%; top:20%;
+    background:radial-gradient(circle,#4f8bff 0%,transparent 70%);
+    animation:mtBlob 8s ease-in-out infinite alternate;
+  }
+  #mtSplash::after{
+    width:480px; height:480px; right:-10%; bottom:10%;
+    background:radial-gradient(circle,#ff6bd6 0%,transparent 70%);
+    animation:mtBlob 9s ease-in-out infinite alternate-reverse;
+  }
+  @keyframes mtBlob{
+    0%{ transform:translate(0,0) scale(1); }
+    100%{ transform:translate(80px,-40px) scale(1.18); }
+  }
+  .mt-splash-orb{
+    position:relative; width:120px; height:120px; margin-bottom:32px;
+  }
+  .mt-splash-orb::before{
+    content:""; position:absolute; inset:0; border-radius:50%;
+    background:conic-gradient(from 0deg,#4f8bff,#a26bff,#ff6bd6,#ffb56b,#6bffd6,#4f8bff);
+    animation:mtSpin 3s linear infinite;
+    filter:blur(2px);
+  }
+  .mt-splash-orb::after{
+    content:"✨"; position:absolute; inset:10px; border-radius:50%;
+    background:#0a0612; display:flex; align-items:center; justify-content:center;
+    font-size:42px; box-shadow:inset 0 0 30px rgba(255,255,255,.05);
+    animation:mtFloat 2.4s ease-in-out infinite;
+  }
+  body.light-mode .mt-splash-orb::after{ background:#fff; }
+  @keyframes mtSpin{ to{ transform:rotate(360deg); } }
+  @keyframes mtFloat{
+    0%,100%{ transform:translateY(0) scale(1); }
+    50%{ transform:translateY(-6px) scale(1.04); }
+  }
+  .mt-splash-title{
+    font-size:34px; font-weight:700; letter-spacing:-.5px;
+    background:linear-gradient(120deg,#fff 0%,#cfd6ff 30%,#ffb6f1 60%,#fff 100%);
+    background-size:200% 100%;
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    animation:mtShine 3s ease-in-out infinite;
+    text-align:center; line-height:1.15;
+  }
+  body.light-mode .mt-splash-title{
+    background:linear-gradient(120deg,#222 0%,#5664ff 30%,#d145a5 60%,#222 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  @keyframes mtShine{
+    0%{ background-position:0% 50%; }
+    50%{ background-position:100% 50%; }
+    100%{ background-position:0% 50%; }
+  }
+  .mt-splash-sub{
+    margin-top:10px; font-size:14px; color:#c5b9ff; opacity:.85; letter-spacing:.5px;
+    display:flex; align-items:center; gap:8px;
+  }
+  body.light-mode .mt-splash-sub{ color:#6a5db8; }
+  .mt-splash-sub .dot{
+    width:6px; height:6px; border-radius:50%; background:#a26bff;
+    animation:mtPulse 1.2s ease-in-out infinite;
+  }
+  .mt-splash-sub .dot:nth-child(2){ animation-delay:.15s; }
+  .mt-splash-sub .dot:nth-child(3){ animation-delay:.3s; }
+  @keyframes mtPulse{
+    0%,100%{ transform:scale(.8); opacity:.4; }
+    50%{ transform:scale(1.3); opacity:1; }
+  }
+  .mt-splash-trace{
+    margin-top:34px; width:260px; height:3px; border-radius:3px;
+    background:rgba(255,255,255,.08); overflow:hidden; position:relative;
+  }
+  body.light-mode .mt-splash-trace{ background:rgba(0,0,0,.08); }
+  .mt-splash-trace::after{
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(90deg,transparent,#a26bff,#ff6bd6,transparent);
+    animation:mtTrace 1.6s ease-in-out infinite;
+  }
+  @keyframes mtTrace{
+    0%{ transform:translateX(-100%); }
+    100%{ transform:translateX(100%); }
+  }
+  .mt-splash-ai-badge{
+    position:absolute; bottom:28px; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; gap:10px;
+    padding:8px 16px; border-radius:20px;
+    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
+    backdrop-filter:blur(10px);
+    font-size:12px; color:#c5b9ff;
+  }
+  body.light-mode .mt-splash-ai-badge{
+    background:rgba(0,0,0,.04); border:1px solid rgba(0,0,0,.08); color:#5b4f9c;
+  }
+  .mt-splash-ai-badge .ai-spark{
+    width:18px; height:18px; border-radius:50%;
+    background:conic-gradient(from 0deg,#4f8bff,#a26bff,#ff6bd6,#4f8bff);
+    animation:mtSpin 2s linear infinite;
+    box-shadow:0 0 14px rgba(162,107,255,.6);
+  }
+  /* particles */
+  .mt-particle{
+    position:absolute; width:4px; height:4px; border-radius:50%;
+    background:rgba(255,255,255,.6); pointer-events:none;
+    animation:mtRise linear infinite;
+  }
+  body.light-mode .mt-particle{ background:rgba(80,80,180,.4); }
+  @keyframes mtRise{
+    0%{ transform:translateY(0) translateX(0); opacity:0; }
+    20%{ opacity:1; }
+    100%{ transform:translateY(-100vh) translateX(40px); opacity:0; }
+  }
 
-/* ===== MyMIX Card (auto-generated playlist tile) ===== */
-@keyframes mpaMixSheen {
-  0%   { transform: translateX(-100%); }
-  100% { transform: translateX(200%); }
-}
-@keyframes mpaMixBreath {
-  0%,100% { box-shadow: 0 0 0 0 rgba(185,100,255,0); }
-  50%     { box-shadow: 0 0 0 6px rgba(185,100,255,.08); }
-}
-.video-card.mymix-card {
-  position: relative;
-  animation: mpaMixBreath 4s ease-in-out infinite;
-  border-radius: 12px;
-}
-.video-card.mymix-card .thumb {
-  position: relative; overflow: hidden;
-  isolation: isolate;
-}
-.video-card.mymix-card .thumb::before {
-  content:''; position: absolute; inset: 0; z-index:2;
-  background: linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,.85) 100%);
-  pointer-events: none;
-}
-.video-card.mymix-card .thumb::after {
-  content:''; position:absolute; top:0; left:0; bottom:0; width: 40%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent);
-  transform: translateX(-100%);
-  animation: mpaMixSheen 4s ease-in-out infinite;
-  z-index:3; pointer-events:none;
-}
-.mymix-badge {
-  position: absolute; left: 8px; bottom: 8px; z-index: 4;
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 5px 9px; border-radius: 6px;
-  background: rgba(0,0,0,.78);
-  color: #fff; font-size: 11px; font-weight: 600;
-  letter-spacing: .5px;
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-}
-.mymix-badge svg { width: 14px; height: 14px; }
-.mymix-badge .mymix-text {
-  background: linear-gradient(90deg, #ff3b5c, #b964ff, #3ea6ff);
-  background-size: 200% 100%;
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-  animation: mpaShimmer 3s ease infinite;
-}
-.mymix-count {
-  position: absolute; right: 8px; top: 8px; z-index: 4;
-  background: rgba(0,0,0,.78); color: #fff;
-  padding: 4px 8px; border-radius: 4px;
-  font-size: 11px; font-weight: 600;
-  display: inline-flex; align-items: center; gap: 4px;
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-}
-.mymix-stack {
-  position: absolute; right: 4px; bottom: -4px; z-index: 1;
-  width: calc(100% - 8px); height: 6px;
-  background: rgba(255,255,255,.12);
-  border-radius: 0 0 8px 8px;
-  transform: translateY(2px);
-}
-.mymix-stack::after {
-  content:''; position:absolute; left:4px; right:4px; bottom:-3px; height:4px;
-  background: rgba(255,255,255,.08); border-radius: 0 0 6px 6px;
-}
-.video-card.mymix-card .meta h3 {
-  background: linear-gradient(90deg, var(--text), var(--text) 40%, #b964ff);
-  -webkit-background-clip: text; background-clip: text;
-}
-.mymix-channel-pill {
-  display:inline-flex; align-items:center; gap:4px;
-  font-size: 11px; color: var(--text-muted);
-}
-.mymix-channel-pill .mymix-spark { font-size: 10px; }
+  /* ============ AI Status Pill (header-ish floating) ============ */
+  .mt-ai-pill{
+    position:fixed; top:70px; right:14px; z-index:900;
+    display:flex; align-items:center; gap:8px;
+    padding:6px 12px; border-radius:18px;
+    background:linear-gradient(120deg,rgba(79,139,255,.18),rgba(162,107,255,.18),rgba(255,107,214,.18));
+    border:1px solid rgba(162,107,255,.35);
+    font-size:11.5px; color:#dccaff; font-weight:500;
+    backdrop-filter:blur(10px);
+    opacity:0; transform:translateY(-6px); pointer-events:none;
+    transition:opacity .35s ease, transform .35s ease;
+    cursor:default; user-select:none;
+  }
+  body.light-mode .mt-ai-pill{
+    background:linear-gradient(120deg,rgba(79,139,255,.08),rgba(162,107,255,.08),rgba(255,107,214,.08));
+    color:#5b4f9c; border:1px solid rgba(162,107,255,.25);
+  }
+  .mt-ai-pill.show{ opacity:1; transform:translateY(0); pointer-events:auto; }
+  .mt-ai-pill .ai-dot{
+    width:8px; height:8px; border-radius:50%;
+    background:radial-gradient(circle,#fff 10%,#a26bff 60%,#4f8bff 100%);
+    box-shadow:0 0 10px rgba(162,107,255,.8);
+    animation:mtPulse 1.6s ease-in-out infinite;
+  }
+  @media (max-width:780px){ .mt-ai-pill{ top:60px; right:8px; font-size:10.5px; padding:5px 10px; } }
 
-/* MyMIX placeholder while generating */
-.mymix-placeholder {
-  position: relative; overflow: hidden;
-  background: linear-gradient(135deg, rgba(255,59,92,.08), rgba(62,166,255,.08));
-  border: 1px solid rgba(185,100,255,.18);
-  border-radius: 12px;
-  aspect-ratio: 16/9;
-  display: flex; align-items: center; justify-content: center;
-  flex-direction: column; gap: 10px;
-}
-.mymix-placeholder::before {
-  content:''; position:absolute; inset:0;
-  background: linear-gradient(90deg, transparent, rgba(185,100,255,.12), transparent);
-  transform: translateX(-100%);
-  animation: mpaMixSheen 1.8s ease-in-out infinite;
-}
-.mymix-placeholder-icon {
-  width: 36px; height: 36px;
-  background: linear-gradient(135deg, #ff3b5c, #b964ff, #3ea6ff);
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  animation: mpaPulse 1.6s ease-in-out infinite;
-  color: #fff; font-size: 18px;
-}
-.mymix-placeholder-label {
-  font-size: 12px; color: var(--text-muted);
-  letter-spacing: .5px;
-}
+  /* ============ MyMIX Card (blends as a regular video-card) ============ */
+  .video-card.mymix-card{
+    position:relative; cursor:pointer; text-decoration:none; color:inherit;
+    isolation:isolate;
+  }
+  .video-card.mymix-card .thumb{
+    position:relative; overflow:hidden;
+  }
+  .video-card.mymix-card .thumb::before{
+    content:""; position:absolute; inset:-2px; border-radius:14px; z-index:-1;
+    background:linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6,#ffb56b,#4f8bff);
+    background-size:300% 100%;
+    animation:mtMixGlow 6s ease infinite;
+    opacity:.55;
+  }
+  body.light-mode .video-card.mymix-card .thumb::before{ opacity:.35; }
+  @keyframes mtMixGlow{
+    0%{ background-position:0% 50%; }
+    50%{ background-position:100% 50%; }
+    100%{ background-position:0% 50%; }
+  }
+  .video-card.mymix-card .thumb img{
+    transition:transform .6s ease, filter .4s ease;
+  }
+  .video-card.mymix-card:hover .thumb img{ transform:scale(1.05); filter:brightness(.7); }
+  .mymix-overlay{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    justify-content:space-between; padding:10px;
+    background:linear-gradient(180deg,rgba(0,0,0,.55) 0%, rgba(0,0,0,.15) 40%, rgba(0,0,0,.65) 100%);
+    pointer-events:none;
+  }
+  .mymix-top-row{ display:flex; align-items:center; gap:6px; }
+  .mymix-badge{
+    display:inline-flex; align-items:center; gap:5px;
+    padding:4px 9px; border-radius:6px;
+    background:linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6);
+    color:#fff; font-size:11px; font-weight:700; letter-spacing:.3px;
+    box-shadow:0 2px 8px rgba(162,107,255,.45);
+  }
+  .mymix-badge .spark{
+    display:inline-block; animation:mtSparkPulse 2.4s ease-in-out infinite;
+  }
+  @keyframes mtSparkPulse{
+    0%,100%{ transform:scale(1) rotate(0); }
+    50%{ transform:scale(1.25) rotate(15deg); }
+  }
+  .mymix-mini-stack{
+    position:absolute; right:8px; top:8px;
+    display:flex; gap:3px;
+  }
+  .mymix-mini-stack span{
+    width:18px; height:24px; border-radius:3px;
+    background:rgba(255,255,255,.18);
+    box-shadow:0 1px 4px rgba(0,0,0,.35);
+    backdrop-filter:blur(2px);
+  }
+  .mymix-mini-stack span:nth-child(1){ height:30px; background:rgba(255,255,255,.28); }
+  .mymix-mini-stack span:nth-child(2){ height:26px; }
+  .mymix-mini-stack span:nth-child(3){ height:22px; background:rgba(255,255,255,.14); }
 
-/* Section separator (genre row) */
-.mpa-genre-row {
-  grid-column: 1 / -1;
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 4px 4px;
-  font-size: 14px; color: var(--text-muted); font-weight: 500;
-}
-.mpa-genre-row .mpa-genre-icon {
-  width: 18px; height: 18px;
-  display:inline-flex; align-items:center; justify-content:center;
-}
-.mpa-genre-tag {
-  display:inline-flex; align-items:center; gap:4px;
-  padding: 2px 8px; border-radius: 999px;
-  font-size: 11px; font-weight: 500;
-  background: rgba(185,100,255,.12); color: #b964ff;
-  border: 1px solid rgba(185,100,255,.2);
-}
-body.light-mode .mpa-genre-tag { background: rgba(185,100,255,.08); }
+  .mymix-bottom{
+    display:flex; align-items:flex-end; justify-content:space-between;
+  }
+  .mymix-count{
+    color:#fff; font-size:13px; font-weight:600;
+    text-shadow:0 1px 3px rgba(0,0,0,.6);
+    display:flex; align-items:center; gap:5px;
+  }
+  .mymix-count svg{ width:14px; height:14px; }
+  .mymix-play{
+    width:38px; height:38px; border-radius:50%;
+    background:rgba(255,255,255,.92); color:#0f0f0f;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 14px rgba(0,0,0,.45);
+    transform:translateY(0);
+    transition:transform .2s ease, background .2s ease;
+  }
+  .video-card.mymix-card:hover .mymix-play{
+    transform:translateY(-2px) scale(1.06);
+    background:#fff;
+  }
+  .mymix-play svg{ width:18px; height:18px; margin-left:2px; }
+
+  .video-card.mymix-card .details h3{
+    background:linear-gradient(120deg,var(--text) 0%, #c8aaff 50%, var(--text) 100%);
+    background-size:200% 100%;
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    animation:mtShine 5s ease-in-out infinite;
+  }
+
+  /* subtle pop-in animation for MyMIX cards */
+  @keyframes mtMixPopIn{
+    0%{ opacity:0; transform:translateY(8px) scale(.97); }
+    100%{ opacity:1; transform:translateY(0) scale(1); }
+  }
+  .video-card.mymix-card{ animation:mtMixPopIn .55s ease both; }
+
+  /* Skeleton placeholder for MyMIX while generating */
+  .mymix-skeleton{
+    position:relative; overflow:hidden; border-radius:12px;
+    background:var(--card);
+    animation:mtMixPopIn .4s ease both;
+  }
+  .mymix-skel-thumb{
+    width:100%; aspect-ratio:16/9; border-radius:12px;
+    position:relative; overflow:hidden;
+    background:linear-gradient(135deg,#1a1230,#231838,#1a1230);
+  }
+  body.light-mode .mymix-skel-thumb{ background:linear-gradient(135deg,#eee,#f7f3ff,#eee); }
+  .mymix-skel-thumb::before{
+    content:""; position:absolute; inset:-2px; border-radius:12px; z-index:0;
+    background:linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6,#4f8bff);
+    background-size:300% 100%; animation:mtMixGlow 4s ease infinite; opacity:.45;
+  }
+  .mymix-skel-thumb::after{
+    content:""; position:absolute; inset:2px; border-radius:11px; background:var(--card); z-index:1;
+  }
+  .mymix-skel-content{
+    position:absolute; inset:0; z-index:2;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+    padding:10px;
+  }
+  .mymix-skel-orb{
+    width:46px; height:46px; border-radius:50%;
+    background:conic-gradient(from 0deg,#4f8bff,#a26bff,#ff6bd6,#4f8bff);
+    animation:mtSpin 2s linear infinite;
+    position:relative;
+  }
+  .mymix-skel-orb::after{
+    content:"✨"; position:absolute; inset:6px; border-radius:50%;
+    background:var(--card); display:flex; align-items:center; justify-content:center;
+    font-size:18px;
+  }
+  .mymix-skel-text{
+    font-size:12.5px; color:var(--text-muted); text-align:center; letter-spacing:.3px;
+    transition:opacity .3s ease;
+  }
+  .mymix-skel-bar{
+    width:75%; height:3px; border-radius:3px; background:rgba(255,255,255,.08); overflow:hidden; position:relative;
+  }
+  body.light-mode .mymix-skel-bar{ background:rgba(0,0,0,.08); }
+  .mymix-skel-bar::after{
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(90deg,transparent,#a26bff,transparent);
+    animation:mtTrace 1.4s ease-in-out infinite;
+  }
+  .mymix-skel-meta{
+    padding:10px 4px 4px; display:flex; gap:8px; align-items:flex-start;
+  }
+  .mymix-skel-avatar{
+    width:36px; height:36px; border-radius:50%; flex-shrink:0;
+    background:linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6);
+    background-size:200% 200%;
+    animation:mtMixGlow 3s ease infinite;
+    opacity:.4;
+  }
+  .mymix-skel-lines{ flex:1; display:flex; flex-direction:column; gap:6px; }
+  .mymix-skel-line{
+    height:10px; border-radius:4px;
+    background:linear-gradient(90deg,rgba(255,255,255,.05) 0%,rgba(255,255,255,.12) 50%,rgba(255,255,255,.05) 100%);
+    background-size:200% 100%; animation:mtSkelShine 1.6s ease-in-out infinite;
+  }
+  body.light-mode .mymix-skel-line{
+    background:linear-gradient(90deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.1) 50%,rgba(0,0,0,.05) 100%);
+    background-size:200% 100%;
+  }
+  .mymix-skel-line.short{ width:55%; }
+  @keyframes mtSkelShine{
+    0%{ background-position:200% 0; }
+    100%{ background-position:-200% 0; }
+  }
+
+  /* ============ Smart Feed feedback toast (AI activity) ============ */
+  .mt-ai-thought{
+    position:fixed; bottom:24px; left:24px; z-index:2500;
+    max-width:300px; padding:10px 14px;
+    background:rgba(20,15,40,.92); color:#dccaff;
+    border:1px solid rgba(162,107,255,.35); border-radius:14px;
+    backdrop-filter:blur(10px);
+    font-size:12px; line-height:1.45;
+    display:flex; align-items:flex-start; gap:8px;
+    opacity:0; transform:translateY(8px); pointer-events:none;
+    transition:opacity .3s ease, transform .3s ease;
+    box-shadow:0 8px 30px rgba(0,0,0,.4);
+  }
+  body.light-mode .mt-ai-thought{
+    background:rgba(255,255,255,.96); color:#3a2a6c;
+    border:1px solid rgba(162,107,255,.3);
+  }
+  .mt-ai-thought.show{ opacity:1; transform:translateY(0); }
+  .mt-ai-thought .ai-icon{
+    width:18px; height:18px; border-radius:50%; flex-shrink:0;
+    background:conic-gradient(from 0deg,#4f8bff,#a26bff,#ff6bd6,#4f8bff);
+    animation:mtSpin 3s linear infinite;
+    box-shadow:0 0 8px rgba(162,107,255,.6);
+    margin-top:1px;
+  }
+  @media (max-width:780px){ .mt-ai-thought{ left:12px; right:12px; bottom:80px; max-width:none; } }
 </style>
 
+<!-- Splash injected immediately -->
+<div id="mtSplash" aria-hidden="true">
+  <div class="mt-splash-orb"></div>
+  <div class="mt-splash-title">MIN-Tube-Pro<br><span style="font-size:18px;font-weight:500;opacity:.85;">with MIN-Pro-AI ✨</span></div>
+  <div class="mt-splash-sub">
+    <span>MIN-Pro-AI が起動中</span>
+    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+  </div>
+  <div class="mt-splash-trace"></div>
+  <div class="mt-splash-ai-badge">
+    <span class="ai-spark"></span>
+    <span>AI があなたの好みを学習しています</span>
+  </div>
+</div>
+
+<!-- AI status pill -->
+<div class="mt-ai-pill" id="mtAiPill" title="MIN-Pro-AI">
+  <span class="ai-dot"></span>
+  <span id="mtAiPillText">MIN-Pro-AI 待機中</span>
+</div>
+
+<!-- AI thought toast -->
+<div class="mt-ai-thought" id="mtAiThought">
+  <span class="ai-icon"></span>
+  <span id="mtAiThoughtText"></span>
+</div>
+
+<script>
+/* ====================================================================
+   MIN-Pro-AI v2 :: Smart Feed Engine + MyMIX Playlist Generator
+   This entire module is additive. It does NOT modify existing
+   functions; it only monkey-patches loadPersonalizedFeed at runtime
+   so the original behavior is preserved for everything else.
+   ==================================================================== */
+(function MinProAIv2(){
+  'use strict';
+
+  /* ---------- 1. Splash control ---------- */
+  const splash = document.getElementById('mtSplash');
+  // particles
+  try{
+    for(let i=0;i<22;i++){
+      const p = document.createElement('span');
+      p.className = 'mt-particle';
+      p.style.left = (Math.random()*100)+'%';
+      p.style.bottom = '-10px';
+      p.style.animationDuration = (5 + Math.random()*5)+'s';
+      p.style.animationDelay = (Math.random()*4)+'s';
+      p.style.opacity = (0.3 + Math.random()*0.5);
+      p.style.width = p.style.height = (2 + Math.random()*4)+'px';
+      splash.appendChild(p);
+    }
+  }catch(e){}
+
+  let splashHidden = false;
+  function hideSplash(){
+    if (splashHidden) return; splashHidden = true;
+    splash.classList.add('hidden');
+    setTimeout(()=>{ try{ splash.remove(); }catch(e){} }, 800);
+  }
+  // Hard timeout fallback so user is never stuck
+  setTimeout(hideSplash, 4500);
+  // Wait for first batch of cards
+  const grid = document.getElementById('videoGrid');
+  if (grid){
+    const obs = new MutationObserver((muts)=>{
+      const hasCard = grid.querySelector('.video-card');
+      if (hasCard){
+        // ensure splash visible at least 900ms for the cool animation
+        setTimeout(hideSplash, 900);
+        obs.disconnect();
+      }
+    });
+    obs.observe(grid, { childList:true });
+  }
+
+  /* ---------- 2. AI status helpers ---------- */
+  const aiPill = document.getElementById('mtAiPill');
+  const aiPillText = document.getElementById('mtAiPillText');
+  const aiThought = document.getElementById('mtAiThought');
+  const aiThoughtText = document.getElementById('mtAiThoughtText');
+  let _pillTimer=null, _thoughtTimer=null;
+  function showPill(text, dur=4000){
+    if (!aiPill) return;
+    aiPillText.textContent = text;
+    aiPill.classList.add('show');
+    clearTimeout(_pillTimer);
+    _pillTimer = setTimeout(()=>aiPill.classList.remove('show'), dur);
+  }
+  function showThought(text, dur=3200){
+    if (!aiThought) return;
+    aiThoughtText.textContent = text;
+    aiThought.classList.add('show');
+    clearTimeout(_thoughtTimer);
+    _thoughtTimer = setTimeout(()=>aiThought.classList.remove('show'), dur);
+  }
+
+  /* ---------- 3. Groq key pool + rotation ---------- */
+  const GROQ_KEYS = [
+    "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",
+    "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",
+    "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",
+    "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" // existing key as 4th
+  ];
+  const GROQ_MODELS = [
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant"
+  ];
+  const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+
+  // Stable per-key dead-flags (reset after 60s)
+  const keyHealth = GROQ_KEYS.map(()=>({ dead:false, deadUntil:0 }));
+  function pickHealthyKeyIndex(){
+    const now = Date.now();
+    // recover keys
+    keyHealth.forEach(k => { if (k.dead && now > k.deadUntil){ k.dead=false; }});
+    const healthy = GROQ_KEYS.map((_,i)=>i).filter(i => !keyHealth[i].dead);
+    if (healthy.length === 0){
+      // all dead, force reset
+      keyHealth.forEach(k => k.dead=false);
+      return Math.floor(Math.random()*GROQ_KEYS.length);
+    }
+    return healthy[Math.floor(Math.random()*healthy.length)];
+  }
+
+  async function callGroqSmart({ system, user, model, maxTokens=600, temperature=0.7, tries=3 } = {}){
+    const usedIdx = new Set();
+    let lastErr = null;
+    for (let t=0; t<tries; t++){
+      let idx;
+      // pick a key not yet tried in this call
+      const candidates = GROQ_KEYS.map((_,i)=>i).filter(i => !usedIdx.has(i) && !keyHealth[i].dead);
+      idx = candidates.length > 0
+        ? candidates[Math.floor(Math.random()*candidates.length)]
+        : pickHealthyKeyIndex();
+      usedIdx.add(idx);
+      const key = GROQ_KEYS[idx];
+      const useModel = model || GROQ_MODELS[Math.floor(Math.random()*GROQ_MODELS.length)];
+      try{
+        const res = await fetch(GROQ_URL, {
+          method:'POST',
+          headers:{
+            'Authorization':`Bearer ${key}`,
+            'Content-Type':'application/json'
+          },
+          body: JSON.stringify({
+            model: useModel,
+            messages: [
+              { role:'system', content: system },
+              { role:'user', content: user }
+            ],
+            temperature, max_tokens: maxTokens
+          })
+        });
+        if (res.status === 429 || res.status === 401 || res.status === 403){
+          keyHealth[idx].dead = true;
+          keyHealth[idx].deadUntil = Date.now() + 60_000;
+          lastErr = new Error('Rate / auth on key '+idx+': '+res.status);
+          continue;
+        }
+        if (!res.ok){
+          lastErr = new Error('HTTP '+res.status);
+          continue;
+        }
+        const data = await res.json();
+        return data?.choices?.[0]?.message?.content || '';
+      } catch(e){
+        lastErr = e;
+        continue;
+      }
+    }
+    throw lastErr || new Error('All AI keys failed');
+  }
+
+  /* ---------- 4. User profile analyzer ---------- */
+  const LIB_HISTORY = 'mt_history';
+  const LIB_LIKED = 'mt_liked';
+  const PROFILE_CACHE_KEY = 'minpro_ai_profile_v2';
+  const PROFILE_TTL_MS = 6 * 60 * 60 * 1000; // 6h
+
+  function libGetX(key){
+    try{ return JSON.parse(localStorage.getItem(key)||'[]'); }catch{ return []; }
+  }
+  function getSubs(){
+    const c=[];
+    for (let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      if (k && k.startsWith('subscribed_') && localStorage.getItem(k)==='true'){
+        c.push(k.replace('subscribed_',''));
+      }
+    }
+    return c;
+  }
+
+  // Simple lexical signal -> coarse genre detection (offline fallback)
+  const GENRE_SIGNALS = {
+    'Music':       /\b(mv|music|歌|songs?|歌ってみた|cover|official|ライブ|live performance)\b|【mv】|オリジナル曲|歌詞|lyric|piano|guitar|drum/i,
+    'J-POP':       /(j-?pop|yoasobi|あいみょん|米津玄師|adoの|king ?gnu|official髭男|mrs\.? ?green ?apple|back ?number|ヨルシカ|ずっと真夜中|ado |米津)/i,
+    'アニメ/アニソン': /(アニメ|anime|アニソン|opening|ending|主題歌|tv ?size)/i,
+    'ボカロ':      /(ボーカロイド|vocaloid|初音ミク|ミクの|miku|hatsune)/i,
+    'K-POP':       /(k-?pop|bts|blackpink|twice|stray ?kids|nct|seventeen|aespa|新曲|新曲mv|韓国)/i,
+    'ゲーム実況':  /(実況|プレイ動画|gameplay|play through|let's play|攻略|チャレンジ|生放送)/i,
+    'マイクラ':    /(マイクラ|minecraft|mod紹介|建築|サバイバル)/i,
+    'FPS':         /(apex|valorant|cod|fortnite|フォートナイト|スプラ|splatoon|fps|tps)/i,
+    'ホラーゲーム':/(ホラー|horror|脱出|サイレント|outlast|お化け|心霊)/i,
+    'スポーツ':    /(サッカー|野球|nba|nfl|wbc|スポーツ|highlights?|ゴール|本塁打|アシスト)/i,
+    'テック':      /(レビュー|開封|iphone|android|apple|google|chatgpt|ai|gpu|cpu|m\d?チップ|スマホ|新製品|発表会)/i,
+    '動画エッセイ':/(解説|考察|歴史|まとめ|なぜ|どうして|理由|徹底|深掘|video essay)/i,
+    'ドッキリ':    /(ドッキリ|prank|サプライズ)/i,
+    'お笑い/エンタメ':/(コント|お笑い|漫才|ネタ|芸人|m-?1)/i,
+    'EDM/クラブ':  /(edm|remix|festival|tomorrowland|club|bass|house|dubstep|edc|electronic)/i,
+    'Lo-Fi':       /(lo-?fi|chill|study|relax|jazz hop|beats)/i,
+    'クラシック':  /(クラシック|classical|symphony|piano sonata|交響|協奏)/i,
+    'ASMR':        /(asmr|囁き|ささやき|耳かき)/i,
+    '料理':        /(レシピ|料理|cooking|recipe|食レポ)/i,
+    '旅行/Vlog':   /(vlog|ヴログ|旅|trip|travel|観光|モーニングルーティン)/i,
+    '車':          /(車|レビュー|試乗|スポーツカー|レース|f1|wec|drift)/i,
+    'ニュース':    /(ニュース|news|速報|報道|解説)/i
+  };
+  function detectGenres(text){
+    const out = {};
+    for (const [g, re] of Object.entries(GENRE_SIGNALS)){
+      if (re.test(text)) out[g] = (out[g]||0) + 1;
+    }
+    return out;
+  }
+
+  function buildLocalProfile(){
+    const hist = libGetX(LIB_HISTORY).slice(0, 60);
+    const liked = libGetX(LIB_LIKED).slice(0, 40);
+    const subs = getSubs();
+
+    const genreScore = {};
+    const channelScore = {};
+    const keyWordBag = {};
+
+    function bump(map, key, w){
+      if (!key) return; map[key] = (map[key]||0) + w;
+    }
+
+    function processItem(it, baseWeight){
+      const title = (it.title||'').trim();
+      const channel = (it.channel||it.channelTitle||'').trim();
+      const combined = title + ' ' + channel;
+      const genres = detectGenres(combined);
+      for (const g of Object.keys(genres)) bump(genreScore, g, baseWeight * genres[g]);
+      if (channel) bump(channelScore, channel, baseWeight);
+      // Title token bag (length>=3, non-noise)
+      const tokens = title
+        .replace(/[【】「」()!！?？\[\]#♪★☆◆◇/／・,，.。:：;；\-—|~〜]+/g,' ')
+        .split(/\s+/)
+        .filter(w => w.length >= 3 && !/^[a-z]{1,3}$/i.test(w));
+      tokens.slice(0,6).forEach(t => bump(keyWordBag, t.toLowerCase(), baseWeight*0.3));
+    }
+    hist.forEach((h, idx) => processItem(h, 1.0 * (1 - idx/120)));
+    liked.forEach(h => processItem(h, 2.0));
+    subs.forEach(s => bump(channelScore, s, 2.5));
+
+    const sortMap = (m, n) => Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,n);
+    return {
+      topGenres: sortMap(genreScore, 6).map(([k])=>k),
+      topChannels: sortMap(channelScore, 8).map(([k])=>k),
+      topKeywords: sortMap(keyWordBag, 10).map(([k])=>k),
+      historyCount: hist.length,
+      likedCount: liked.length,
+      subCount: subs.length
+    };
+  }
+
+  function getCachedProfile(){
+    try{
+      const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      if (!obj || Date.now() - obj.savedAt > PROFILE_TTL_MS) return null;
+      return obj;
+    }catch{ return null; }
+  }
+  function saveProfileCache(p){
+    try{
+      p.savedAt = Date.now();
+      localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(p));
+    }catch{}
+  }
+
+  // Use AI to refine genres & generate diverse exploration topics (cached)
+  async function getEnrichedProfile(forceRefresh=false){
+    if (!forceRefresh){
+      const c = getCachedProfile();
+      if (c) return c;
+    }
+    const local = buildLocalProfile();
+    if (local.historyCount + local.likedCount + local.subCount < 3){
+      // Not enough data -> just return the local skeleton
+      saveProfileCache(local);
+      return local;
+    }
+    try{
+      showThought('MIN-Pro-AI があなたの興味を分析しています…');
+      const system = (
+        "あなたはYouTubeユーザーの興味を分析するAIアシスタントです。"
+        + "ユーザーの視聴履歴・登録チャンネル・キーワードから、"
+        + "(1) 主要興味ジャンル(日本語短語、最大5個) "
+        + "(2) その人がまだ見ていないが好きそうな関連ジャンル/探索キーワード(最大5個) "
+        + "(3) おすすめ検索キーワード（YouTube日本語検索でヒットしやすい具体語、最大8個） "
+        + "を出力してください。"
+        + "出力は厳密に JSON のみで、前置きや```記法なしで返してください。"
+        + 'スキーマ: {"core_genres":[],"explore_genres":[],"search_keywords":[]}'
+      );
+      const user = (
+        `視聴履歴上位ジャンル: ${local.topGenres.join(', ') || '不明'}\n` +
+        `よく見るチャンネル: ${local.topChannels.slice(0,6).join(', ') || '不明'}\n` +
+        `頻出キーワード: ${local.topKeywords.join(', ') || '不明'}\n` +
+        '上記から、その人の趣味の中心と、関連する未開拓ジャンル/おすすめキーワードを出してください。'
+      );
+      const raw = await callGroqSmart({ system, user, maxTokens:400, temperature:0.55, tries:2 });
+      // Extract JSON
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (m){
+        const parsed = JSON.parse(m[0]);
+        const merged = {
+          ...local,
+          aiCoreGenres: Array.isArray(parsed.core_genres) ? parsed.core_genres.slice(0,5) : [],
+          aiExploreGenres: Array.isArray(parsed.explore_genres) ? parsed.explore_genres.slice(0,5) : [],
+          aiSearchKeywords: Array.isArray(parsed.search_keywords) ? parsed.search_keywords.slice(0,8) : []
+        };
+        saveProfileCache(merged);
+        return merged;
+      }
+    }catch(e){
+      console.warn('[MIN-Pro-AI] profile enrich failed, fallback:', e);
+    }
+    saveProfileCache(local);
+    return local;
+  }
+
+  /* ---------- 5. Smart Feed mixer ---------- */
+  async function fetchJSON(url){
+    try{
+      const r = await fetch(url);
+      if (!r.ok) return [];
+      const d = await r.json();
+      return (d && d.items) ? d.items : (Array.isArray(d) ? d : []);
+    }catch{ return []; }
+  }
+
+  function normalizeItem(it){
+    if (!it) return null;
+    let id = null;
+    if (typeof it.id === 'string') id = it.id;
+    else if (it.id && typeof it.id === 'object'){ id = it.id.videoId || it.id.channelId || it.id.playlistId || null; }
+    else if (it.videoId) id = it.videoId;
+    if (!id) return null;
+    id = String(id);
+    if (id.startsWith('UC')) return null;
+    return Object.assign({}, it, { id });
+  }
+
+  // Pull N pools of items: personal vs exploration
+  async function gatherSmartItems(profile, page){
+    const personalSeeds = [];
+    const exploreSeeds = [];
+
+    // ----- Personal seeds (use AI core + channels + a couple keywords)
+    const coreGenres = (profile.aiCoreGenres && profile.aiCoreGenres.length)
+      ? profile.aiCoreGenres
+      : profile.topGenres;
+    const channels = profile.topChannels || [];
+
+    // mix 3 personal seeds (rotating by page)
+    const pSeedBag = [...coreGenres, ...channels.slice(0,4), ...(profile.topKeywords||[]).slice(0,3)];
+    // shuffle deterministically per page
+    const shuffled = pSeedBag.slice().sort(() => Math.random() - 0.5);
+    const personalPick = shuffled.slice(0, 3);
+    personalPick.forEach(s => personalSeeds.push(s));
+
+    // ----- Exploration seeds (AI explore + AI search + curated fallback)
+    const explore = [
+      ...(profile.aiExploreGenres||[]),
+      ...(profile.aiSearchKeywords||[])
+    ];
+    const FALLBACK_EXPLORE = ['trending','Music','エンタメ','話題','面白い','ゲーム','アニメ','検証','解説'];
+    const explorePool = explore.length > 0 ? explore : FALLBACK_EXPLORE;
+    const eShuffled = explorePool.slice().sort(() => Math.random() - 0.5);
+    const explorePick = eShuffled.slice(0, 3);
+    explorePick.forEach(s => exploreSeeds.push(s));
+    // always sprinkle trending
+    exploreSeeds.push('trending');
+
+    function endpointFor(seed){
+      if (seed === 'trending') return `/api/trending?page=${page}`;
+      return `/api/search?q=${encodeURIComponent(seed)}&page=${page}`;
+    }
+
+    const [personalRaw, exploreRaw] = await Promise.all([
+      Promise.all(personalSeeds.map(s => fetchJSON(endpointFor(s)))).then(rs => rs.flat()),
+      Promise.all(exploreSeeds.map(s => fetchJSON(endpointFor(s)))).then(rs => rs.flat())
+    ]);
+
+    const personal = personalRaw.map(normalizeItem).filter(Boolean);
+    const expl = exploreRaw.map(normalizeItem).filter(Boolean);
+    return { personal, expl, personalSeeds, exploreSeeds };
+  }
+
+  // Score items: prefer channel diversity + AI-related but not seen
+  function scoreItems(items, profile, isPersonalBucket, seenChannels, seenIds, displayedIds){
+    const out = [];
+    for (const it of items){
+      if (!it || !it.id) continue;
+      if (displayedIds.has(it.id)) continue;
+      if (seenIds.has(it.id)) continue;
+      const title = (it.title||'').toString();
+      const ch = (it.channelTitle||'').toString();
+      // Filter: avoid exact-title repeats from history
+      const hist = libGetX(LIB_HISTORY);
+      const isDup = hist.some(h => h.id === it.id || ((h.title||'').trim() && (h.title||'').trim() === title.trim()));
+      if (isDup) continue;
+
+      let score = 1;
+      // channel diversity penalty
+      const chCount = seenChannels.get(ch) || 0;
+      score -= chCount * 0.6;
+      // genre match boost (for personal items)
+      if (isPersonalBucket){
+        const g = detectGenres(title + ' ' + ch);
+        const matches = Object.keys(g).filter(x => (profile.topGenres||[]).includes(x) || (profile.aiCoreGenres||[]).includes(x)).length;
+        score += matches * 0.4;
+      } else {
+        // novelty boost for explore
+        score += 0.25;
+      }
+      // small random factor for natural shuffle
+      score += Math.random() * 0.3;
+      out.push({ it, score, ch });
+    }
+    out.sort((a,b)=>b.score - a.score);
+    return out;
+  }
+
+  // Interleave personal+explore so layout ~ 50/50 with smart shuffle
+  function interleaveFeed(personalScored, exploreScored, displayedIds, hardLimit=40){
+    const final = [];
+    const seenChannels = new Map();
+    const seenIds = new Set();
+
+    let pi=0, ei=0;
+    // base pattern: P E E P  P E E P  ... ~50/50, but with no 3 same in a row
+    const pattern = ['P','E','E','P','E','P','P','E','E','P','P','E','E','P','E','P','P','E','E','P'];
+    let patIdx=0;
+    function pushFrom(arr){
+      while (arr.length){
+        const cand = arr.shift();
+        if (!cand) continue;
+        const ch = cand.ch;
+        if (seenIds.has(cand.it.id)) continue;
+        if (displayedIds.has(cand.it.id)) continue;
+        // hard cap on same channel
+        if ((seenChannels.get(ch)||0) >= 2) continue;
+        seenIds.add(cand.it.id);
+        seenChannels.set(ch, (seenChannels.get(ch)||0)+1);
+        final.push(cand.it);
+        return true;
+      }
+      return false;
+    }
+    while (final.length < hardLimit && (personalScored.length || exploreScored.length)){
+      const want = pattern[patIdx % pattern.length];
+      patIdx++;
+      if (want === 'P'){
+        if (!pushFrom(personalScored) && !pushFrom(exploreScored)) break;
+      } else {
+        if (!pushFrom(exploreScored) && !pushFrom(personalScored)) break;
+      }
+    }
+    return final;
+  }
+
+  // Build a real video-card DOM (compatible with existing CSS)
+  function buildVideoCard(item){
+    const card = document.createElement('a');
+    card.className = 'video-card';
+    card.href = `/video/${item.id}`;
+    const thumbUrl = (typeof window.getThumbUrl === 'function')
+      ? window.getThumbUrl(item.id, 'mq')
+      : `https://i3.ytimg.com/vi/${item.id}/mqdefault.jpg`;
+    const channel = item.channelTitle || '';
+    const viewText = item.viewCountText || '';
+    const published = item.publishedTimeText || '';
+    const initial = channel ? channel[0].toUpperCase() : 'C';
+    const avatarUrl = item.channelThumbnail || item.channelImage || '';
+    const safeAttr = s => String(s||'').replace(/"/g,'&quot;');
+    card.innerHTML = `
+      <div class="thumb">
+        <img src="${thumbUrl}" loading="lazy" alt="${safeAttr(item.title||'動画')}">
+        ${item.lengthText ? `<div class="duration-badge">${item.lengthText}</div>` : ''}
+      </div>
+      <div class="meta">
+        <a href="/channel/${encodeURIComponent(channel)}" class="channel-avatar" data-initial="${initial}" onclick="event.stopPropagation()" style="text-decoration:none;">
+          <span class="avatar-initial">${initial}</span>
+          ${avatarUrl ? `<img src="${avatarUrl}" alt="${safeAttr(channel)}" onload="this.classList.add('loaded')" onerror="this.remove()">` : ''}
+        </a>
+        <div class="details">
+          <h3>${item.title||''}</h3>
+          <a href="/channel/${encodeURIComponent(channel)}" class="channel-name" onclick="event.stopPropagation()" style="text-decoration:none;color:var(--text-muted);">${channel}</a>
+          <div class="video-stats">${viewText}${viewText && published ? ' • ' : ''}${published}</div>
+        </div>
+        <button class="card-menu-btn" aria-label="メニュー" data-id="${item.id}" data-title="${safeAttr(item.title)}" data-channel="${safeAttr(channel)}" data-views="${safeAttr(viewText)}" data-published="${safeAttr(published)}">⋮</button>
+      </div>
+    `;
+    if (!avatarUrl){
+      const avatarEl = card.querySelector('.channel-avatar');
+      const img = document.createElement('img');
+      img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(channel)}&background=random&color=fff&size=64&bold=true`;
+      img.alt = channel;
+      img.onload = () => img.classList.add('loaded');
+      img.onerror = () => img.remove();
+      avatarEl.appendChild(img);
+    }
+    return card;
+  }
+
+  // Build shorts card
+  function buildShortCard(item){
+    const a = document.createElement('a');
+    a.className = 'short-card';
+    a.href = `/video/${item.id}`;
+    const thumbUrl = (typeof window.getThumbUrl === 'function') ? window.getThumbUrl(item.id, 'hq') : `https://i3.ytimg.com/vi/${item.id}/hqdefault.jpg`;
+    a.innerHTML = `
+      <div class="short-thumb">
+        <img src="${thumbUrl}" loading="lazy" alt="${(item.title||'').replace(/"/g,'&quot;')}">
+        <div class="short-overlay">
+          <div class="short-title">${item.title||''}</div>
+          <div class="short-views">${item.viewCountText||''}</div>
+        </div>
+      </div>
+    `;
+    return a;
+  }
+
+  /* ---------- 6. MyMIX playlist (deferred, cached) ---------- */
+  const MYMIX_CACHE_KEY = 'minpro_mymix_v2';
+  const MYMIX_TTL_MS = 12 * 60 * 60 * 1000; // 12h
+  const MYMIX_VIEWED_KEY = 'minpro_mymix_skipped';
+
+  function getCachedMyMix(){
+    try{
+      const raw = localStorage.getItem(MYMIX_CACHE_KEY);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      if (!obj || Date.now() - obj.savedAt > MYMIX_TTL_MS) return null;
+      if (!obj.items || obj.items.length < 3) return null;
+      return obj;
+    }catch{ return null; }
+  }
+  function saveMyMix(mix){
+    try{
+      mix.savedAt = Date.now();
+      localStorage.setItem(MYMIX_CACHE_KEY, JSON.stringify(mix));
+    }catch{}
+  }
+
+  async function fetchSingleSearch(query){
+    try{
+      const r = await fetch(`/api/1-search?q=${encodeURIComponent(query)}`);
+      if (!r.ok) return null;
+      const d = await r.json();
+      let it = null;
+      if (Array.isArray(d)) it = d.find(x => x && x.id && (x.type ? x.type==='video' : true));
+      else if (d && d.id) it = d;
+      else if (d && Array.isArray(d.items)) it = d.items.find(x => x && x.id);
+      else if (d && Array.isArray(d.results)) it = d.results.find(x => x && x.id);
+      if (!it || !it.id) return null;
+      return {
+        id: it.id,
+        title: it.title || query,
+        channelTitle: it.channelTitle || (it.shortBylineText?.runs?.[0]?.text) || '',
+        thumbnail: it.thumbnail?.thumbnails?.[1]?.url || it.thumbnail?.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${it.id}/hqdefault.jpg`,
+        length: it.length?.simpleText || ''
+      };
+    }catch{ return null; }
+  }
+
+  async function buildMyMixWithoutAI(profile){
+    // Use top channels + top keywords to harvest popular videos (no AI).
+    // Strategy:
+    //  - For each top channel, search "<channel> 人気" to grab popular uploads
+    //  - For each top genre, fetch /api/search and pick top
+    //  - Combine, dedupe, shuffle a bit, keep up to 14
+    const channels = (profile.topChannels||[]).slice(0,4);
+    const genres = (profile.aiCoreGenres && profile.aiCoreGenres.length ? profile.aiCoreGenres : (profile.topGenres||[])).slice(0,3);
+    const exploreKw = (profile.aiSearchKeywords||[]).slice(0,3);
+
+    const tasks = [];
+    channels.forEach(c => tasks.push(fetchJSON(`/api/search?q=${encodeURIComponent(c + ' 人気')}&page=0`)));
+    genres.forEach(g => tasks.push(fetchJSON(`/api/search?q=${encodeURIComponent(g)}&page=0`)));
+    exploreKw.forEach(kw => tasks.push(fetchJSON(`/api/search?q=${encodeURIComponent(kw)}&page=0`)));
+    if (tasks.length === 0){
+      tasks.push(fetchJSON('/api/trending?page=0'));
+    }
+    const results = await Promise.all(tasks);
+    const flat = results.flat().map(normalizeItem).filter(Boolean);
+
+    // Filter out shorts (#) and items already in history
+    const histIds = new Set(libGetX(LIB_HISTORY).map(h => h.id));
+    const seen = new Set();
+    const items = [];
+    for (const it of flat){
+      if (!it.id || seen.has(it.id)) continue;
+      const title = (it.title||'').toString();
+      if (title.includes('#')) continue;
+      if (histIds.has(it.id)) continue; // skip already-watched
+      seen.add(it.id);
+      items.push({
+        id: it.id,
+        title,
+        channelTitle: it.channelTitle || '',
+        thumbnail: `https://i.ytimg.com/vi/${it.id}/hqdefault.jpg`,
+        length: it.lengthText || ''
+      });
+      if (items.length >= 18) break;
+    }
+    // mild shuffle but keep top items near front
+    const top = items.slice(0,4);
+    const rest = items.slice(4).sort(()=>Math.random()-0.5);
+    return top.concat(rest).slice(0, 14);
+  }
+
+  function buildMyMixCard(mix){
+    const card = document.createElement('a');
+    card.className = 'video-card mymix-card';
+    card.href = 'javascript:void(0)';
+    const first = mix.items[0];
+    const thumbUrl = `https://i.ytimg.com/vi/${first.id}/hqdefault.jpg`;
+    card.innerHTML = `
+      <div class="thumb">
+        <img src="${thumbUrl}" loading="lazy" alt="MyMIX">
+        <div class="mymix-mini-stack" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="mymix-overlay">
+          <div class="mymix-top-row">
+            <span class="mymix-badge"><span class="spark">✨</span> MyMIX</span>
+          </div>
+          <div class="mymix-bottom">
+            <span class="mymix-count">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v2H4V6m0 5h16v2H4v-2m0 5h10v2H4v-2m12 0v6l5-3-5-3z"/></svg>
+              ${mix.items.length} 本のミックス
+            </span>
+            <span class="mymix-play" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </span>
+          </div>
+        </div>
+        <div class="duration-badge">プレイリスト</div>
+      </div>
+      <div class="meta">
+        <a href="javascript:void(0)" class="channel-avatar" data-initial="✨" onclick="event.stopPropagation()" style="text-decoration:none;background:linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6);color:#fff;">
+          <span class="avatar-initial" style="color:#fff;">✨</span>
+        </a>
+        <div class="details">
+          <h3>MyMIX ・ あなたのために MIN-Pro-AI が選曲</h3>
+          <span class="channel-name" style="color:var(--text-muted);">MIN-Pro-AI ・ パーソナル ミックス</span>
+          <div class="video-stats">${mix.items.length} 本 ・ あなたの好みから自動生成</div>
+        </div>
+      </div>
+    `;
+    card.addEventListener('click', (e)=>{
+      e.preventDefault();
+      openMyMixPlayer(mix);
+    });
+    return card;
+  }
+
+  function buildMyMixSkeleton(){
+    const wrap = document.createElement('div');
+    wrap.className = 'video-card mymix-skeleton-card';
+    wrap.setAttribute('data-mymix-placeholder','1');
+    wrap.innerHTML = `
+      <div class="mymix-skel-thumb">
+        <div class="mymix-skel-content">
+          <div class="mymix-skel-orb"></div>
+          <div class="mymix-skel-text" data-mymix-skel-text>MyMIX を生成しています…</div>
+          <div class="mymix-skel-bar"></div>
+        </div>
+      </div>
+      <div class="mymix-skel-meta">
+        <div class="mymix-skel-avatar"></div>
+        <div class="mymix-skel-lines">
+          <div class="mymix-skel-line"></div>
+          <div class="mymix-skel-line short"></div>
+        </div>
+      </div>
+    `;
+    return wrap;
+  }
+
+  function openMyMixPlayer(mix){
+    const items = mix.items;
+    const win = window.open('about:blank','_blank');
+    if (!win){ alert('ポップアップがブロックされました。'); return; }
+    const payload = JSON.stringify(items).replace(/<\/script/g,'<\\/script');
+    const html = `<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MyMIX ・ MIN-Tube-Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:#0f0f0f;color:#f1f1f1;font-family:'Roboto',Arial,sans-serif;height:100%;}
+  .app{display:flex;height:100vh;width:100vw;}
+  .player-wrap{flex:1;min-width:0;display:flex;flex-direction:column;background:#000;}
+  .player-box{position:relative;width:100%;flex:1;background:#000;}
+  .player-box iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+  .now-playing{padding:14px 18px;background:#0f0f0f;border-top:1px solid #2a2a2a;}
+  .np-title{font-size:16px;font-weight:600;margin:0 0 4px;line-height:1.35;}
+  .np-channel{font-size:13px;color:#aaa;}
+  .pl-side{width:380px;max-width:42vw;background:#181818;border-left:1px solid #2a2a2a;display:flex;flex-direction:column;}
+  .pl-head{padding:14px 16px;border-bottom:1px solid #2a2a2a;display:flex;align-items:center;gap:8px;}
+  .pl-head .spark{background:linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-size:20px;}
+  .pl-title{font-size:15px;font-weight:700;flex:1;}
+  .pl-sub{font-size:11.5px;color:#aaa;margin-top:2px;}
+  .pl-count{font-size:12px;color:#aaa;}
+  .pl-list{flex:1;overflow-y:auto;}
+  .pl-list::-webkit-scrollbar{width:6px;} .pl-list::-webkit-scrollbar-thumb{background:#3f3f3f;border-radius:3px;}
+  .pl-item{display:flex;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);transition:background .12s;align-items:center;}
+  .pl-item:hover{background:#272727;}
+  .pl-item.active{background:linear-gradient(90deg,rgba(79,139,255,0.18),rgba(162,107,255,0.18));}
+  .pl-item.active .pl-idx{color:#c8aaff;}
+  .pl-idx{width:18px;text-align:center;font-size:12px;color:#888;flex-shrink:0;}
+  .pl-thumb{width:96px;height:54px;border-radius:6px;object-fit:cover;background:#000;flex-shrink:0;}
+  .pl-info{flex:1;min-width:0;}
+  .pl-it-title{font-size:13px;font-weight:500;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .pl-it-ch{font-size:11.5px;color:#aaa;margin-top:3px;}
+  .pl-controls{display:flex;gap:6px;padding:10px 12px;border-top:1px solid #2a2a2a;background:#0f0f0f;}
+  .pl-controls button{flex:1;background:#272727;border:none;color:#f1f1f1;padding:9px 8px;border-radius:8px;cursor:pointer;font-size:12.5px;font-family:inherit;transition:background .12s;}
+  .pl-controls button:hover{background:#3f3f3f;}
+  .pl-controls .play-pri{background:linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6);font-weight:600;}
+  .pl-shuffle.active{background:linear-gradient(120deg,#4f8bff,#a26bff)!important;}
+  @media (max-width:780px){
+    .app{flex-direction:column;}
+    .pl-side{width:100%;max-width:none;border-left:none;border-top:1px solid #2a2a2a;height:50vh;}
+    .player-wrap{height:50vh;}
+  }
+</style></head><body>
+<div class="app">
+  <div class="player-wrap">
+    <div class="player-box"><iframe id="yt" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>
+    <div class="now-playing"><div class="np-title" id="npTitle">読み込み中...</div><div class="np-channel" id="npChannel"></div></div>
+  </div>
+  <aside class="pl-side">
+    <div class="pl-head">
+      <span class="spark">✨</span>
+      <div style="flex:1;min-width:0;">
+        <div class="pl-title">MyMIX</div>
+        <div class="pl-sub">MIN-Pro-AI があなたのために選曲</div>
+      </div>
+      <div class="pl-count" id="plCount"></div>
+    </div>
+    <div class="pl-list" id="plList"></div>
+    <div class="pl-controls">
+      <button id="btnPrev">⏮ 前</button>
+      <button id="btnShuffle" class="pl-shuffle">🔀 シャッフル</button>
+      <button id="btnNext" class="play-pri">次 ⏭</button>
+    </div>
+  </aside>
+</div>
+<script>
+  let items = ${payload};
+  let originalItems = items.slice();
+  let current = 0; let shuffle=false;
+  const yt = document.getElementById('yt');
+  const list = document.getElementById('plList');
+  const npTitle = document.getElementById('npTitle');
+  const npChannel = document.getElementById('npChannel');
+  const plCount = document.getElementById('plCount');
+  plCount.textContent = items.length + ' 本';
+  function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function render(){
+    list.innerHTML = items.map((it,i)=>'<div class="pl-item'+(i===current?' active':'')+'" data-i="'+i+'"><div class="pl-idx">'+(i===current?'▶':(i+1))+'</div><img class="pl-thumb" src="'+esc(it.thumbnail||('https://i.ytimg.com/vi/'+it.id+'/hqdefault.jpg'))+'" onerror="this.src=\\'https://i.ytimg.com/vi/'+esc(it.id)+'/hqdefault.jpg\\'"><div class="pl-info"><div class="pl-it-title">'+esc(it.title)+'</div><div class="pl-it-ch">'+esc(it.channelTitle||'')+'</div></div></div>').join('');
+    list.querySelectorAll('.pl-item').forEach(el=>{
+      el.addEventListener('click',()=>{ current=parseInt(el.dataset.i,10); play(); });
+    });
+  }
+  function play(){
+    const it = items[current]; if(!it) return;
+    yt.src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(it.id)+'?autoplay=1&rel=0&modestbranding=1&enablejsapi=1';
+    npTitle.textContent = it.title||'';
+    npChannel.textContent = it.channelTitle||'';
+    render();
+    const a = list.querySelector('.pl-item.active'); if(a) a.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }
+  document.getElementById('btnPrev').addEventListener('click',()=>{current=(current-1+items.length)%items.length;play();});
+  document.getElementById('btnNext').addEventListener('click',()=>{current=(current+1)%items.length;play();});
+  document.getElementById('btnShuffle').addEventListener('click',(e)=>{
+    shuffle = !shuffle;
+    e.currentTarget.classList.toggle('active', shuffle);
+    if (shuffle){
+      const cur = items[current];
+      const rest = items.filter((_,i)=>i!==current).sort(()=>Math.random()-0.5);
+      items = [cur, ...rest]; current = 0;
+    } else {
+      items = originalItems.slice(); current = 0;
+    }
+    render();
+  });
+  render(); play();
+<\/script></body></html>`;
+    win.document.open(); win.document.write(html); win.document.close();
+  }
+
+  /* ---------- 7. Smart Feed loader (replaces loadPersonalizedFeed) ---------- */
+  // we keep the original around in case other code calls it
+  const _origLoadPersonalized = (typeof window.loadPersonalizedFeed === 'function')
+    ? window.loadPersonalizedFeed.bind(window)
+    : null;
+
+  let smartFetching = false;
+  // Make displayedIds accessible (in original code it's a closure Set, but
+  // we can also keep our own.) We won't touch the original; we just create a
+  // sibling state and let our function fully control the grid for "recommended".
+  const smartDisplayedIds = new Set();
+  let smartShortsExpanded = true;
+  let myMixInjected = false;
+
+  function buildShortsSection(items){
+    const shortsSection = document.getElementById('shortsSection');
+    const shortsRow = document.getElementById('shortsRow');
+    if (!shortsSection || !shortsRow) return;
+    if (!items || items.length <= 4){ shortsSection.style.display='none'; return; }
+    shortsSection.style.display='block';
+    items.forEach(s => {
+      if (smartDisplayedIds.has(s.id)) return;
+      smartDisplayedIds.add(s.id);
+      shortsRow.appendChild(buildShortCard(s));
+    });
+    // re-apply toggle UI if function exists
+    if (typeof window.updateShortsToggleUI === 'function'){
+      try{ window.updateShortsToggleUI(); }catch{}
+    }
+  }
+
+  // Public API: load smart feed
+  async function loadSmartFeed(page=0){
+    if (smartFetching) return;
+    smartFetching = true;
+    const loading = document.getElementById('loading');
+    const grid = document.getElementById('videoGrid');
+    const shortsRow = document.getElementById('shortsRow');
+    const shortsSection = document.getElementById('shortsSection');
+    if (loading) loading.style.display='block';
+
+    if (page === 0){
+      smartDisplayedIds.clear();
+      if (grid) grid.innerHTML='';
+      if (shortsRow) shortsRow.innerHTML='';
+      if (shortsSection) shortsSection.style.display='none';
+      myMixInjected = false;
+      showPill('MIN-Pro-AI 起動中…');
+    }
+
+    try{
+      // ----- if no user data, just defer to original behavior (trending)
+      const histLen = libGetX(LIB_HISTORY).length;
+      const likedLen = libGetX(LIB_LIKED).length;
+      const subsLen = getSubs().length;
+      const totalSig = histLen + likedLen + subsLen;
+
+      if (totalSig < 2){
+        // delegate to original logic for first-time users (preserves original behavior)
+        if (_origLoadPersonalized){
+          smartFetching = false;
+          if (loading) loading.style.display='none';
+          return _origLoadPersonalized(page);
+        }
+      }
+
+      const profile = await getEnrichedProfile(false);
+      if (page === 0){
+        showPill('あなたの興味を分析しました', 3500);
+        const labels = [
+          ...(profile.aiCoreGenres||[]).slice(0,3),
+          ...(profile.topGenres||[]).slice(0,2)
+        ].filter(Boolean);
+        if (labels.length){
+          showThought('検出した興味: ' + labels.slice(0,3).join(' / '));
+        }
+      }
+      const { personal, expl } = await gatherSmartItems(profile, page);
+
+      // shorts (use personal first then explore)
+      if (page === 0){
+        const allShorts = [...personal, ...expl].filter(x => (x.title||'').includes('#'));
+        // dedupe by id
+        const sset = new Set(); const sUniq = [];
+        for (const s of allShorts){ if (!sset.has(s.id)){ sset.add(s.id); sUniq.push(s); }}
+        buildShortsSection(sUniq);
+      }
+
+      // remove shorts from main pools
+      const personalMain = personal.filter(x => !(x.title||'').includes('#'));
+      const exploreMain  = expl.filter(x => !(x.title||'').includes('#'));
+
+      const seenChannels = new Map();
+      const seenIds = new Set();
+      const pScored = scoreItems(personalMain, profile, true, seenChannels, seenIds, smartDisplayedIds);
+      const eScored = scoreItems(exploreMain,  profile, false, seenChannels, seenIds, smartDisplayedIds);
+
+      const finalList = interleaveFeed(pScored, eScored, smartDisplayedIds, page === 0 ? 36 : 32);
+
+      // Render
+      if (grid){
+        finalList.forEach((it, idx) => {
+          if (smartDisplayedIds.has(it.id)) return;
+          smartDisplayedIds.add(it.id);
+          grid.appendChild(buildVideoCard(it));
+        });
+      }
+
+      // If first page and we have profile data -> schedule MyMIX (deferred + skeleton)
+      if (page === 0 && !myMixInjected && totalSig >= 3 && grid){
+        myMixInjected = true;
+        scheduleMyMixInjection(grid);
+      }
+
+      if (page === 0 && (!finalList || finalList.length === 0) && grid && grid.children.length === 0){
+        grid.innerHTML = '<p class="empty">動画が見つかりませんでした。</p>';
+      }
+    } catch(err){
+      console.warn('[Smart Feed] error, falling back:', err);
+      if (_origLoadPersonalized){
+        try{ return _origLoadPersonalized(page); }catch{}
+      }
+    } finally {
+      smartFetching = false;
+      if (loading) loading.style.display='none';
+    }
+  }
+
+  function scheduleMyMixInjection(grid){
+    // Insert a skeleton card at a natural position (after 4~6 real cards)
+    const realCards = grid.querySelectorAll('.video-card');
+    const insertAfter = Math.min(5 + Math.floor(Math.random()*2), Math.max(0, realCards.length - 1));
+    const skeleton = buildMyMixSkeleton();
+    if (realCards[insertAfter] && realCards[insertAfter].nextSibling){
+      grid.insertBefore(skeleton, realCards[insertAfter].nextSibling);
+    } else if (realCards[insertAfter]) {
+      realCards[insertAfter].after(skeleton);
+    } else {
+      grid.appendChild(skeleton);
+    }
+
+    // Animate the skeleton text
+    const phrases = [
+      'MIN-Pro-AI が選曲を開始しています…',
+      'あなたの履歴を解析しています…',
+      'お気に入りチャンネルから人気動画を抽出…',
+      '似たジャンルの新しい作品を発掘…',
+      'プレイリストを構築しています…'
+    ];
+    let pi=0;
+    const txtEl = skeleton.querySelector('[data-mymix-skel-text]');
+    const phaseTimer = setInterval(()=>{
+      pi = (pi+1) % phrases.length;
+      if (txtEl){
+        txtEl.style.opacity = '0';
+        setTimeout(()=>{ txtEl.textContent = phrases[pi]; txtEl.style.opacity='.85'; }, 200);
+      }
+    }, 1800);
+
+    // Generate (cached or fresh)
+    (async () => {
+      try{
+        let cached = getCachedMyMix();
+        let mix;
+        if (cached && cached.items && cached.items.length >= 3){
+          // briefly show skeleton even on cache for nice UX
+          await new Promise(r => setTimeout(r, 700));
+          mix = cached;
+        } else {
+          const profile = await getEnrichedProfile(false);
+          const items = await buildMyMixWithoutAI(profile);
+          if (!items || items.length < 3){
+            // nothing to show
+            clearInterval(phaseTimer);
+            skeleton.remove();
+            return;
+          }
+          mix = {
+            items,
+            seed: (profile.aiCoreGenres||profile.topGenres||[]).slice(0,3).join(',') || 'mix'
+          };
+          saveMyMix(mix);
+          showThought('✨ MyMIX が完成しました');
+        }
+        clearInterval(phaseTimer);
+        const card = buildMyMixCard(mix);
+        skeleton.replaceWith(card);
+      } catch(e){
+        console.warn('[MyMIX] generation failed:', e);
+        clearInterval(phaseTimer);
+        try{ skeleton.remove(); }catch{}
+      }
+    })();
+  }
+
+  /* ---------- 8. Hook into the existing app ---------- */
+  // Replace window.loadPersonalizedFeed (called by chips bar and onload).
+  // The original function exists at this point because this script runs
+  // AFTER the previous <script> block has defined it.
+  if (typeof window !== 'undefined'){
+    window.loadPersonalizedFeed = function(page){
+      return loadSmartFeed(page || 0);
+    };
+  }
+
+  // Also override the very-first onload's call path:
+  // The original onload (which we cannot edit) calls loadPersonalizedFeed(0)
+  // for the home view. Since we replaced the global reference, that call
+  // now goes through us. ✔
+
+  // When user clicks on the AI chip etc., behavior stays normal.
+  // When user clicks "すべて" (recommended) chip or sidebar home, the
+  // chip handler calls loadPersonalizedFeed -> now loadSmartFeed.
+
+  // ---- expose for debugging
+  window.MinProAI = {
+    loadSmartFeed,
+    getEnrichedProfile,
+    buildLocalProfile,
+    clearMyMixCache(){ try{ localStorage.removeItem(MYMIX_CACHE_KEY); localStorage.removeItem(PROFILE_CACHE_KEY); }catch{} showThought('MyMIX キャッシュをクリアしました'); },
+    rebuildMyMix(){ try{ localStorage.removeItem(MYMIX_CACHE_KEY); }catch{} loadSmartFeed(0); }
+  };
+
+  /* ---------- 9. Friendly first-run AI status ---------- */
+  setTimeout(()=>{
+    const hist = libGetX(LIB_HISTORY).length;
+    const liked = libGetX(LIB_LIKED).length;
+    const subs = getSubs().length;
+    const total = hist + liked + subs;
+    if (total === 0){
+      showPill('動画を見るほど AI が賢くなります', 6000);
+    } else {
+      showPill('MIN-Pro-AI 起動中 ✨', 3500);
+    }
+  }, 1400);
+
+  /* ---------- 10. Long-press card menu -> "MyMIX を再構築" ----- */
+  // (subtle: triple-click the chip "すべて" to rebuild)
+  document.addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip[data-q="recommended"]');
+    if (!chip) return;
+    const now = Date.now();
+    chip._mtClicks = (chip._mtClicks||[]).filter(t => now - t < 1200);
+    chip._mtClicks.push(now);
+    if (chip._mtClicks.length >= 3){
+      chip._mtClicks = [];
+      window.MinProAI.rebuildMyMix();
+      showThought('🔄 MyMIX を再構築しています…');
+    }
+  }, true);
+
+})();
+</script>
+<!-- ============== End MIN-Pro-AI v2 ============== -->
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>

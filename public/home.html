@@ -4230,25 +4230,68 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         }
 
         async function fillSlotsAsync(slots, signals) {
-          // 並行実行 (各 MIX は独立)
+          // 並行実行 (各 MIX は独立) + 各スロットに 8 秒タイムアウト
+          const MIN_VIDEOS = 3;             // 4 -> 3 に閾値を緩和(プレースホルダー残留を防ぐ)
+          const SLOT_TIMEOUT_MS = 8000;
+
           await Promise.all(slots.map(async (slot) => {
+            // タイムアウト用 setTimeout を確保
+            let timedOut = false;
+            const timeoutId = setTimeout(() => {
+              timedOut = true;
+              const ph = document.querySelector(`[data-mix-slot="${slot.id}"]`);
+              if (ph) ph.remove();
+              console.warn('[MyMIX] slot timeout:', slot.type.title);
+            }, SLOT_TIMEOUT_MS);
+
             try {
               // キャッシュ
               const cacheAll = safeGet(KEY_MYMIX_CACHE, {});
               const cacheKey = `${slot.type.kind}::${slot.type.key}`;
               const cached = cacheAll[cacheKey];
               let videos = null;
-              if (cached && (Date.now() - cached.ts) < CACHE_TTL_MIX && cached.videos && cached.videos.length >= 4) {
+              if (cached && (Date.now() - cached.ts) < CACHE_TTL_MIX && cached.videos && cached.videos.length >= MIN_VIDEOS) {
                 videos = cached.videos;
               } else {
-                videos = await buildMixVideos(slot.type, signals);
-                if (videos && videos.length >= 4) {
-                  cacheAll[cacheKey] = { ts: Date.now(), videos };
-                  safeSet(KEY_MYMIX_CACHE, cacheAll);
+                try {
+                  videos = await buildMixVideos(slot.type, signals);
+                } catch (innerErr) {
+                  console.warn('[MyMIX] buildMixVideos failed:', innerErr);
+                  videos = null;
+                }
+                // 足りないときは緊急フォールバック: 関連語でもう一度トライ
+                if ((!videos || videos.length < MIN_VIDEOS) && !timedOut) {
+                  const fallbackQ = slot.type.kind === 'channel'
+                    ? (slot.type.key + ' おすすめ')
+                    : (slot.type.key + ' 人気');
+                  try {
+                    const fb = await apiSearch(fallbackQ, 0);
+                    const fbItems = (fb || []).filter(it => it && it.id && !isShortItem(it)).map(it => ({
+                      id: it.id,
+                      title: it.title || '',
+                      channelTitle: it.channelTitle || '',
+                      thumbnail: getThumbForId(it.id),
+                      lengthText: it.lengthText || ''
+                    }));
+                    const seen = new Set((videos || []).map(v => v.id));
+                    const combo = (videos || []).slice();
+                    fbItems.forEach(it => { if (!seen.has(it.id)) { seen.add(it.id); combo.push(it); } });
+                    if (combo.length >= MIN_VIDEOS) videos = combo.slice(0, 25);
+                  } catch (fbErr) {
+                    console.warn('[MyMIX] fallback failed:', fbErr);
+                  }
+                }
+                if (videos && videos.length >= MIN_VIDEOS) {
+                  try {
+                    cacheAll[cacheKey] = { ts: Date.now(), videos };
+                    safeSet(KEY_MYMIX_CACHE, cacheAll);
+                  } catch {}
                 }
               }
-              if (!videos || videos.length < 4) {
-                // 足りなければプレースホルダーを削除
+
+              if (timedOut) return; // 既にタイムアウトで除去済み
+
+              if (!videos || videos.length < MIN_VIDEOS) {
                 const ph = document.querySelector(`[data-mix-slot="${slot.id}"]`);
                 if (ph) ph.remove();
                 return;
@@ -4262,6 +4305,8 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
               console.warn('[MyMIX] slot fill error:', e);
               const ph = document.querySelector(`[data-mix-slot="${slot.id}"]`);
               if (ph) ph.remove();
+            } finally {
+              clearTimeout(timeoutId);
             }
           }));
         }
@@ -4408,23 +4453,89 @@ render();play();
         return loadPersonalizedFeedV2(page);
       };
 
-      // loadContent は触らない方針だが、ローディング表示中のスケルトン用に
-      // 「初期 page=0 でクエリ切替時」だけスケルトンを差し込むラッパーを作る
-      // ※ 既存挙動は完全保持
+      // loadContent ラッパー: スケルトンを「内部の innerHTML='' 後」にも維持する
+      // 元 loadContent は内部で videoGrid.innerHTML = '' するが、その直後に
+      // MutationObserver でスケルトンを瞬時に再注入 -> 最初のリアルカードが
+      // appendChild されるまで保持。リアルカードが入ったらスケルトンを除去。
       if (typeof window.loadContent === 'function') {
         const __origLC = window.loadContent;
         window.loadContent = function (query, page = 0) {
+          let mo = null;
+          let skeletonInserted = false;
+          let firstCardSeen = false;
           try {
             if (page === 0 && videoGrid) {
               showSkeletons(8);
+              skeletonInserted = true;
+              // 内部の innerHTML='' でスケルトンが消えた瞬間に再注入し、
+              // 実体カードが現れたら除去する
+              mo = new MutationObserver(() => {
+                if (!videoGrid) return;
+                const hasSkel = videoGrid.querySelector('.mpx-skeleton-card');
+                const hasReal = videoGrid.querySelector('.video-card:not(.mpx-skeleton-card):not(.mpx-mymix-placeholder)');
+                if (hasReal && !firstCardSeen) {
+                  firstCardSeen = true;
+                  // 実体来た -> スケルトン除去 & 監視終了
+                  videoGrid.querySelectorAll('.mpx-skeleton-card').forEach(el => el.remove());
+                  mo && mo.disconnect();
+                  return;
+                }
+                if (!hasSkel && !hasReal && skeletonInserted && !firstCardSeen) {
+                  // 空になった: 再注入
+                  showSkeletons(8);
+                }
+              });
+              mo.observe(videoGrid, { childList: true });
+              // 安全弁: 12秒で必ず監視終了
+              setTimeout(() => {
+                try {
+                  mo && mo.disconnect();
+                  videoGrid && videoGrid.querySelectorAll('.mpx-skeleton-card').forEach(el => el.remove());
+                } catch {}
+              }, 12000);
             }
-            // 既存loadContentは内部で videoGrid.innerHTML='' するので skeletonは即消されるが
-            // チラ見えで一瞬「読み込みフィードバック」が出る効果がある
-          } catch {}
-          return __origLC(query, page);
+          } catch (e) { console.warn('[MIN-Pro-AI] loadContent wrap err:', e); }
+          let p;
+          try { p = __origLC(query, page); } catch (e) { console.warn(e); p = Promise.resolve(); }
+          // Promise であってもなくても、終わったら確実にスケルトン除去
+          if (p && typeof p.then === 'function') {
+            p.finally(() => {
+              try {
+                mo && mo.disconnect();
+                videoGrid && videoGrid.querySelectorAll('.mpx-skeleton-card').forEach(el => el.remove());
+              } catch {}
+            });
+          }
+          return p;
         };
         window.__origLoadContent = __origLC;
       }
+
+      // 検索フォーム submit / チップクリック前に即スケルトンを表示する保険
+      // (loadContent ラッパーでも同じことを行うが、ユーザーがクリックした瞬間に
+      //  視覚フィードバックを出すため、capture phase で先回り)
+      try {
+        const _searchForm = document.getElementById('searchForm');
+        if (_searchForm) {
+          _searchForm.addEventListener('submit', () => {
+            try { if (videoGrid) showSkeletons(8); } catch {}
+          }, true);
+        }
+        const _chipsBar = document.getElementById('chipsBar');
+        if (_chipsBar) {
+          _chipsBar.addEventListener('click', (e) => {
+            const chip = e.target.closest && e.target.closest('.chip');
+            if (chip) {
+              try { if (videoGrid) showSkeletons(8); } catch {}
+            }
+          }, true);
+        }
+        document.querySelectorAll('.sidebar-item[data-q]').forEach(item => {
+          item.addEventListener('click', () => {
+            try { if (videoGrid) showSkeletons(8); } catch {}
+          }, true);
+        });
+      } catch (e) { console.warn('[MIN-Pro-AI] skeleton hook err:', e); }
 
       // ============================================================
       // 14. STARTUP: SPLASH + INITIAL FEED
@@ -4470,9 +4581,783 @@ render();play();
       };
 
       console.log('%c✦ MIN-Pro-AI Engine v1.0 ready', 'background:linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6);color:#fff;padding:4px 10px;border-radius:4px;font-weight:bold;');
+
+      // ============================================================
+      // 16. EXPOSE FOR MIN-AI ENGINE (v2.0)
+      // ============================================================
+      // MIN-AI エンジン (v2.0) からこれらを呼ぶ
+      window.__MPX = {
+        callGroq,
+        apiSearch,
+        apiTrending,
+        getThumbForId,
+        getHistorySignals,
+        normalizeIdList,
+        isShortItem,
+        escapeHtmlText,
+        escapeAttr,
+        shuffle,
+        pickRandom,
+        showSkeletons,
+        clearSkeletons,
+        videoGrid
+      };
     })();
     /* ============================================================================== */
     /* ================ END OF MIN-Pro-AI ENGINE  ==================================== */
+    /* ============================================================================== */
+
+
+    /* ============================================================================== */
+    /* ================ 🌟 MIN-AI ENGINE v2.0 (added 2026)  ========================== */
+    /* ============================================================================== */
+    /*  - 3回目読み込みごとに MIN-Pro-AI のおすすめ(Groq 1動画) を1枚表示             */
+    /*  - MIN-AI アルゴリズム: 履歴シグナル+多面的スコアリングで凝った1動画を発見     */
+    /*  - 数件に1回 MIN-AI のおすすめとして非同期で差し込み                            */
+    /*  - ローディングカード「AIがあなたにおすすめの動画を検索しています」を表示       */
+    /*  - 失敗時は静かに消えるだけで、全体は絶対に壊さない                             */
+    /* ============================================================================== */
+    (function MinAIEngine() {
+      'use strict';
+      if (!window.__MPX) {
+        console.warn('[MIN-AI] MIN-Pro-AI core not ready; skipping MIN-AI v2.0');
+        return;
+      }
+      const MPX = window.__MPX;
+      const {
+        callGroq, apiSearch, apiTrending, getThumbForId,
+        getHistorySignals, isShortItem, escapeHtmlText, escapeAttr,
+        shuffle, pickRandom, videoGrid
+      } = MPX;
+
+      // ---- localStorage keys ----
+      const KEY_LOAD_COUNT       = 'mt_home_load_count_v2';   // 何回ホームを読み込んだか
+      const KEY_PROAI_CACHE      = 'mt_proai_pick_cache_v2';  // Pro-AI 推薦キャッシュ
+      const KEY_MINAI_SHOWN      = 'mt_minai_shown_v2';       // 既出 ID (循環防止)
+      const PROAI_INTERVAL       = 3;                          // 3回に1回 Pro-AI を表示
+      const MINAI_INSERT_EVERY   = 9;                          // ほぼ 9 カードに 1 回 MIN-AI
+      const PROAI_CACHE_TTL_MS   = 30 * 60 * 1000;             // 30分有効
+      const MINAI_TIMEOUT_MS     = 15000;
+      const PROAI_TIMEOUT_MS     = 18000;
+      const MAX_SHOWN_HISTORY    = 200;
+
+      // ============================================================
+      //  STYLE INJECTION
+      // ============================================================
+      const css = `
+        /* ====== MIN-AI / Pro-AI Card 共通 ====== */
+        .video-card.minai-card,
+        .video-card.proai-card {
+          position: relative; display: block;
+          text-decoration: none; color: inherit;
+          animation: minai-enter .55s cubic-bezier(.2,.8,.2,1) both;
+        }
+        @keyframes minai-enter {
+          from { opacity: 0; transform: translateY(10px) scale(.98); }
+          to   { opacity: 1; transform: translateY(0)    scale(1); }
+        }
+        .video-card.minai-card .thumb,
+        .video-card.proai-card .thumb {
+          position: relative; overflow: hidden; border-radius: 12px;
+          background: #000;
+        }
+        .video-card.minai-card .thumb::before,
+        .video-card.proai-card .thumb::before {
+          content:''; position: absolute; inset: -2px; border-radius: 14px; z-index: 0;
+          filter: blur(10px); opacity: 0; transition: opacity .4s; pointer-events: none;
+        }
+        .video-card.minai-card .thumb::before {
+          background: conic-gradient(from 0deg, #00d4ff, #4f8bff, #00ffa1, #00d4ff);
+        }
+        .video-card.proai-card .thumb::before {
+          background: conic-gradient(from 0deg, #ffb86b, #ff6bd6, #a26bff, #4f8bff, #ffb86b);
+        }
+        .video-card.minai-card:hover .thumb::before,
+        .video-card.proai-card:hover .thumb::before { opacity: .65; }
+        .video-card.minai-card .thumb img,
+        .video-card.proai-card .thumb img {
+          position: relative; z-index: 1; transition: transform .5s;
+        }
+        .video-card.minai-card:hover .thumb img,
+        .video-card.proai-card:hover .thumb img { transform: scale(1.05); }
+
+        /* バッジ */
+        .minai-badge, .proai-badge {
+          position: absolute; left: 8px; top: 8px; z-index: 3;
+          display: inline-flex; align-items: center; gap: 5px;
+          padding: 5px 10px;
+          color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .4px;
+          border-radius: 999px;
+          backdrop-filter: blur(6px);
+        }
+        .minai-badge {
+          background: linear-gradient(120deg, #00d4ff, #4f8bff, #00ffa1);
+          box-shadow: 0 4px 14px rgba(0,212,255,.45);
+          animation: minai-pulse 2.8s ease-in-out infinite;
+        }
+        .proai-badge {
+          background: linear-gradient(120deg, #ffb86b, #ff6bd6, #a26bff);
+          box-shadow: 0 4px 18px rgba(255,107,214,.5);
+          animation: minai-pulse 2.5s ease-in-out infinite;
+        }
+        @keyframes minai-pulse {
+          0%,100% { transform: scale(1); }
+          50%     { transform: scale(1.05); }
+        }
+        .minai-badge .minai-spark, .proai-badge .proai-spark {
+          display: inline-block; line-height: 1; font-size: 12px;
+          animation: minai-spark-rot 3.5s linear infinite;
+        }
+        @keyframes minai-spark-rot { to { transform: rotate(360deg); } }
+
+        /* 右下サブラベル (Pro-AI のみ「あなたへの一本」) */
+        .proai-sub-label {
+          position: absolute; right: 8px; bottom: 8px; z-index: 3;
+          padding: 4px 9px; font-size: 11px; font-weight: 600;
+          color: #fff;
+          background: rgba(0,0,0,.7);
+          backdrop-filter: blur(4px);
+          border-radius: 6px;
+          display: inline-flex; align-items: center; gap: 4px;
+        }
+
+        /* MIN-AI 用 reasoning マーク */
+        .minai-reason {
+          font-size: 11.5px; color: #6cc8ff; margin-top: 3px; font-weight: 500;
+          display: inline-flex; align-items: center; gap: 4px;
+          line-height: 1.3;
+        }
+        body.light-mode .minai-reason { color: #1c6fbf; }
+        .proai-reason {
+          font-size: 11.5px; color: #d8a8ff; margin-top: 3px; font-weight: 500;
+          display: inline-flex; align-items: center; gap: 4px;
+          line-height: 1.3;
+        }
+        body.light-mode .proai-reason { color: #7c3ad8; }
+
+        /* ====== Loading Placeholder (Card slot) ====== */
+        .minai-loading-card, .proai-loading-card {
+          position: relative; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden;
+          background: linear-gradient(135deg, #061826 0%, #103050 50%, #061826 100%);
+          background-size: 200% 200%;
+          animation: minai-load-bg 3s ease-in-out infinite;
+        }
+        .proai-loading-card {
+          background: linear-gradient(135deg, #2a1840 0%, #4a2068 50%, #2a1840 100%);
+          background-size: 200% 200%;
+        }
+        @keyframes minai-load-bg {
+          0%,100% { background-position: 0% 0%; }
+          50%     { background-position: 100% 100%; }
+        }
+        .minai-loading-card::before, .proai-loading-card::before {
+          content:''; position: absolute; inset: -50%;
+          background: conic-gradient(from 0deg, transparent, rgba(108,200,255,.45), transparent 50%);
+          animation: minai-load-rot 2.4s linear infinite;
+        }
+        .proai-loading-card::before {
+          background: conic-gradient(from 0deg, transparent, rgba(216,168,255,.5), transparent 50%);
+        }
+        @keyframes minai-load-rot { to { transform: rotate(360deg); } }
+
+        .minai-load-content, .proai-load-content {
+          position: absolute; inset: 0;
+          display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+          gap: 12px; color: #fff; z-index: 2; text-align: center; padding: 12px;
+        }
+        .minai-load-orb {
+          width: 42px; height: 42px; border-radius: 50%;
+          background: conic-gradient(from 0deg, #00d4ff, #4f8bff, #00ffa1, #00d4ff);
+          position: relative;
+          animation: minai-orb-rot 2.5s linear infinite;
+          box-shadow: 0 0 22px rgba(0,212,255,.55);
+        }
+        .proai-load-orb {
+          width: 42px; height: 42px; border-radius: 50%;
+          background: conic-gradient(from 0deg, #ffb86b, #ff6bd6, #a26bff, #ffb86b);
+          position: relative;
+          animation: minai-orb-rot 2.5s linear infinite;
+          box-shadow: 0 0 22px rgba(255,107,214,.55);
+        }
+        .minai-load-orb::after, .proai-load-orb::after {
+          content:''; position: absolute; inset: 6px; border-radius: 50%;
+          background: radial-gradient(circle at 30% 30%, #0a0613, #050308);
+        }
+        @keyframes minai-orb-rot { to { transform: rotate(360deg); } }
+
+        .minai-load-text, .proai-load-text {
+          font-size: 12px; font-weight: 600; letter-spacing: .3px;
+          opacity: .95; line-height: 1.4;
+          display: inline-flex; align-items: center; gap: 6px;
+        }
+        .minai-load-text .ti, .proai-load-text .ti {
+          font-size: 13px; line-height: 1;
+          animation: minai-twinkle 1.6s ease-in-out infinite;
+        }
+        @keyframes minai-twinkle {
+          0%,100% { opacity: .5; transform: scale(.9); }
+          50%     { opacity: 1;  transform: scale(1.1); }
+        }
+        .minai-load-sub, .proai-load-sub {
+          font-size: 10.5px; opacity: .75; margin-top: -2px;
+        }
+      `;
+      try {
+        const s = document.createElement('style');
+        s.textContent = css;
+        document.head.appendChild(s);
+      } catch {}
+
+      // ============================================================
+      //  STATE
+      // ============================================================
+      function getShownSet() {
+        try {
+          const arr = JSON.parse(localStorage.getItem(KEY_MINAI_SHOWN) || '[]');
+          return new Set(arr);
+        } catch { return new Set(); }
+      }
+      function saveShown(set) {
+        try {
+          let arr = Array.from(set);
+          if (arr.length > MAX_SHOWN_HISTORY) arr = arr.slice(-MAX_SHOWN_HISTORY);
+          localStorage.setItem(KEY_MINAI_SHOWN, JSON.stringify(arr));
+        } catch {}
+      }
+      function bumpLoadCount() {
+        let n = 0;
+        try { n = parseInt(localStorage.getItem(KEY_LOAD_COUNT) || '0', 10) || 0; } catch {}
+        n++;
+        try { localStorage.setItem(KEY_LOAD_COUNT, String(n)); } catch {}
+        return n;
+      }
+
+      // ============================================================
+      //  共通: カード組み立て
+      // ============================================================
+      function buildAiCard({ kind, item, reason, badge, subLabel }) {
+        // kind: 'minai' | 'proai'
+        const a = document.createElement('a');
+        a.className = `video-card ${kind}-card mpx-fade-in`;
+        a.href = `/video/${item.id}`;
+        const thumb = getThumbForId(item.id);
+        const channel = item.channelTitle || '';
+        const initial = channel ? channel[0].toUpperCase() : '✦';
+        const avatarUrl = item.channelThumbnail || item.channelImage || '';
+        const viewText = item.viewCountText || '';
+        const published = item.publishedTimeText || '';
+
+        a.innerHTML = `
+          <div class="thumb">
+            <img src="${thumb}" loading="lazy" alt="${escapeAttr(item.title || '')}">
+            ${item.lengthText ? `<div class="duration-badge">${escapeHtmlText(item.lengthText)}</div>` : ''}
+            <div class="${kind}-badge"><span class="${kind}-spark">✦</span> ${badge}</div>
+            ${subLabel ? `<div class="proai-sub-label">${subLabel}</div>` : ''}
+          </div>
+          <div class="meta">
+            <a href="/channel/${encodeURIComponent(channel)}" class="channel-avatar" data-initial="${escapeAttr(initial)}" onclick="event.stopPropagation()" style="text-decoration:none;">
+              <span class="avatar-initial">${escapeHtmlText(initial)}</span>
+              ${avatarUrl ? `<img src="${escapeAttr(avatarUrl)}" alt="${escapeAttr(channel)}" onload="this.classList.add('loaded')" onerror="this.remove()">` : ''}
+            </a>
+            <div class="details">
+              <h3>${escapeHtmlText(item.title || '')}</h3>
+              <a href="/channel/${encodeURIComponent(channel)}" class="channel-name" onclick="event.stopPropagation()" style="text-decoration:none;color:var(--text-muted);">${escapeHtmlText(channel)}</a>
+              <div class="video-stats">${escapeHtmlText(viewText)}${viewText && published ? ' • ' : ''}${escapeHtmlText(published || '')}</div>
+              ${reason ? `<div class="${kind}-reason">✨ ${escapeHtmlText(reason)}</div>` : ''}
+            </div>
+            <button class="card-menu-btn" aria-label="メニュー"
+              data-id="${escapeAttr(item.id)}"
+              data-title="${escapeAttr(item.title || '')}"
+              data-channel="${escapeAttr(channel)}"
+              data-views="${escapeAttr(viewText)}"
+              data-published="${escapeAttr(published)}">⋮</button>
+          </div>`;
+        if (!avatarUrl) {
+          const avatarEl = a.querySelector('.channel-avatar');
+          try {
+            const img = document.createElement('img');
+            img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(channel)}&background=random&color=fff&size=64&bold=true`;
+            img.alt = channel;
+            img.onload = () => img.classList.add('loaded');
+            img.onerror = () => img.remove();
+            avatarEl.appendChild(img);
+          } catch {}
+        }
+        return a;
+      }
+
+      function buildLoadingCard(kind, text, subText) {
+        const wrap = document.createElement('div');
+        wrap.className = 'video-card ' + kind + '-loading-wrap';
+        wrap.dataset.aiLoading = kind;
+        wrap.innerHTML = `
+          <div class="${kind}-loading-card">
+            <div class="${kind}-load-content">
+              <div class="${kind}-load-orb"></div>
+              <div class="${kind}-load-text"><span class="ti">✦</span> ${escapeHtmlText(text)}</div>
+              <div class="${kind}-load-sub">${escapeHtmlText(subText || '')}</div>
+            </div>
+          </div>
+          <div class="meta">
+            <div class="mpx-skel-avatar" style="width:36px;height:36px;border-radius:50%;"></div>
+            <div class="mpx-skel-lines" style="flex:1;display:flex;flex-direction:column;gap:6px;">
+              <div class="mpx-skel-line long"></div>
+              <div class="mpx-skel-line short"></div>
+            </div>
+          </div>`;
+        return wrap;
+      }
+
+      // ============================================================
+      //  MIN-AI アルゴリズム (凝ったロジック)
+      //  - 履歴トップキーワード + チャンネルキーワード を組み合わせて
+      //    複数クエリで並列検索
+      //  - 候補ごとに「履歴チャンネル一致 / 履歴ワード一致 / 既視聴 / shorts」で
+      //    スコアリングし、既出と被らない最高スコアの1本を選ぶ
+      // ============================================================
+      const shownIds = getShownSet();
+      const sessionShown = new Set();
+
+      function scoreCandidate(item, signals) {
+        if (!item || !item.id) return -Infinity;
+        if (shownIds.has(item.id)) return -100;       // 既出強くペナルティ
+        if (sessionShown.has(item.id)) return -100;
+        if (signals.historyIds && signals.historyIds.has(item.id)) return -50; // 視聴済み回避
+        if (isShortItem(item)) return -30;            // ショートは MIN-AI で出さない
+
+        let s = 0;
+        const title = String(item.title || '').toLowerCase();
+        const ch = String(item.channelTitle || '').toLowerCase();
+
+        // チャンネル一致(履歴上位チャンネル)
+        const topChSet = new Set((signals.topChannels || []).slice(0, 8).map(c => String(c).toLowerCase()));
+        if (topChSet.has(ch)) s += 8;
+        else {
+          for (const c of topChSet) { if (c && ch.includes(c)) { s += 5; break; } }
+        }
+
+        // 履歴ワード一致 (重み: 上位ほど高い)
+        (signals.topWords || []).slice(0, 10).forEach((w, idx) => {
+          if (!w) return;
+          const lw = String(w).toLowerCase();
+          if (title.includes(lw)) s += Math.max(1, 5 - Math.floor(idx / 2));
+        });
+
+        // 再生時間がある(=実在動画)を優遇
+        if (item.lengthText) s += 1;
+
+        // 視聴回数が多そうな数字を優遇
+        if (/(万|億|M views|K views|回視聴|views)/i.test(item.viewCountText || '')) s += 1;
+
+        // 微小なランダム性(同点候補の入れ替えで毎回違う1本に)
+        s += Math.random() * 0.9;
+
+        return s;
+      }
+
+      async function pickMinAiVideo() {
+        // signals
+        let signals;
+        try { signals = getHistorySignals(); }
+        catch { signals = { topChannels: [], topWords: [], historyIds: new Set(), hist: [], liked: [], subs: [] }; }
+
+        // クエリ構築: 1) 上位チャンネル名 + 2) 上位ワードペア + 3) ワード単独 + 4) trending
+        const queries = [];
+        const chs = signals.topChannels || [];
+        const ws = signals.topWords || [];
+
+        if (chs.length > 0) queries.push(chs[0]);
+        if (ws.length >= 2) queries.push(`${ws[0]} ${ws[1]}`);
+        else if (ws.length === 1) queries.push(ws[0]);
+        if (chs.length > 1) queries.push(chs[1]);
+        if (ws.length >= 3) queries.push(ws[2]);
+        if (queries.length === 0) queries.push('trending'); // fallback
+
+        // 並列検索 (タイムアウト付き)
+        const tasks = queries.slice(0, 4).map(async q => {
+          try {
+            if (q === 'trending') return await apiTrending(0);
+            return await apiSearch(q, 0);
+          } catch { return []; }
+        });
+
+        // 全体タイムアウト
+        const all = await Promise.race([
+          Promise.all(tasks),
+          new Promise(resolve => setTimeout(() => resolve([]), MINAI_TIMEOUT_MS))
+        ]);
+
+        const merged = [];
+        (all || []).forEach(arr => (arr || []).forEach(it => merged.push(it)));
+        if (merged.length === 0) return null;
+
+        // スコアリング
+        let best = null, bestScore = -Infinity;
+        for (const item of merged) {
+          const sc = scoreCandidate(item, signals);
+          if (sc > bestScore) { bestScore = sc; best = item; }
+        }
+        if (!best || bestScore <= -10) return null;
+
+        // reasoning text
+        let reason = 'あなたが好きそうな動画';
+        try {
+          const topChSet = new Set((signals.topChannels || []).slice(0, 8).map(c => String(c).toLowerCase()));
+          if (topChSet.has(String(best.channelTitle || '').toLowerCase())) {
+            reason = `「${best.channelTitle}」をよく見ているあなたへ`;
+          } else {
+            const titleLower = String(best.title || '').toLowerCase();
+            const matched = (signals.topWords || []).find(w => w && titleLower.includes(String(w).toLowerCase()));
+            if (matched) reason = `「${matched}」に関心があるあなたへ`;
+          }
+        } catch {}
+
+        return { item: best, reason };
+      }
+
+      // ============================================================
+      //  Pro-AI (Groq) おすすめ: 1本だけ取得
+      // ============================================================
+      function buildProAiPrompt(signals) {
+        const sys =
+          "あなたはユーザーのYouTube視聴データから、その人が今もっとも喜びそうな『1本だけ』のおすすめ動画を選ぶプロのキュレーターAIです。\n" +
+          "必ずYouTubeに実在する有名で人気のある動画タイトルを1本だけ、検索ヒットしやすい正確な形式で出力してください。\n" +
+          "出力フォーマットは厳密に次の1行のJSONのみ: " +
+          '{"title":"...","reason":"..."}' +
+          "\n余計な前置き・コードブロック・改行・複数候補は禁止。reasonは20文字以内の日本語で『なぜこの動画?』を一言で。";
+        const histLines = (signals.hist || []).slice(0, 10).map(h => `・「${(h.title||'').slice(0,80)}」 / ${h.channel||''}`).filter(s => s.length > 5);
+        const likedLines = (signals.liked || []).slice(0, 6).map(h => `・「${(h.title||'').slice(0,80)}」 / ${h.channel||''}`).filter(s => s.length > 5);
+        const subs = (signals.subs || []).slice(0, 8);
+
+        let profile = '';
+        if (subs.length) profile += `【登録チャンネル】\n${subs.map(s => '・' + s).join('\n')}\n\n`;
+        if (likedLines.length) profile += `【高評価】\n${likedLines.join('\n')}\n\n`;
+        if (histLines.length) profile += `【最近の視聴履歴】\n${histLines.join('\n')}`;
+        if (!profile) profile = '【データなし】人気で多様なジャンルから定番動画を1本選んでください。';
+
+        const usr = `以下のユーザー視聴データから、今この人に最もおすすめしたい『たった1本』のYouTube実在動画を選び、指定JSONで返してください。\n\n${profile}`;
+        return [
+          { role: 'system', content: sys },
+          { role: 'user', content: usr }
+        ];
+      }
+
+      function parseProAiJson(raw) {
+        if (!raw) return null;
+        // 余計な ``` を剥がす
+        let t = String(raw).replace(/```[a-zA-Z]*\n?/g, '').replace(/```/g, '').trim();
+        // 最初の { から最後の } までを抜き出す
+        const i = t.indexOf('{'); const j = t.lastIndexOf('}');
+        if (i >= 0 && j > i) t = t.slice(i, j + 1);
+        try {
+          const obj = JSON.parse(t);
+          if (obj && typeof obj.title === 'string' && obj.title.trim().length >= 2) {
+            return { title: obj.title.trim(), reason: String(obj.reason || '').slice(0, 40) };
+          }
+        } catch {}
+        // fallback: 最初の行をタイトルとして使う
+        const firstLine = String(raw).split(/[\r\n]/).map(s => s.trim()).find(s => s.length > 3);
+        if (firstLine) return { title: firstLine.replace(/^["']|["']$/g, ''), reason: '' };
+        return null;
+      }
+
+      async function searchTitleOnce(title) {
+        if (!title) return null;
+        // /api/1-search 優先、ダメなら /api/search
+        try {
+          const r = await fetch(`/api/1-search?q=${encodeURIComponent(title)}`);
+          if (r.ok) {
+            const data = await r.json();
+            let item = null;
+            if (Array.isArray(data)) item = data.find(x => x && x.type === 'video' && x.id) || data.find(x => x && x.id);
+            else if (data && data.id) item = data;
+            else if (data && Array.isArray(data.items)) item = data.items.find(x => x && x.id);
+            else if (data && Array.isArray(data.results)) item = data.results.find(x => x && x.id);
+            if (item && item.id) return item;
+          }
+        } catch {}
+        try {
+          const arr = await apiSearch(title, 0);
+          const nonShort = (arr || []).filter(it => it && it.id && !isShortItem(it));
+          if (nonShort.length > 0) return nonShort[0];
+          if (arr && arr.length > 0) return arr[0];
+        } catch {}
+        return null;
+      }
+
+      async function pickProAiVideo() {
+        // キャッシュ
+        try {
+          const cached = JSON.parse(localStorage.getItem(KEY_PROAI_CACHE) || 'null');
+          if (cached && cached.ts && (Date.now() - cached.ts) < PROAI_CACHE_TTL_MS && cached.item && cached.item.id) {
+            return cached;
+          }
+        } catch {}
+
+        let signals;
+        try { signals = getHistorySignals(); }
+        catch { signals = { topChannels: [], topWords: [], historyIds: new Set(), hist: [], liked: [], subs: [] }; }
+
+        let raw = '';
+        try {
+          raw = await Promise.race([
+            callGroq(buildProAiPrompt(signals), { temperature: 0.6, max_tokens: 220 }),
+            new Promise((_, rj) => setTimeout(() => rj(new Error('groq-timeout')), PROAI_TIMEOUT_MS))
+          ]);
+        } catch (e) {
+          console.warn('[Pro-AI] groq failed:', e);
+          return null;
+        }
+        const parsed = parseProAiJson(raw);
+        if (!parsed || !parsed.title) return null;
+        const found = await searchTitleOnce(parsed.title);
+        if (!found || !found.id) return null;
+        // shorts 排除
+        if (isShortItem(found)) return null;
+
+        const norm = {
+          id: String(found.id),
+          title: found.title || parsed.title,
+          channelTitle: found.channelTitle || (found.shortBylineText && found.shortBylineText.runs && found.shortBylineText.runs[0] && found.shortBylineText.runs[0].text) || '',
+          channelThumbnail: found.channelThumbnail || '',
+          lengthText: (found.length && found.length.simpleText) || found.lengthText || '',
+          viewCountText: found.viewCountText || '',
+          publishedTimeText: found.publishedTimeText || ''
+        };
+        const out = { ts: Date.now(), item: norm, reason: parsed.reason || 'あなたに合うと判断' };
+        try { localStorage.setItem(KEY_PROAI_CACHE, JSON.stringify(out)); } catch {}
+        return out;
+      }
+
+      // ============================================================
+      //  非同期 SLOT 注入: ローディングカード -> 結果 or 削除
+      // ============================================================
+      async function asyncInjectMinAi(loadingNode) {
+        if (!loadingNode || !loadingNode.parentNode) return;
+        let timedOut = false;
+        const t = setTimeout(() => {
+          timedOut = true;
+          if (loadingNode && loadingNode.parentNode) loadingNode.remove();
+        }, MINAI_TIMEOUT_MS + 500);
+        try {
+          const picked = await pickMinAiVideo();
+          if (timedOut) return;
+          if (!picked || !picked.item) {
+            loadingNode.remove();
+            return;
+          }
+          // 同じセッション内重複防止
+          if (sessionShown.has(picked.item.id)) {
+            loadingNode.remove();
+            return;
+          }
+          sessionShown.add(picked.item.id);
+          shownIds.add(picked.item.id);
+          saveShown(shownIds);
+
+          const card = buildAiCard({
+            kind: 'minai',
+            item: picked.item,
+            reason: picked.reason || '',
+            badge: 'MIN-AI のおすすめ'
+          });
+          if (loadingNode.parentNode) loadingNode.replaceWith(card);
+        } catch (e) {
+          console.warn('[MIN-AI] inject error:', e);
+          if (loadingNode && loadingNode.parentNode) loadingNode.remove();
+        } finally {
+          clearTimeout(t);
+        }
+      }
+
+      async function asyncInjectProAi(loadingNode) {
+        if (!loadingNode || !loadingNode.parentNode) return;
+        let timedOut = false;
+        const t = setTimeout(() => {
+          timedOut = true;
+          if (loadingNode && loadingNode.parentNode) loadingNode.remove();
+        }, PROAI_TIMEOUT_MS + 500);
+        try {
+          const picked = await pickProAiVideo();
+          if (timedOut) return;
+          if (!picked || !picked.item) {
+            loadingNode.remove();
+            return;
+          }
+          if (sessionShown.has(picked.item.id)) {
+            // 既出: 静かに消す
+            loadingNode.remove();
+            return;
+          }
+          sessionShown.add(picked.item.id);
+          shownIds.add(picked.item.id);
+          saveShown(shownIds);
+
+          const card = buildAiCard({
+            kind: 'proai',
+            item: picked.item,
+            reason: picked.reason || '',
+            badge: 'MIN-Pro-AI のおすすめ',
+            subLabel: '✨ あなたへの一本'
+          });
+          if (loadingNode.parentNode) loadingNode.replaceWith(card);
+        } catch (e) {
+          console.warn('[Pro-AI] inject error:', e);
+          if (loadingNode && loadingNode.parentNode) loadingNode.remove();
+        } finally {
+          clearTimeout(t);
+        }
+      }
+
+      // ============================================================
+      //  Grid 観測: 一定枚数の実体カードが入るたび、MIN-AI スロットを
+      //  自動挿入する (検索結果ページ等にも作用)
+      // ============================================================
+      let cardsSinceLastMinAi = 0;
+      let minAiPlacedCountThisSession = 0;
+      const MAX_MINAI_PER_SESSION = 4;
+
+      function placeMinAiSlotIfNeeded() {
+        if (minAiPlacedCountThisSession >= MAX_MINAI_PER_SESSION) return;
+        if (!videoGrid) return;
+
+        // 既に未解決の MIN-AI ローディングがあるなら追加しない
+        if (videoGrid.querySelector('[data-ai-loading="minai"]')) return;
+
+        // 履歴等もデータがあるときだけ
+        let signals;
+        try { signals = getHistorySignals(); }
+        catch { signals = null; }
+        const hasData = signals && ((signals.hist && signals.hist.length > 0) || (signals.liked && signals.liked.length > 0) || (signals.subs && signals.subs.length > 0));
+        if (!hasData) return;
+
+        const loadingNode = buildLoadingCard(
+          'MIN-AI',
+          'AIがあなたにおすすめの動画を検索しています',
+          'MIN-AI が分析中...'
+        );
+        videoGrid.appendChild(loadingNode);
+        minAiPlacedCountThisSession++;
+        asyncInjectMinAi(loadingNode);
+      }
+
+      function placeProAiSlotIfNeeded() {
+        if (!videoGrid) return;
+        if (videoGrid.querySelector('[data-ai-loading="proai"]')) return;
+
+        // データ確認(なくても trending 推薦は出すが、ない場合は省略でもよい)
+        let signals;
+        try { signals = getHistorySignals(); }
+        catch { signals = null; }
+        const hasData = signals && ((signals.hist && signals.hist.length > 0) || (signals.liked && signals.liked.length > 0) || (signals.subs && signals.subs.length > 0));
+        if (!hasData) return;
+
+        const loadingNode = buildLoadingCard(
+          'proai',
+          'MIN-Pro-AIがあなたへの一本を選んでいます',
+          'Groq で分析中...'
+        );
+        videoGrid.appendChild(loadingNode);
+        asyncInjectProAi(loadingNode);
+      }
+
+      // 実体カードが追加されたら counter を進めて、必要に応じてスロット挿入
+      function setupGridObserver() {
+        if (!videoGrid) return;
+        const mo = new MutationObserver((mutations) => {
+          for (const m of mutations) {
+            if (!m.addedNodes) continue;
+            for (const n of m.addedNodes) {
+              if (!(n instanceof HTMLElement)) continue;
+              if (!n.classList) continue;
+              // 実体動画カードだけ count
+              const isReal =
+                n.classList.contains('video-card') &&
+                !n.classList.contains('mpx-skeleton-card') &&
+                !n.classList.contains('mpx-mymix-placeholder') &&
+                !n.classList.contains('minai-loading-wrap') &&
+                !n.classList.contains('proai-loading-wrap') &&
+                !n.dataset.aiLoading;
+              if (isReal) {
+                cardsSinceLastMinAi++;
+                if (cardsSinceLastMinAi >= MINAI_INSERT_EVERY) {
+                  cardsSinceLastMinAi = 0;
+                  // 次のターンで挿入 (現在の append 連鎖を邪魔しない)
+                  setTimeout(placeMinAiSlotIfNeeded, 40);
+                }
+              }
+            }
+          }
+        });
+        mo.observe(videoGrid, { childList: true });
+      }
+
+      // ============================================================
+      //  STARTUP
+      // ============================================================
+      function startup() {
+        try { setupGridObserver(); } catch (e) { console.warn(e); }
+
+        // 3回に1回 Pro-AI を表示
+        let count = 0;
+        try { count = bumpLoadCount(); } catch {}
+        const shouldShowProAi = (count > 0 && (count % PROAI_INTERVAL === 0));
+
+        if (shouldShowProAi) {
+          // 最初のリアルカードが出てから Pro-AI ローディングを挿入する
+          // (画面トップ近くに目立つ場所で出すため)
+          let placed = false;
+          const place = () => {
+            if (placed) return;
+            const real = videoGrid && videoGrid.querySelector('.video-card:not(.mpx-skeleton-card):not(.mpx-mymix-placeholder):not([data-ai-loading])');
+            if (!real) return false;
+            placed = true;
+            // 3枚目あたりに差し込む
+            const realCards = Array.from(videoGrid.querySelectorAll('.video-card:not(.mpx-skeleton-card):not(.mpx-mymix-placeholder):not([data-ai-loading])'));
+            const anchor = realCards[Math.min(2, realCards.length - 1)];
+            const loadingNode = buildLoadingCard(
+              'proai',
+              'MIN-Pro-AIがあなたへの一本を選んでいます',
+              'Groq AI が分析中...'
+            );
+            if (anchor && anchor.parentNode === videoGrid) {
+              videoGrid.insertBefore(loadingNode, anchor.nextSibling);
+            } else if (videoGrid) {
+              videoGrid.appendChild(loadingNode);
+            }
+            asyncInjectProAi(loadingNode);
+            return true;
+          };
+          const tryMo = new MutationObserver(() => { if (place()) tryMo.disconnect(); });
+          try { tryMo.observe(videoGrid || document.body, { childList: true }); } catch {}
+          // 7秒経っても実体カードが無いなら諦める
+          setTimeout(() => { try { tryMo.disconnect(); } catch {} }, 12000);
+          // 既に実体カードがある場合に備えて即試行
+          place();
+        }
+      }
+
+      // 全エンジン読み込み後にスタート
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        setTimeout(startup, 30);
+      } else {
+        window.addEventListener('DOMContentLoaded', () => setTimeout(startup, 30));
+      }
+
+      window.MinAI = {
+        version: '2.0',
+        pickMinAiVideo,
+        pickProAiVideo,
+        forceMinAi: placeMinAiSlotIfNeeded,
+        forceProAi: placeProAiSlotIfNeeded,
+        resetShown: () => { try { localStorage.removeItem(KEY_MINAI_SHOWN); } catch {} },
+        resetLoadCount: () => { try { localStorage.removeItem(KEY_LOAD_COUNT); } catch {} }
+      };
+      console.log('%c🌟 MIN-AI Engine v2.0 ready', 'background:linear-gradient(120deg,#00d4ff,#4f8bff,#00ffa1);color:#0a0613;padding:4px 10px;border-radius:4px;font-weight:bold;');
+    })();
+    /* ============================================================================== */
+    /* ================ END OF MIN-AI ENGINE v2.0  =================================== */
     /* ============================================================================== */
 
 
@@ -4501,6 +5386,7 @@ render();play();
     ライブラリ
   </button>
 </nav>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>

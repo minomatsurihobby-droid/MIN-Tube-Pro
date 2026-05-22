@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -762,6 +764,107 @@
     .meta:hover .card-menu-btn { opacity: 1; }
     .card-menu-btn:hover { background: rgba(255,255,255,0.1); }
 
+    /* ===== MyMIX (Auto Playlist) Card ===== */
+    .video-card.mymix-card { position: relative; }
+    .video-card.mymix-card .thumb {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f0f 100%);
+      box-shadow: 0 4px 18px rgba(79, 139, 255, 0.08);
+      transition: transform .25s cubic-bezier(.2,.9,.3,1.4), box-shadow .25s;
+    }
+    .video-card.mymix-card:hover .thumb {
+      transform: translateY(-3px) scale(1.012);
+      box-shadow: 0 10px 28px rgba(162, 107, 255, 0.22);
+    }
+    .video-card.mymix-card .mymix-stack {
+      position: absolute; inset: 0; border-radius: 12px; overflow: hidden;
+    }
+    .video-card.mymix-card .mymix-stack::before,
+    .video-card.mymix-card .mymix-stack::after {
+      content: ''; position: absolute; left: 50%; transform: translateX(-50%);
+      height: 4px; border-radius: 4px 4px 0 0; background: rgba(255,255,255,0.18);
+      transition: width .2s, background .2s;
+    }
+    .video-card.mymix-card .mymix-stack::before { top: -6px; width: 88%; background: rgba(255,255,255,0.10); }
+    .video-card.mymix-card .mymix-stack::after { top: -3px; width: 94%; background: rgba(255,255,255,0.20); }
+    .video-card.mymix-card .mymix-bg {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; filter: brightness(.62) saturate(1.05);
+      transition: filter .25s, transform .35s;
+    }
+    .video-card.mymix-card:hover .mymix-bg { filter: brightness(.7) saturate(1.15); transform: scale(1.04); }
+    .video-card.mymix-card .mymix-overlay {
+      position: absolute; inset: 0;
+      background:
+        linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.78) 100%),
+        linear-gradient(120deg, rgba(79,139,255,0.18), rgba(162,107,255,0.16) 60%, rgba(255,107,214,0.14));
+    }
+    .video-card.mymix-card .mymix-badge {
+      position: absolute; top: 8px; left: 8px;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 9px; border-radius: 999px;
+      background: rgba(0,0,0,0.78);
+      color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .4px;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .video-card.mymix-card .mymix-badge .mymix-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6);
+      box-shadow: 0 0 8px rgba(162,107,255,0.7);
+      animation: mymixPulse 2.2s ease-in-out infinite;
+    }
+    @keyframes mymixPulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%     { opacity: .55; transform: scale(1.25); }
+    }
+    .video-card.mymix-card .mymix-count {
+      position: absolute; bottom: 8px; right: 8px;
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 4px;
+      background: rgba(0,0,0,0.85); color: #fff;
+      font-size: 12px; font-weight: 700;
+    }
+    .video-card.mymix-card .mymix-count svg { width: 12px; height: 12px; fill: currentColor; }
+    .video-card.mymix-card .mymix-bottom {
+      position: absolute; left: 10px; right: 10px; bottom: 8px;
+      display: flex; align-items: center; gap: 8px; pointer-events: none;
+    }
+    .video-card.mymix-card .mymix-play {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: rgba(255,255,255,0.95); color: #0f0f0f;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform .2s, background .2s;
+      flex-shrink: 0;
+    }
+    .video-card.mymix-card:hover .mymix-play {
+      transform: scale(1.08);
+      background: linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6);
+      color: #fff;
+    }
+    .video-card.mymix-card .mymix-play svg { width: 18px; height: 18px; margin-left: 2px; fill: currentColor; }
+    .video-card.mymix-card .mymix-title-overlay {
+      color: #fff; font-size: 12.5px; font-weight: 600;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+      line-height: 1.25;
+    }
+    .video-card.mymix-card .meta .channel-avatar {
+      background: linear-gradient(135deg,#4f8bff 0%,#a26bff 60%,#ff6bd6 100%);
+      color: #fff;
+    }
+    .video-card.mymix-card .details h3 .mymix-spark {
+      display: inline-block; margin-right: 4px;
+      background: linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-weight: 800;
+    }
+    @keyframes mymixEntry {
+      from { opacity: 0; transform: translateY(8px) scale(.985); }
+      to   { opacity: 1; transform: translateY(0)  scale(1); }
+    }
+    .video-card.mymix-card { animation: mymixEntry .55s cubic-bezier(.2,.9,.3,1.05) both; }
+
     /* Loading / Empty */
     #loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; }
     .empty { text-align: center; color: var(--text-muted); padding: 40px; font-size: 14px; }
@@ -1100,102 +1203,6 @@
         font-weight: 700;
       }
     }
-
-    /* ===== MyMIX (MIN-Tube-Pro Engine v2) ===== */
-    .video-card.mt-mymix-card {
-      cursor: pointer;
-    }
-    .mt-mymix-thumb {
-      position: relative;
-      overflow: hidden;
-    }
-    .mt-mymix-thumb::before {
-      content: '';
-      position: absolute;
-      top: -6px; left: 4px; right: 4px;
-      height: 6px;
-      background: rgba(255,255,255,0.18);
-      border-radius: 4px 4px 0 0;
-      z-index: 1;
-    }
-    .mt-mymix-thumb::after {
-      content: '';
-      position: absolute;
-      top: -3px; left: 8px; right: 8px;
-      height: 3px;
-      background: rgba(255,255,255,0.32);
-      border-radius: 4px 4px 0 0;
-      z-index: 1;
-    }
-    .mt-mymix-thumb img {
-      transition: transform .3s ease;
-    }
-    .video-card.mt-mymix-card:hover .mt-mymix-thumb img {
-      transform: scale(1.04);
-    }
-    .mt-mymix-badge {
-      position: absolute;
-      top: 8px;
-      left: 8px;
-      background: linear-gradient(120deg, #4f8bff, #a26bff);
-      color: #fff;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 4px 8px 4px 6px;
-      border-radius: 6px;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      box-shadow: 0 2px 6px rgba(79,139,255,0.4);
-      z-index: 2;
-      letter-spacing: 0.3px;
-    }
-    .mt-mymix-count {
-      position: absolute;
-      bottom: 8px;
-      right: 8px;
-      background: rgba(0,0,0,0.85);
-      color: #fff;
-      font-size: 12px;
-      font-weight: 600;
-      padding: 3px 7px;
-      border-radius: 4px;
-      z-index: 2;
-    }
-    .mt-mymix-overlay {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(79,139,255,0.0), rgba(162,107,255,0.0));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      transition: opacity .25s ease, background .25s ease;
-      z-index: 1;
-    }
-    .video-card.mt-mymix-card:hover .mt-mymix-overlay {
-      opacity: 1;
-      background: linear-gradient(135deg, rgba(79,139,255,0.35), rgba(162,107,255,0.35));
-    }
-    .mt-mymix-overlay span {
-      background: rgba(0,0,0,0.78);
-      color: #fff;
-      padding: 8px 18px;
-      border-radius: 999px;
-      font-size: 14px;
-      font-weight: 700;
-      backdrop-filter: blur(4px);
-      border: 1.5px solid rgba(255,255,255,0.35);
-    }
-    .video-card.mt-mymix-card h3 {
-      background: linear-gradient(120deg, var(--text), var(--text));
-      position: relative;
-    }
-    .video-card.mt-mymix-card h3::before {
-      content: '🎵 ';
-      font-size: 0.9em;
-    }
-
   </style>
 </head>
 <body>
@@ -1979,50 +1986,8 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     }
     fetchAndShowVersion();
 
-    // ===================================================================
-    // ===== 🚀 MIN-Tube-Pro Recommendation Engine v2 ====================
-    // ===================================================================
-    // ・AI意味解析クエリ生成 (Groq 4キーローテーション + 自動フェイルオーバー)
-    // ・履歴一色を防ぐ 50/50 ハイブリッドミキサー
-    // ・タイトル類似度フィルタで「同名異動画」誤マッチを排除
-    // ・MyMIX 自動プレイリスト (AI不使用 / 既好み + 類似ジャンル)
-    // ・重み付きシャッフルで自然な並び順
-    // ・キャッシュ機構でAPIコール最小化
-    // ===================================================================
-
-    const ENGINE_GROQ_KEYS = [
-      "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",
-      "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",
-      "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",
-      "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"
-    ];
-    const ENGINE_GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-    const ENGINE_GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
-
-    // ---------- ローカルストレージキー ----------
-    const ENGINE_CACHE_QUERIES = 'mt_engine_queries_v2';   // AIクエリ
-    const ENGINE_CACHE_GENRES  = 'mt_engine_genres_v2';    // ジャンル探索クエリ
-    const ENGINE_CACHE_MYMIX   = 'mt_engine_mymix_v2';     // MyMIXプレイリスト
-    const ENGINE_QUERIES_TTL   = 6  * 60 * 60 * 1000;      // 6時間
-    const ENGINE_GENRES_TTL    = 6  * 60 * 60 * 1000;
-    const ENGINE_MYMIX_TTL     = 24 * 60 * 60 * 1000;      // 24時間
-
-    // ---------- 共通ユーティリティ ----------
-    function engineCacheGet(key, ttl) {
-      try {
-        const raw = localStorage.getItem(key);
-        if (!raw) return null;
-        const obj = JSON.parse(raw);
-        if (!obj || !obj.ts || (Date.now() - obj.ts) > ttl) return null;
-        return obj.data;
-      } catch { return null; }
-    }
-    function engineCacheSet(key, data) {
-      try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch {}
-    }
-    function engineCacheInvalidate(key) { try { localStorage.removeItem(key); } catch {} }
-
-    // チャンネル登録リスト取得（後方互換のため名前維持）
+    // ===== パーソナライズ =====
+    // チャンネル登録リストを取得
     function getSubscribedChannels() {
       const channels = [];
       for (let i = 0; i < localStorage.length; i++) {
@@ -2034,554 +1999,197 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       return channels;
     }
 
-    // 後方互換のため残す（他から呼ばれている可能性に備えて）
+    // ===== 視聴履歴から高度なキーワード抽出 =====
     function getHistoryKeywords() {
       const hist = libGet(LIB_HISTORY);
-      const channels = [...new Set(hist.slice(0, 30).map(h => h.channel).filter(Boolean))];
+      const channels = [...new Set(hist.slice(0, 40).map(h => h.channel).filter(Boolean))];
       const titleWords = [];
-      hist.slice(0, 20).forEach(h => {
+      const STOP = new Set(['the','and','for','with','that','this','from','your','have','were','official','feat','featuring','music','video','live','full','hd','mv','english','japanese','official','feat','part','episode','ep','vol','season','series','official','version','remix','cover','mix','of','to','in','on','a','an','is','it','be','as','at','by','or','my','me','we','us','no','so','do','go','up','down','ft']);
+      hist.slice(0, 30).forEach(h => {
         if (!h.title) return;
-        const words = h.title.replace(/[【】「」()!！?？\[\]#♪★☆◆◇]/g, ' ').split(/\s+/).filter(w => w.length >= 3);
-        words.slice(0, 2).forEach(w => titleWords.push(w));
+        const words = h.title
+          .replace(/[【】「」『』()（）!！?？\[\]#♪★☆◆◇・|｜:：;；.,、。\-—_/\\]/g, ' ')
+          .split(/\s+/)
+          .filter(w => w && w.length >= 2 && w.length <= 18 && !STOP.has(w.toLowerCase()) && !/^\d+$/.test(w));
+        words.slice(0, 3).forEach(w => titleWords.push(w));
       });
-      return { channels: channels.slice(0, 5), titleWords: [...new Set(titleWords)].slice(0, 8) };
+      const freq = {};
+      titleWords.forEach(w => { const k = w.toLowerCase(); freq[k] = (freq[k]||0)+1; });
+      const topWords = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0, 10).map(x => x[0]);
+      return { channels: channels.slice(0, 8), titleWords: topWords };
     }
 
-    // ---------- ユーザープロファイル抽出 (TF-IDF風スコアリング) ----------
-    function buildUserProfile() {
-      const hist  = libGet(LIB_HISTORY)  || [];
-      const liked = libGet(LIB_LIKED)    || [];
-      const subs  = getSubscribedChannels();
+    // ===== ホーム動画の重複タイトルを抑止するための正規化＆類似度 =====
+    function _normTitle(t) {
+      return String(t||'')
+        .toLowerCase()
+        .replace(/[【】「」『』()（）\[\]#♪★☆◆◇・|｜:：;；.,、。\-—_/\\!！?？]/g, ' ')
+        .replace(/\s+/g, ' ').trim();
+    }
+    function _titleTokens(t) {
+      return new Set(_normTitle(t).split(' ').filter(w => w && w.length >= 2));
+    }
+    function _jaccard(a, b) {
+      if (!a.size || !b.size) return 0;
+      let inter = 0; a.forEach(x => { if (b.has(x)) inter++; });
+      return inter / (a.size + b.size - inter);
+    }
 
-      // チャンネル重み: 登録 +5, 高評価 +3, 履歴 +1*decay
-      const channelScore = new Map();
-      subs.forEach(c => channelScore.set(c, (channelScore.get(c) || 0) + 5));
-      liked.forEach(it => { if (it.channel) channelScore.set(it.channel, (channelScore.get(it.channel) || 0) + 3); });
-      hist.forEach((h, idx) => {
-        if (!h.channel) return;
-        const decay = Math.max(0.15, 1 - idx * 0.02); // 新しいほど高い
-        channelScore.set(h.channel, (channelScore.get(h.channel) || 0) + decay);
-      });
-
-      const topChannels = [...channelScore.entries()]
-        .sort((a,b) => b[1] - a[1])
-        .slice(0, 12)
-        .map(([name, score]) => ({ name, score }));
-
-      // 履歴タイトルサンプリング（重複/類似を除去してダイバーシティ確保）
-      const titleSamples = [];
-      const titleSeen = new Set();
-      for (const h of hist.slice(0, 40)) {
-        if (!h.title) continue;
-        const key = (h.title.slice(0, 18) + '|' + (h.channel || '')).toLowerCase();
-        if (titleSeen.has(key)) continue;
-        titleSeen.add(key);
-        titleSamples.push({ title: h.title, channel: h.channel || '' });
-        if (titleSamples.length >= 18) break;
+    // ===== AI を活用してユーザーの趣味プロファイルを推論（24h キャッシュ） =====
+    const AI_PROFILE_KEY = 'mt_ai_profile_v2';
+    const AI_PROFILE_TTL = 24 * 60 * 60 * 1000;
+    // Groq マルチキー（ランダム + フェイルオーバー）— 過剰利用しないように 1 回の推論のみ
+    const GROQ_KEY_POOL = [
+      "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",
+      "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",
+      "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",
+      "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"
+    ];
+    function _shuffledKeys() {
+      const arr = GROQ_KEY_POOL.slice();
+      for (let i = arr.length-1; i > 0; i--) {
+        const j = Math.floor(Math.random()*(i+1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
       }
-      liked.slice(0, 8).forEach(it => {
-        if (!it.title) return;
-        titleSamples.push({ title: it.title, channel: it.channel || '' });
-      });
-
-      return { topChannels, titleSamples, hasData: (hist.length + liked.length + subs.length) > 0 };
+      return arr;
     }
-
-    // ---------- Groq API: ランダムローテーション & 自動フェイルオーバー ----------
-    async function engineCallGroq(messages, opts = {}) {
-      const { temperature = 0.7, maxTokens = 600 } = opts;
-      const order = [...ENGINE_GROQ_KEYS].sort(() => Math.random() - 0.5);
+    async function _groqJsonCall(systemPrompt, userPrompt) {
+      const keys = _shuffledKeys();
+      const body = {
+        model: "meta-llama/llama-4-scout-17b-16e-instruct",
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.4,
+        max_tokens: 600,
+        response_format: { type: "json_object" }
+      };
       let lastErr = null;
-      for (const key of order) {
+      for (const k of keys) {
         try {
-          const res = await fetch(ENGINE_GROQ_URL, {
+          const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${key}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              model: ENGINE_GROQ_MODEL,
-              messages,
-              temperature,
-              max_tokens: maxTokens
-            })
+            headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
           });
-          if (res.status === 429 || res.status === 401 || res.status === 503) {
-            lastErr = new Error('rate-limited / unauthorized: ' + res.status);
-            continue; // 次のキーへ
-          }
-          if (!res.ok) {
-            lastErr = new Error('groq error: ' + res.status);
+          if (res.status === 429 || res.status === 401 || res.status === 403) { lastErr = new Error('rate:'+res.status); continue; }
+          if (!res.ok) { lastErr = new Error('http:'+res.status); continue; }
+          const data = await res.json();
+          const txt = data?.choices?.[0]?.message?.content || '';
+          try { return JSON.parse(txt); }
+          catch {
+            const m = txt.match(/\{[\s\S]*\}/);
+            if (m) { try { return JSON.parse(m[0]); } catch {} }
+            lastErr = new Error('parse');
             continue;
           }
-          const data = await res.json();
-          return data?.choices?.[0]?.message?.content || '';
-        } catch (e) {
-          lastErr = e;
-          continue;
-        }
+        } catch (e) { lastErr = e; continue; }
       }
       throw lastErr || new Error('all keys failed');
     }
-
-    // ---------- AI: ユーザーの好みから検索クエリを生成 ----------
-    async function engineGenerateAIQueries(profile) {
-      // キャッシュチェック（プロファイルハッシュも考慮）
-      const profileSig = JSON.stringify({
-        c: profile.topChannels.slice(0,8).map(c=>c.name),
-        t: profile.titleSamples.slice(0,10).map(t=>t.title)
-      });
-      const cached = engineCacheGet(ENGINE_CACHE_QUERIES, ENGINE_QUERIES_TTL);
-      if (cached && cached.sig === profileSig) return cached.queries;
-
-      if (!profile.hasData) return [];
-
-      const histText = profile.titleSamples.slice(0, 15).map(t => `・「${t.title}」(${t.channel})`).join('\n');
-      const chText = profile.topChannels.slice(0, 8).map(c => `・${c.name}`).join('\n');
-      const sys = (
-        "あなたはYouTubeのレコメンドAIです。ユーザーの視聴履歴と登録チャンネルから、" +
-        "その人が「次に見たくなる」検索クエリを生成してください。\n" +
-        "【厳守ルール】\n" +
-        "1. 出力は検索クエリのみ。前置き・説明・番号・記号は禁止。\n" +
-        "2. 各クエリは改行で区切る。1行1クエリ。\n" +
-        "3. クエリは2〜5語の短い検索語にする。動画タイトルそのものは禁止。\n" +
-        "4. ユーザーの『好きなジャンル/系統/作風』を抽象化したクエリを優先。\n" +
-        "5. 既に見た動画名は絶対に出力しない。\n" +
-        "6. ジャンルの多様性も少し入れる（メイン7割 + 関連3割）。\n" +
-        "7. 日本語ユーザーには日本語クエリ、海外コンテンツには英語クエリも混ぜる。\n" +
-        "8. ちょうど12個のクエリを出力。"
-      );
-      const user = (
-        "【視聴履歴サンプル】\n" + (histText || '(なし)') + "\n\n" +
-        "【よく見るチャンネル】\n" + (chText || '(なし)') + "\n\n" +
-        "上記から、この人が次に見たい動画を見つけるための検索クエリを12個生成してください。"
-      );
-
+    async function getAiProfile(forceRefresh = false) {
       try {
-        const raw = await engineCallGroq([
-          { role: 'system', content: sys },
-          { role: 'user', content: user }
-        ], { temperature: 0.85, maxTokens: 500 });
-        const queries = raw.split(/\r?\n/)
-          .map(s => s.replace(/^[\s\-*・•●○▶▷☞☛\d.)、。「」"']+/, '').trim())
-          .filter(s => s.length >= 2 && s.length <= 40)
-          .filter(s => !/^(以下|こちら|これら|note|了解|わかりました|はい|sure|here)/i.test(s))
-          .slice(0, 12);
-        if (queries.length >= 3) {
-          engineCacheSet(ENGINE_CACHE_QUERIES, { sig: profileSig, queries });
-          return queries;
+        if (!forceRefresh) {
+          const cached = JSON.parse(localStorage.getItem(AI_PROFILE_KEY) || 'null');
+          if (cached && (Date.now() - cached.ts) < AI_PROFILE_TTL) return cached.data;
         }
+      } catch {}
+      const hist = libGet(LIB_HISTORY).slice(0, 25);
+      const liked = libGet(LIB_LIKED).slice(0, 15);
+      const subs = getSubscribedChannels().slice(0, 10);
+      if (hist.length + liked.length + subs.length < 2) return null;
+      const lines = [];
+      if (subs.length) lines.push('登録チャンネル: ' + subs.join(', '));
+      if (liked.length) lines.push('高評価: ' + liked.map(x => `「${(x.title||'').slice(0,60)}」(${x.channel||''})`).join(' / '));
+      if (hist.length) lines.push('視聴履歴: ' + hist.map(x => `「${(x.title||'').slice(0,60)}」(${x.channel||''})`).join(' / '));
+      const userMsg = lines.join('\n');
+      const sys =
+        "あなたはYouTubeユーザーの嗜好を分析するアナリストです。" +
+        "ユーザーの履歴・登録から、推薦アルゴリズム用のJSONプロファイルを返してください。" +
+        "出力は厳密なJSONのみ。前置きや説明は禁止。\n" +
+        '形式: {"primary_genres":["..."], "explore_genres":["..."], "preferred_keywords":["..."], "avoid_topics":["..."], "language":"ja|en|mix", "summary":"日本語1文"}\n' +
+        "primary_genres は3-5個（ユーザーが今ハマっているジャンル、YouTube検索でヒットする語）、" +
+        "explore_genres は3-5個（嗜好に近いが未開拓、視野を広げるジャンル）、" +
+        "preferred_keywords は3-6個（具体的なアーティスト/番組/キーワード）、" +
+        "avoid_topics は0-3個（明らかに合わなさそうな話題）。" +
+        "値は短い検索キーワードにしてください。";
+      try {
+        const data = await _groqJsonCall(sys, userMsg);
+        if (!data || typeof data !== 'object') return null;
+        // sanitize
+        const out = {
+          primary_genres: Array.isArray(data.primary_genres) ? data.primary_genres.filter(Boolean).slice(0,6) : [],
+          explore_genres: Array.isArray(data.explore_genres) ? data.explore_genres.filter(Boolean).slice(0,6) : [],
+          preferred_keywords: Array.isArray(data.preferred_keywords) ? data.preferred_keywords.filter(Boolean).slice(0,8) : [],
+          avoid_topics: Array.isArray(data.avoid_topics) ? data.avoid_topics.filter(Boolean).slice(0,4) : [],
+          language: data.language || 'mix',
+          summary: data.summary || ''
+        };
+        localStorage.setItem(AI_PROFILE_KEY, JSON.stringify({ ts: Date.now(), data: out }));
+        return out;
       } catch (e) {
-        console.warn('[Engine] AI query failed:', e);
+        console.warn('[AI Profile] fallback:', e?.message || e);
+        return null;
       }
-      return [];
     }
 
-    // ---------- AI: ジャンル探索クエリ生成 (履歴と少し違う領域) ----------
-    async function engineGenerateGenreQueries(profile) {
-      const cached = engineCacheGet(ENGINE_CACHE_GENRES, ENGINE_GENRES_TTL);
-      if (cached) return cached;
+    // ===== 動画の AI スコアリング/ジャンル分類はクライアント側で軽量実装 =====
+    function classifyVideo(item, aiProfile, ctx) {
+      const title = (item.title || '').toLowerCase();
+      const ch = (item.channelTitle || '').toLowerCase();
+      let score = 0;
+      const reasons = [];
 
-      // ユーザーデータがない/少ない → トレンド系の汎用ジャンル
-      const FALLBACK_GENRES = [
-        'trending', '音楽', 'ゲーム実況', 'Vtuber', 'お笑い',
-        '料理', '旅行', 'スポーツ', 'アニメ', '映画予告',
-        'テクノロジー', 'DIY', 'ペット', 'ニュース', 'バラエティ'
-      ];
-      if (!profile.hasData) {
-        const picked = [...FALLBACK_GENRES].sort(() => Math.random() - 0.5).slice(0, 8);
-        engineCacheSet(ENGINE_CACHE_GENRES, picked);
-        return picked;
+      // 登録チャンネル
+      if (ctx.subscribedSet.has(item.channelTitle)) { score += 5.5; reasons.push('subscribed'); }
+      // 高評価チャンネル
+      if (ctx.likedChannelSet.has(item.channelTitle)) { score += 3.5; reasons.push('liked-channel'); }
+      // 履歴頻出チャンネル（過度な偏りを避けるため弱め）
+      if (ctx.histChannelCount[item.channelTitle]) {
+        const c = ctx.histChannelCount[item.channelTitle];
+        score += Math.min(2.0, 0.7 + c * 0.25);
+        reasons.push('hist-ch');
       }
-
-      try {
-        const histText = profile.titleSamples.slice(0, 8).map(t => `・「${t.title}」`).join('\n');
-        const sys = (
-          "あなたはYouTubeのジャンル発見AIです。ユーザーの履歴を参考に、" +
-          "『この人がまだ見ていないけど興味を持ちそうな新しいジャンル』の検索クエリを生成してください。\n" +
-          "【厳守ルール】\n" +
-          "1. 出力は検索クエリのみ。1行1クエリ、改行区切り。\n" +
-          "2. ユーザーが既に見ているジャンルは避ける（少し違う・隣接領域を狙う）。\n" +
-          "3. 各クエリは2〜4語の汎用ジャンル名にする。\n" +
-          "4. 8個のクエリを出力。"
-        );
-        const user = "【ユーザーの履歴】\n" + (histText || '(汎用)') +
-          "\n\nこの人が見ていない隣接ジャンルの検索クエリを8個生成してください。";
-        const raw = await engineCallGroq([
-          { role: 'system', content: sys },
-          { role: 'user', content: user }
-        ], { temperature: 0.9, maxTokens: 300 });
-        const qs = raw.split(/\r?\n/)
-          .map(s => s.replace(/^[\s\-*・•●○▶▷☞☛\d.)、。「」"']+/, '').trim())
-          .filter(s => s.length >= 2 && s.length <= 25)
-          .slice(0, 8);
-        if (qs.length >= 3) {
-          engineCacheSet(ENGINE_CACHE_GENRES, qs);
-          return qs;
+      // 履歴キーワード
+      for (const kw of ctx.historyKeywords) {
+        if (kw && title.includes(kw.toLowerCase())) { score += 0.6; }
+      }
+      // AI primary
+      if (aiProfile) {
+        for (const g of (aiProfile.primary_genres || [])) {
+          if (g && title.includes(String(g).toLowerCase())) { score += 1.2; reasons.push('primary:'+g); break; }
         }
-      } catch (e) {
-        console.warn('[Engine] genre query failed:', e);
-      }
-      const picked = [...FALLBACK_GENRES].sort(() => Math.random() - 0.5).slice(0, 8);
-      engineCacheSet(ENGINE_CACHE_GENRES, picked);
-      return picked;
-    }
-
-    // ---------- タイトル類似度フィルタ ----------
-    // 履歴のタイトルと「ほぼ同じだけどIDが違う」動画を除外する。
-    // YouTubeでは同名のリアップ動画/海賊版/カバーが大量にあるため。
-    function engineNormalizeTitle(t) {
-      return String(t || '')
-        .toLowerCase()
-        .replace(/[【】「」『』()（）\[\]<>《》#♪★☆◆◇♥♡!！?？.,、。:：;；\-_/\\|]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-    }
-    function engineTitleSimilarity(a, b) {
-      const na = engineNormalizeTitle(a);
-      const nb = engineNormalizeTitle(b);
-      if (!na || !nb) return 0;
-      if (na === nb) return 1;
-      // 短いほうが長いほうに含まれる場合 → 高類似
-      if (na.length >= 6 && nb.includes(na)) return 0.92;
-      if (nb.length >= 6 && na.includes(nb)) return 0.92;
-      // Jaccard on 3-gram set
-      const grams = (s) => {
-        const set = new Set();
-        for (let i = 0; i < s.length - 2; i++) set.add(s.slice(i, i+3));
-        return set;
-      };
-      const A = grams(na), B = grams(nb);
-      if (A.size === 0 || B.size === 0) return 0;
-      let inter = 0;
-      A.forEach(g => { if (B.has(g)) inter++; });
-      return inter / (A.size + B.size - inter);
-    }
-    function engineBuildHistoryTitleIndex() {
-      const hist = libGet(LIB_HISTORY) || [];
-      return hist.slice(0, 60).map(h => engineNormalizeTitle(h.title)).filter(Boolean);
-    }
-    function engineIsTooSimilarToHistory(title, histIndex, threshold = 0.78) {
-      const n = engineNormalizeTitle(title);
-      if (!n) return false;
-      for (const h of histIndex) {
-        if (!h) continue;
-        if (n === h) return true;
-        if (h.length >= 6 && n.includes(h)) return true;
-        if (n.length >= 6 && h.includes(n)) return true;
-      }
-      // 重い類似度は最初の数件だけに限定（パフォーマンス）
-      for (const h of histIndex.slice(0, 15)) {
-        if (engineTitleSimilarity(title, h) >= threshold) return true;
-      }
-      return false;
-    }
-
-    // ---------- フェッチ＆正規化 ----------
-    async function engineFetchQuery(q) {
-      const ep = q === 'trending'
-        ? `/api/trending?page=0`
-        : `/api/search?q=${encodeURIComponent(q)}&page=0`;
-      try {
-        const r = await fetch(ep);
-        if (!r.ok) return [];
-        const data = await r.json();
-        const items = data.items || data || [];
-        return normalizeAndFilterList(items).map(it => ({ ...it, _source: q }));
-      } catch { return []; }
-    }
-
-    // ---------- 重み付きシャッフル: パーソナルとジャンル探索を交互にミックス ----------
-    function engineWeavedMix(personal, exploration, ratio = 0.5) {
-      // ratio = 0.5 → 1:1 で交互、0.6 → personalが少し多め
-      const out = [];
-      const p = [...personal];
-      const e = [...exploration];
-      while (p.length || e.length) {
-        const wantPersonal = Math.random() < ratio;
-        if (wantPersonal && p.length) out.push(p.shift());
-        else if (e.length) out.push(e.shift());
-        else if (p.length) out.push(p.shift());
-      }
-      return out;
-    }
-
-    // ---------- MyMIX プレイリスト生成 (AI不使用) ----------
-    // 仕様:
-    //   ・ユーザーのお気に入りチャンネル毎に1つのMyMIXを作る (最大3個)
-    //   ・各MIXは「そのチャンネルの人気動画」+「類似ジャンルの動画」を混合
-    //   ・15〜25本程度
-    //   ・キャッシュは24時間
-    async function engineBuildMyMixes() {
-      const cached = engineCacheGet(ENGINE_CACHE_MYMIX, ENGINE_MYMIX_TTL);
-      if (cached && Array.isArray(cached) && cached.length) return cached;
-
-      const profile = buildUserProfile();
-      if (!profile.hasData || profile.topChannels.length === 0) {
-        engineCacheSet(ENGINE_CACHE_MYMIX, []);
-        return [];
-      }
-
-      const seedChannels = profile.topChannels.slice(0, 3); // 最大3個のMIX
-      const mixes = [];
-
-      for (const seed of seedChannels) {
-        try {
-          // メイン: チャンネル名で検索 (人気動画を狙う)
-          const mainItems = await engineFetchQuery(seed.name);
-          // サブ: 隣接ジャンル(履歴タイトルから抽出した語)
-          const histKwSet = new Set();
-          profile.titleSamples.forEach(t => {
-            (t.title || '').split(/[\s【】「」()（）\[\]#・]/).forEach(w => {
-              if (w.length >= 3 && w.length <= 12) histKwSet.add(w);
-            });
-          });
-          const histKws = [...histKwSet].slice(0, 3);
-          const subItemsArr = await Promise.all(
-            histKws.map(k => engineFetchQuery(k))
-          );
-          let candidates = [...mainItems, ...subItemsArr.flat()];
-
-          // 重複除去
-          const seenIds = new Set();
-          candidates = candidates.filter(it => {
-            if (!it || !it.id) return false;
-            if (seenIds.has(it.id)) return false;
-            seenIds.add(it.id);
-            // ショート除外
-            if ((it.title || '').includes('#')) return false;
-            return true;
-          });
-          // 一度履歴と完全一致した動画は除外（既視聴感を減らす）
-          const histIds = new Set((libGet(LIB_HISTORY) || []).map(h => h.id));
-          candidates = candidates.filter(it => !histIds.has(it.id));
-
-          // 並び替え: チャンネル一致 > その他
-          candidates.sort((a, b) => {
-            const aMatch = (a.channelTitle || '') === seed.name ? 1 : 0;
-            const bMatch = (b.channelTitle || '') === seed.name ? 1 : 0;
-            return bMatch - aMatch;
-          });
-          candidates = candidates.slice(0, 22);
-
-          if (candidates.length >= 5) {
-            // MIX用の軽量レコードに変換
-            const mixItems = candidates.map(it => ({
-              id: it.id,
-              title: it.title || '',
-              channelTitle: it.channelTitle || '',
-              thumbnail: getThumbUrl(it.id, 'hq'),
-              length: it.lengthText || ''
-            }));
-            mixes.push({
-              mixId: 'mix_' + Math.random().toString(36).slice(2, 9),
-              seedChannel: seed.name,
-              title: `マイミックス ・ ${seed.name}`,
-              items: mixItems,
-              cover: mixItems[0]?.thumbnail || '',
-              count: mixItems.length
-            });
-          }
-        } catch (e) {
-          console.warn('[Engine] MyMix build error:', e);
+        for (const g of (aiProfile.explore_genres || [])) {
+          if (g && title.includes(String(g).toLowerCase())) { score += 0.7; reasons.push('explore:'+g); break; }
+        }
+        for (const kw of (aiProfile.preferred_keywords || [])) {
+          if (kw && (title.includes(String(kw).toLowerCase()) || ch.includes(String(kw).toLowerCase()))) { score += 0.9; }
+        }
+        for (const av of (aiProfile.avoid_topics || [])) {
+          if (av && title.includes(String(av).toLowerCase())) { score -= 1.5; reasons.push('avoid:'+av); }
         }
       }
+      // 多すぎる視聴回数の動画にわずかなボーナス
+      const vt = (item.viewCountText || '').toLowerCase();
+      if (/万|m|million/.test(vt)) score += 0.3;
 
-      engineCacheSet(ENGINE_CACHE_MYMIX, mixes);
-      return mixes;
-    }
-
-    // ---------- MyMIX カードを videoGrid に挿入する ----------
-    function engineRenderMyMixCard(mix) {
-      const card = document.createElement('a');
-      card.className = 'video-card mt-mymix-card';
-      card.href = '#';
-      card.setAttribute('data-mymix-id', mix.mixId);
-      const firstChannel = mix.seedChannel || '';
-      const initial = firstChannel ? firstChannel[0].toUpperCase() : 'M';
-      const previewCount = Math.min(mix.count, 50);
-      card.innerHTML = `
-        <div class="thumb mt-mymix-thumb">
-          <img src="${mix.cover}" loading="lazy" alt="マイミックス">
-          <div class="mt-mymix-badge">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M4 6h12v2H4zm0 4h12v2H4zm0 4h8v2H4zm10 0v6l5-3z"/></svg>
-            <span>マイミックス</span>
-          </div>
-          <div class="mt-mymix-count">${previewCount}本</div>
-          <div class="mt-mymix-overlay"><span>▶ 再生</span></div>
-        </div>
-        <div class="meta">
-          <a class="channel-avatar" data-initial="${initial}" onclick="event.stopPropagation();event.preventDefault();" style="text-decoration:none;background:linear-gradient(135deg,#4f8bff,#a26bff);">
-            <span class="avatar-initial" style="color:#fff;">${initial}</span>
-          </a>
-          <div class="details">
-            <h3>マイミックス ・ ${firstChannel}</h3>
-            <a class="channel-name" onclick="event.stopPropagation();event.preventDefault();" style="text-decoration:none;color:var(--text-muted);">MIN-Tube-Pro が作成 ・ ${mix.count}本の動画</a>
-            <div class="video-stats">あなたの好みに合わせて自動生成</div>
-          </div>
-        </div>
-      `;
-      card.addEventListener('click', (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        window.__openMyMixPlayer && window.__openMyMixPlayer(mix);
-      });
-      return card;
-    }
-
-    // ---------- MyMIX プレイヤー (新タブ) ----------
-    window.__openMyMixPlayer = function(mix) {
-      const win = window.open('about:blank', '_blank');
-      if (!win) { alert('ポップアップがブロックされました。許可してから再度お試しください。'); return; }
-      const items = mix.items || [];
-      const payload = JSON.stringify(items).replace(/<\/script/g, '<\\/script');
-      const titleSafe = (mix.title || 'マイミックス').replace(/</g, '&lt;');
-      const html = `<!DOCTYPE html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${titleSafe} ・ MIN-Tube-Pro</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-<style>
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;background:#0f0f0f;color:#f1f1f1;font-family:'Roboto',Arial,sans-serif;height:100%;}
-  .app{display:flex;height:100vh;width:100vw;}
-  .player-wrap{flex:1;min-width:0;display:flex;flex-direction:column;background:#000;}
-  .player-box{position:relative;width:100%;flex:1;background:#000;}
-  .player-box iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
-  .now-playing{padding:14px 18px;background:#0f0f0f;border-top:1px solid #2a2a2a;}
-  .np-title{font-size:16px;font-weight:600;margin:0 0 4px;line-height:1.35;}
-  .np-channel{font-size:13px;color:#aaa;}
-  .pl-side{width:380px;max-width:42vw;background:#181818;border-left:1px solid #2a2a2a;display:flex;flex-direction:column;}
-  .pl-head{padding:14px 16px;border-bottom:1px solid #2a2a2a;display:flex;align-items:center;gap:8px;background:linear-gradient(120deg,rgba(79,139,255,0.12),rgba(162,107,255,0.12));}
-  .pl-head .mix-icon{width:22px;height:22px;background:linear-gradient(135deg,#4f8bff,#a26bff);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;}
-  .pl-title{font-size:15px;font-weight:700;flex:1;}
-  .pl-count{font-size:12px;color:#aaa;}
-  .pl-list{flex:1;overflow-y:auto;}
-  .pl-list::-webkit-scrollbar{width:6px;} .pl-list::-webkit-scrollbar-thumb{background:#3f3f3f;border-radius:3px;}
-  .pl-item{display:flex;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);transition:background .12s;align-items:center;}
-  .pl-item:hover{background:#272727;}
-  .pl-item.active{background:linear-gradient(90deg,rgba(79,139,255,0.18),rgba(162,107,255,0.18));}
-  .pl-idx{width:18px;text-align:center;font-size:12px;color:#888;flex-shrink:0;}
-  .pl-thumb{width:96px;height:54px;border-radius:6px;object-fit:cover;background:#000;flex-shrink:0;}
-  .pl-info{flex:1;min-width:0;}
-  .pl-it-title{font-size:13px;font-weight:500;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-  .pl-it-ch{font-size:11.5px;color:#aaa;margin-top:3px;}
-  .pl-controls{display:flex;gap:6px;padding:10px 12px;border-top:1px solid #2a2a2a;background:#0f0f0f;}
-  .pl-controls button{flex:1;background:#272727;border:none;color:#f1f1f1;padding:9px 8px;border-radius:8px;cursor:pointer;font-size:12.5px;font-family:inherit;transition:background .12s;}
-  .pl-controls button:hover{background:#3f3f3f;}
-  .pl-controls .play-pri{background:linear-gradient(120deg,#4f8bff,#a26bff);font-weight:600;}
-  @media (max-width:780px){
-    .app{flex-direction:column;}
-    .pl-side{width:100%;max-width:none;border-left:none;border-top:1px solid #2a2a2a;height:50vh;}
-    .player-wrap{height:50vh;}
-  }
-</style>
-</head><body>
-<div class="app">
-  <div class="player-wrap">
-    <div class="player-box"><iframe id="yt" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>
-    <div class="now-playing"><div class="np-title" id="npTitle">読み込み中...</div><div class="np-channel" id="npChannel"></div></div>
-  </div>
-  <aside class="pl-side">
-    <div class="pl-head"><div class="mix-icon">M</div><div class="pl-title">${titleSafe}</div><div class="pl-count" id="plCount"></div></div>
-    <div class="pl-list" id="plList"></div>
-    <div class="pl-controls">
-      <button id="btnShuffle">🔀 シャッフル</button>
-      <button id="btnPrev">⏮ 前</button>
-      <button id="btnNext" class="play-pri">次 ⏭</button>
-    </div>
-  </aside>
-</div>
-<script>
-  let items = ${payload};
-  let current = 0;
-  const yt = document.getElementById('yt');
-  const list = document.getElementById('plList');
-  const npTitle = document.getElementById('npTitle');
-  const npChannel = document.getElementById('npChannel');
-  const plCount = document.getElementById('plCount');
-  plCount.textContent = items.length + ' 本';
-  function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-  function render(){
-    list.innerHTML = items.map((it,i)=>'<div class="pl-item'+(i===current?' active':'')+'" data-i="'+i+'"><div class="pl-idx">'+(i===current?'▶':(i+1))+'</div><img class="pl-thumb" src="'+esc(it.thumbnail)+'" onerror="this.src=\\'https://i.ytimg.com/vi/'+esc(it.id)+'/hqdefault.jpg\\'"><div class="pl-info"><div class="pl-it-title">'+esc(it.title)+'</div><div class="pl-it-ch">'+esc(it.channelTitle||'')+'</div></div></div>').join('');
-    list.querySelectorAll('.pl-item').forEach(el=>{
-      el.addEventListener('click',()=>{current=parseInt(el.dataset.i,10); play();});
-    });
-  }
-  function play(){
-    const it = items[current];
-    if(!it) return;
-    yt.src = 'https://www.youtube-nocookie.com/embed/'+encodeURIComponent(it.id)+'?autoplay=1&rel=0&modestbranding=1&enablejsapi=1';
-    npTitle.textContent = it.title || '';
-    npChannel.textContent = it.channelTitle || '';
-    render();
-    const active = list.querySelector('.pl-item.active');
-    if(active) active.scrollIntoView({block:'nearest',behavior:'smooth'});
-  }
-  document.getElementById('btnPrev').addEventListener('click',()=>{current=(current-1+items.length)%items.length;play();});
-  document.getElementById('btnNext').addEventListener('click',()=>{current=(current+1)%items.length;play();});
-  document.getElementById('btnShuffle').addEventListener('click',()=>{
-    const cur = items[current];
-    for(let i=items.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[items[i],items[j]]=[items[j],items[i]];}
-    current = items.indexOf(cur);
-    if(current<0) current=0;
-    render();
-  });
-  render();
-  play();
-<\/script>
-</body></html>`;
-      win.document.open();
-      win.document.write(html);
-      win.document.close();
-    };
-
-    // ---------- 動画カードを videoGrid に挿入する共通レンダラ ----------
-    function engineRenderVideoCard(item) {
-      const card = document.createElement('a');
-      card.className = 'video-card';
-      card.href = `/video/${item.id}`;
-      const thumbUrl = getThumbUrl(item.id, 'mq');
-      const channel = item.channelTitle || '';
-      const viewText = item.viewCountText || '';
-      const published = item.publishedTimeText || '';
-      const initial = channel ? channel[0].toUpperCase() : 'C';
-      const avatarUrl = item.channelThumbnail || item.channelImage || '';
-      card.innerHTML = `
-        <div class="thumb">
-          <img src="${thumbUrl}" loading="lazy" alt="${(item.title || '動画').replace(/"/g,'&quot;')}">
-          ${item.lengthText ? `<div class="duration-badge">${item.lengthText}</div>` : ''}
-        </div>
-        <div class="meta">
-          <a href="/channel/${encodeURIComponent(channel)}" class="channel-avatar" data-initial="${initial}" onclick="event.stopPropagation()" style="text-decoration:none;">
-            <span class="avatar-initial">${initial}</span>
-            ${avatarUrl ? `<img src="${avatarUrl}" alt="${channel}" onload="this.classList.add('loaded')" onerror="this.remove()">` : ''}
-          </a>
-          <div class="details">
-            <h3>${item.title || ''}</h3>
-            <a href="/channel/${encodeURIComponent(channel)}" class="channel-name" onclick="event.stopPropagation()" style="text-decoration:none;color:var(--text-muted);">${channel}</a>
-            <div class="video-stats">${viewText}${viewText && published ? ' • ' : ''}${published || ''}</div>
-          </div>
-          <button class="card-menu-btn" aria-label="メニュー" data-id="${item.id}" data-title="${(item.title||'').replace(/"/g,'&quot;')}" data-channel="${channel.replace(/"/g,'&quot;')}" data-views="${viewText}" data-published="${published}">⋮</button>
-        </div>
-      `;
-      if (!avatarUrl) {
-        const avatarEl = card.querySelector('.channel-avatar');
-        const img = document.createElement('img');
-        img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(channel)}&background=random&color=fff&size=64&bold=true`;
-        img.alt = channel;
-        img.onload = () => img.classList.add('loaded');
-        img.onerror = () => img.remove();
-        avatarEl.appendChild(img);
+      // 同タイトル重複（ユーザーが見たやつ）
+      const cTok = _titleTokens(item.title);
+      let maxSim = 0;
+      for (const wt of ctx.watchedTokens) {
+        const s = _jaccard(cTok, wt);
+        if (s > maxSim) maxSim = s;
+        if (s >= 0.62) break;
       }
-      return card;
+      if (maxSim >= 0.62) { score -= 6; reasons.push('dup-title'); }
+      else if (maxSim >= 0.45) { score -= 1.5; reasons.push('near-dup'); }
+
+      return { score, maxSim, reasons };
     }
 
-    // ---------- メイン: パーソナライズフィード ----------
-    let __engineMyMixesQueue = null;  // ページ間で MyMIX を順番に挿入するためのキュー
-    let __engineMyMixCounter = 0;     // 何個目のカードでMIXを挟むかカウント
-
+    // ===== パーソナライズフィード（高度版） =====
+    // YouTube 風のスコアリング + 既視聴の重複タイトル抑止 + おすすめ/探索のシャッフル混合 + 自動プレイリスト埋込
     async function loadPersonalizedFeed(page = 0) {
       if (isFetching) return;
       isFetching = true;
@@ -2593,79 +2201,170 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         shortsRow.innerHTML = '';
         shortsSection.style.display = 'none';
         shortsExpanded = true;
-        __engineMyMixesQueue = null;
-        __engineMyMixCounter = 0;
       }
 
-      const profile = buildUserProfile();
-      const histTitleIndex = engineBuildHistoryTitleIndex();
-      const subscribed = profile.topChannels.filter(c => true).map(c => c.name);
+      // ===== ユーザーコンテキスト構築 =====
+      const subscribedChannels = getSubscribedChannels();
+      const liked = libGet(LIB_LIKED);
+      const hist  = libGet(LIB_HISTORY);
 
-      // ユーザーデータがない場合 → トレンドにフォールバック
-      if (!profile.hasData) {
-        isFetching = false;
-        loading.style.display = 'none';
+      const subscribedSet = new Set(subscribedChannels);
+      const likedChannelSet = new Set(liked.map(l => l.channel).filter(Boolean));
+      const histChannelCount = {};
+      hist.slice(0, 60).forEach(h => { if (h.channel) histChannelCount[h.channel] = (histChannelCount[h.channel]||0)+1; });
+      const watchedIds = new Set(hist.map(h => h.id).filter(Boolean));
+      const watchedTokens = hist.slice(0, 40).map(h => _titleTokens(h.title)).filter(s => s.size >= 2);
+
+      const { channels: histChannels, titleWords } = getHistoryKeywords();
+      const historyKeywords = [...new Set([...titleWords])];
+
+      // データなし → trending にフォールバック
+      const noData = (subscribedChannels.length + liked.length + hist.length) === 0;
+      if (noData) {
+        isFetching = false; loading.style.display = 'none';
         loadContent('trending', page);
         return;
       }
 
+      // ===== AI プロファイル取得（page=0のみ、24hキャッシュ） =====
+      let aiProfile = null;
       try {
-        // ----- page 0: AIクエリ・ジャンルクエリ・MyMIX を並列取得 -----
-        if (page === 0) {
-          // Groqに2並列リクエスト + MyMIXビルドを並列実行
-          const [aiQueries, genreQueries, myMixes] = await Promise.all([
-            engineGenerateAIQueries(profile).catch(() => []),
-            engineGenerateGenreQueries(profile).catch(() => []),
-            engineBuildMyMixes().catch(() => [])
-          ]);
-          // クエリ不足時のフォールバック
-          let personalQs = (aiQueries && aiQueries.length) ? aiQueries.slice(0, 6)
-                          : subscribed.slice(0, 5);
-          let genreQs   = (genreQueries && genreQueries.length) ? genreQueries.slice(0, 5)
-                          : ['trending', '音楽', 'ゲーム実況'];
+        if (page === 0) aiProfile = await getAiProfile(false);
+        else {
+          const cached = JSON.parse(localStorage.getItem(AI_PROFILE_KEY) || 'null');
+          if (cached) aiProfile = cached.data;
+        }
+      } catch {}
 
-          // ページ0: 各カテゴリから3つずつクエリを引いて検索
-          const personalPick = personalQs.slice(0, 3);
-          const genrePick    = genreQs.slice(0, 3);
-          const allPromises = [
-            ...personalPick.map(q => engineFetchQuery(q)),
-            ...genrePick.map(q => engineFetchQuery(q)),
-            engineFetchQuery('trending')
-          ];
-          const arrs = await Promise.all(allPromises);
-          const personalItems   = arrs.slice(0, personalPick.length).flat();
-          const explorationItems = arrs.slice(personalPick.length).flat();
+      // ===== クエリ設計（パーソナライズ × 探索 を半々で） =====
+      // パーソナライズ側ソース
+      const personalSources = [];
+      // 登録チャンネル名（上位3、ローテーション）
+      shuffleArray(subscribedChannels.slice());
+      subscribedChannels.slice(0, 3).forEach(c => personalSources.push({ q: c, kind: 'subscribed', weight: 1.0 }));
+      // 高評価チャンネル名（上位2）
+      [...likedChannelSet].slice(0, 2).forEach(c => personalSources.push({ q: c, kind: 'liked', weight: 0.9 }));
+      // 履歴頻出チャンネル
+      const topHistCh = Object.entries(histChannelCount).sort((a,b)=>b[1]-a[1]).slice(0, 2).map(x=>x[0]);
+      topHistCh.forEach(c => personalSources.push({ q: c, kind: 'hist-ch', weight: 0.7 }));
+      // 履歴キーワード
+      historyKeywords.slice(0, 3).forEach(kw => personalSources.push({ q: kw, kind: 'hist-kw', weight: 0.6 }));
 
-          // 重複除去 & 履歴類似除外
-          const seenIds = new Set([...displayedIds]);
-          function clean(arr) {
-            return arr.filter(it => {
-              if (!it || !it.id) return false;
-              if (seenIds.has(it.id)) return false;
+      // 探索側ソース
+      const exploreSources = [];
+      if (aiProfile) {
+        (aiProfile.primary_genres || []).slice(0, 3).forEach(g => exploreSources.push({ q: g, kind: 'ai-primary', weight: 0.95 }));
+        (aiProfile.explore_genres || []).slice(0, 3).forEach(g => exploreSources.push({ q: g, kind: 'ai-explore', weight: 0.75 }));
+        (aiProfile.preferred_keywords || []).slice(0, 2).forEach(g => exploreSources.push({ q: g, kind: 'ai-kw', weight: 0.85 }));
+      }
+      // トレンドも探索枠に
+      exploreSources.push({ q: '__trending__', kind: 'trending', weight: 0.55 });
+
+      // ページに応じてローテーション
+      shuffleArray(personalSources);
+      shuffleArray(exploreSources);
+      const PERSONAL_PICKS = 3 + (page % 2);
+      const EXPLORE_PICKS = 3 + ((page+1) % 2);
+      const pickPersonal = personalSources.slice(0, PERSONAL_PICKS);
+      const pickExplore  = exploreSources.slice(0, EXPLORE_PICKS);
+
+      try {
+        // ===== 並列フェッチ =====
+        const fetchOne = (src) => {
+          const ep = src.q === '__trending__'
+            ? `/api/trending?page=${page % 3}`
+            : `/api/search?q=${encodeURIComponent(src.q)}&page=${page % 3}`;
+          return fetchEndpoint(ep).then(items => ({ src, items: normalizeAndFilterList(items) }));
+        };
+        const [personalResults, exploreResults] = await Promise.all([
+          Promise.all(pickPersonal.map(fetchOne)),
+          Promise.all(pickExplore.map(fetchOne))
+        ]);
+
+        // ===== スコアリング =====
+        const ctx = { subscribedSet, likedChannelSet, histChannelCount, watchedTokens, historyKeywords };
+        const seenIds = new Set([...displayedIds, ...watchedIds]);
+        const personalPool = [];
+        const explorePool = [];
+
+        const collect = (results, pool, baseBoost) => {
+          for (const { src, items } of results) {
+            for (const it of items) {
+              if (!it || !it.id) continue;
+              if (seenIds.has(it.id)) continue;
+              const cls = classifyVideo(it, aiProfile, ctx);
+              // 重複タイトル弾く（強）
+              if (cls.maxSim >= 0.62) continue;
+              const finalScore = cls.score + baseBoost * src.weight + (Math.random() * 0.4);
+              pool.push({ item: it, score: finalScore, src: src.kind });
               seenIds.add(it.id);
-              // 履歴と同じ動画は除外
-              const histIds = new Set((libGet(LIB_HISTORY) || []).map(h => h.id));
-              if (histIds.has(it.id)) return false;
-              // 「同名異動画」フィルタ: 履歴タイトルとほぼ同じものを排除
-              if (engineIsTooSimilarToHistory(it.title || '', histTitleIndex)) return false;
-              return true;
-            });
+            }
           }
-          const cleanPersonal    = shuffleArray(clean(personalItems));
-          const cleanExploration = shuffleArray(clean(explorationItems));
+        };
+        collect(personalResults, personalPool, 1.2);
+        collect(exploreResults, explorePool, 0.0);
 
-          // ショートとノーマルに分離
-          const shorts = [], normals = [];
-          const allMixed = engineWeavedMix(cleanPersonal, cleanExploration, 0.55);
-          allMixed.forEach(it => {
-            if ((it.title || '').includes('#')) shorts.push(it);
-            else normals.push(it);
-          });
+        // スコア降順ソート
+        personalPool.sort((a,b)=>b.score-a.score);
+        explorePool.sort((a,b)=>b.score-a.score);
 
-          // ショート表示
-          if (shorts.length > 4) {
+        // ===== ショート分離 =====
+        const sortShorts = (pool) => {
+          const sh = [], nm = [];
+          pool.forEach(p => ((p.item.title||'').includes('#') ? sh : nm).push(p));
+          return { sh, nm };
+        };
+        const pSplit = sortShorts(personalPool);
+        const eSplit = sortShorts(explorePool);
+        const shorts = [...pSplit.sh.map(p=>p.item), ...eSplit.sh.map(p=>p.item)];
+
+        // ===== チャンネル多様性を確保（同じチャンネル連発を防ぐ） =====
+        const diversify = (arr, maxPerChannel = 2) => {
+          const cnt = {}; const kept = []; const overflow = [];
+          for (const p of arr) {
+            const ch = p.item.channelTitle || '_';
+            cnt[ch] = (cnt[ch]||0);
+            if (cnt[ch] < maxPerChannel) { kept.push(p); cnt[ch]++; }
+            else overflow.push(p);
+          }
+          return kept.concat(overflow);
+        };
+        const personalDiv = diversify(pSplit.nm, 2);
+        const exploreDiv  = diversify(eSplit.nm, 2);
+
+        // ===== 50/50 でインターリーブ =====
+        const finalList = [];
+        const lenP = personalDiv.length, lenE = exploreDiv.length;
+        let ip = 0, ie = 0;
+        // 最初の1枠はパーソナライズで「親しみやすさ」を出す
+        while (ip < lenP || ie < lenE) {
+          if (ip < lenP) finalList.push(personalDiv[ip++]);
+          if (ie < lenE) finalList.push(exploreDiv[ie++]);
+          // ちょっとだけランダム挿入で「人っぽい」順序に
+          if ((ip + ie) % 6 === 0 && ip < lenP && Math.random() < 0.35) finalList.push(personalDiv[ip++]);
+          if ((ip + ie) % 7 === 0 && ie < lenE && Math.random() < 0.35) finalList.push(exploreDiv[ie++]);
+        }
+
+        // 重複除去（最終チェック）
+        const uniq = []; const seen2 = new Set();
+        for (const p of finalList) {
+          if (seen2.has(p.item.id)) continue;
+          seen2.add(p.item.id);
+          uniq.push(p.item);
+        }
+
+        if (uniq.length === 0 && page === 0) {
+          videoGrid.innerHTML = '<p class="empty">動画が見つかりませんでした。</p>';
+        }
+
+        // ===== ショート表示（page=0のみ） =====
+        if (page === 0) {
+          const shortsDedup = [];
+          const sset = new Set();
+          for (const it of shorts) { if (it.id && !sset.has(it.id)) { sset.add(it.id); shortsDedup.push(it); } }
+          if (shortsDedup.length > 4) {
             shortsSection.style.display = 'block';
-            shorts.forEach(item => {
+            shortsDedup.slice(0, 16).forEach(item => {
               if (displayedIds.has(item.id)) return;
               displayedIds.add(item.id);
               const a = document.createElement('a');
@@ -2685,84 +2384,91 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
             });
             updateShortsToggleUI();
           }
-
-          // MyMIXを動画カードに混ぜる準備
-          __engineMyMixesQueue = [...(myMixes || [])];
-          __engineMyMixCounter = 0;
-          // 最初のMyMIXは3〜5枚目あたりに挿入
-          const firstMixAt = 4 + Math.floor(Math.random() * 3);
-
-          normals.forEach((item, idx) => {
-            if (!item || !item.id || displayedIds.has(item.id)) return;
-            displayedIds.add(item.id);
-            // 通常カード追加
-            videoGrid.appendChild(engineRenderVideoCard(item));
-            __engineMyMixCounter++;
-            // MyMIXを差し込むタイミング: 最初は firstMixAt 枚目以降、その後は 8〜12枚ごと
-            const shouldInsertMix = __engineMyMixesQueue && __engineMyMixesQueue.length > 0 && (
-              __engineMyMixCounter === firstMixAt ||
-              (__engineMyMixCounter > firstMixAt && __engineMyMixCounter % (8 + Math.floor(Math.random() * 4)) === 0)
-            );
-            if (shouldInsertMix) {
-              const mix = __engineMyMixesQueue.shift();
-              if (mix) videoGrid.appendChild(engineRenderMyMixCard(mix));
-            }
-          });
-
-          // 万一空ならフォールバック表示
-          if (normals.length === 0) {
-            videoGrid.innerHTML = '<p class="empty">動画が見つかりませんでした。</p>';
-          }
         }
-        // ----- page >= 1: 無限スクロール用 (AIクエリは使い回し) -----
-        else {
-          const cachedQs = (engineCacheGet(ENGINE_CACHE_QUERIES, ENGINE_QUERIES_TTL) || {}).queries || [];
-          const cachedGenres = engineCacheGet(ENGINE_CACHE_GENRES, ENGINE_GENRES_TTL) || [];
-          const allQs = [...cachedQs, ...cachedGenres, ...subscribed, 'trending'];
-          if (allQs.length === 0) {
-            isFetching = false; loading.style.display = 'none';
-            return;
+
+        // ===== 自動プレイリスト（MyMIX）を取得（背景生成） =====
+        let myMixes = [];
+        if (page === 0 && typeof window.getAutoPlaylists === 'function') {
+          try { myMixes = await window.getAutoPlaylists(); } catch { myMixes = []; }
+        } else if (typeof window.getAutoPlaylistsCached === 'function') {
+          myMixes = window.getAutoPlaylistsCached();
+        }
+        // MyMIX の挿入位置（page=0 は 5,12,20 番目あたりに自然挿入。page>0 は 7,16 あたり）
+        const mixInsertPositions = page === 0
+          ? [5, 12, 20].filter(p => p < uniq.length + 3).slice(0, Math.min(myMixes.length, 3))
+          : [7, 16].filter(p => p < uniq.length + 3).slice(0, Math.min(myMixes.length, 2));
+        const mixesToInsert = myMixes.slice(0, mixInsertPositions.length);
+
+        // ===== 動画カード描画 =====
+        const renderVideoCard = (item) => {
+          if (!item || !item.id || displayedIds.has(item.id)) return null;
+          displayedIds.add(item.id);
+          const card = document.createElement('a');
+          card.className = 'video-card';
+          card.href = `/video/${item.id}`;
+          const thumbUrl = getThumbUrl(item.id, 'mq');
+          const channel = item.channelTitle || '';
+          const viewText = item.viewCountText || '';
+          const published = item.publishedTimeText || '';
+          const initial = channel ? channel[0].toUpperCase() : 'C';
+          const avatarUrl = item.channelThumbnail || item.channelImage || '';
+          card.innerHTML = `
+            <div class="thumb">
+              <img src="${thumbUrl}" loading="lazy" alt="${item.title || '動画'}">
+              ${item.lengthText ? `<div class="duration-badge">${item.lengthText}</div>` : ''}
+            </div>
+            <div class="meta">
+              <a href="/channel/${encodeURIComponent(channel)}" class="channel-avatar" data-initial="${initial}" onclick="event.stopPropagation()" style="text-decoration:none;">
+                <span class="avatar-initial">${initial}</span>
+                ${avatarUrl ? `<img src="${avatarUrl}" alt="${channel}" onload="this.classList.add('loaded')" onerror="this.remove()">` : ''}
+              </a>
+              <div class="details">
+                <h3>${item.title || ''}</h3>
+                <a href="/channel/${encodeURIComponent(channel)}" class="channel-name" onclick="event.stopPropagation()" style="text-decoration:none;color:var(--text-muted);">${channel}</a>
+                <div class="video-stats">${viewText}${viewText && published ? ' • ' : ''}${published || item.publishedTimeText || ''}</div>
+              </div>
+              <button class="card-menu-btn" aria-label="メニュー" data-id="${item.id}" data-title="${(item.title||'').replace(/"/g,'&quot;')}" data-channel="${channel.replace(/"/g,'&quot;')}" data-views="${viewText}" data-published="${published}">⋮</button>
+            </div>
+          `;
+          if (!avatarUrl) {
+            const avatarEl = card.querySelector('.channel-avatar');
+            const img = document.createElement('img');
+            img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(channel)}&background=random&color=fff&size=64&bold=true`;
+            img.alt = channel;
+            img.onload = () => img.classList.add('loaded');
+            img.onerror = () => img.remove();
+            avatarEl.appendChild(img);
           }
-          // ページに応じてクエリをローテーション
-          const startIdx = (page * 2) % allQs.length;
-          const pick = [];
-          for (let i = 0; i < 3; i++) pick.push(allQs[(startIdx + i) % allQs.length]);
-          const arrs = await Promise.all(pick.map(q => engineFetchQuery(q)));
-          let items = arrs.flat();
-          const seenIds = new Set([...displayedIds]);
-          items = items.filter(it => {
-            if (!it || !it.id) return false;
-            if (seenIds.has(it.id)) return false;
-            seenIds.add(it.id);
-            if ((it.title || '').includes('#')) return false; // 追加読み込みではショート除外
-            const histIds = new Set((libGet(LIB_HISTORY) || []).map(h => h.id));
-            if (histIds.has(it.id)) return false;
-            if (engineIsTooSimilarToHistory(it.title || '', histTitleIndex)) return false;
-            return true;
-          });
-          items = shuffleArray(items);
-          items.forEach(item => {
-            if (!item || !item.id || displayedIds.has(item.id)) return;
-            displayedIds.add(item.id);
-            videoGrid.appendChild(engineRenderVideoCard(item));
-            __engineMyMixCounter++;
-            const shouldInsertMix = __engineMyMixesQueue && __engineMyMixesQueue.length > 0 &&
-              __engineMyMixCounter % (10 + Math.floor(Math.random() * 4)) === 0;
-            if (shouldInsertMix) {
-              const mix = __engineMyMixesQueue.shift();
-              if (mix) videoGrid.appendChild(engineRenderMyMixCard(mix));
-            }
-          });
+          return card;
+        };
+
+        // 描画：通常カード + MyMIX を挿入
+        let written = 0;
+        const mixQueue = mixesToInsert.slice();
+        const insertSet = new Set(mixInsertPositions);
+        for (let i = 0; i < uniq.length; i++) {
+          if (insertSet.has(written) && mixQueue.length && typeof window.renderMyMixCard === 'function') {
+            const mix = mixQueue.shift();
+            const mixCard = window.renderMyMixCard(mix);
+            if (mixCard) { videoGrid.appendChild(mixCard); written++; }
+          }
+          const c = renderVideoCard(uniq[i]);
+          if (c) { videoGrid.appendChild(c); written++; }
+        }
+        // 残った MyMIX があれば末尾に
+        while (mixQueue.length && typeof window.renderMyMixCard === 'function') {
+          const mix = mixQueue.shift();
+          const mixCard = window.renderMyMixCard(mix);
+          if (mixCard) videoGrid.appendChild(mixCard);
         }
 
       } catch (err) {
-        console.error('[Engine] Feed error:', err);
+        console.error('Personalized feed error', err);
       } finally {
         isFetching = false;
         loading.style.display = 'none';
       }
     }
-
 
     // パーソナライズモードかどうか
     let isPersonalized = true;
@@ -3154,9 +2860,20 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     /* =============== ✨ AI Playlist (MIN-Pro-AI) ========================== */
     /* ===================================================================== */
     (function initAiPlaylist() {
-      const GROQ_API_KEY = "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";
+      // マルチキー対応（ランダム + 自動フェイルオーバー）— 無料枠を保護
+      const GROQ_KEYS = (typeof GROQ_KEY_POOL !== 'undefined') ? GROQ_KEY_POOL : [
+        "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",
+        "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",
+        "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",
+        "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"
+      ];
       const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
       const MODEL_NAME = "meta-llama/llama-4-scout-17b-16e-instruct";
+      function _pickGroqKeysShuffled() {
+        const a = GROQ_KEYS.slice();
+        for (let i = a.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+        return a;
+      }
 
       const PRESETS = [
         "Music", "EDM", "ゲーム実況", "J-POP", "アニソン",
@@ -3371,28 +3088,40 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         }
       }
 
-      /* ===== Call Groq ===== */
+      /* ===== Call Groq（マルチキーランダム + 自動フェイルオーバー） ===== */
       async function callGroq(messages) {
-        const res = await fetch(GROQ_URL, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${GROQ_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: MODEL_NAME,
-            messages,
-            temperature: 0.75,
-            max_tokens: 900
-          })
+        const keys = _pickGroqKeysShuffled();
+        const body = JSON.stringify({
+          model: MODEL_NAME,
+          messages,
+          temperature: 0.75,
+          max_tokens: 900
         });
-        if (!res.ok) {
-          const errText = await res.text().catch(() => '');
-          throw new Error(`AI API error ${res.status}: ${errText.slice(0,200)}`);
+        let lastErr = '';
+        for (const k of keys) {
+          try {
+            const res = await fetch(GROQ_URL, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' },
+              body
+            });
+            if (res.status === 429 || res.status === 401 || res.status === 403) {
+              lastErr = 'rate-limit/auth (' + res.status + ')';
+              continue;
+            }
+            if (!res.ok) {
+              const t = await res.text().catch(() => '');
+              lastErr = `API error ${res.status}: ${t.slice(0,120)}`;
+              continue;
+            }
+            const data = await res.json();
+            return data?.choices?.[0]?.message?.content || '';
+          } catch (e) {
+            lastErr = e?.message || String(e);
+            continue;
+          }
         }
-        const data = await res.json();
-        const txt = data?.choices?.[0]?.message?.content || '';
-        return txt;
+        throw new Error(`AI API 全キー失敗: ${lastErr}`);
       }
 
       /* ===== Parse titles ===== */
@@ -3651,6 +3380,392 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           launchEntry();
         }, true);
       }
+    })();
+    /* ===================================================================== */
+
+    /* ===================================================================== */
+    /* =============== 🎵 MyMIX (Auto Playlists, No-AI) ===================== */
+    /* ===================================================================== */
+    (function initAutoPlaylists() {
+      const AP_KEY = 'mt_auto_playlists_v2';
+      const AP_TTL = 6 * 60 * 60 * 1000; // 6h
+      const HIST_KEY = 'mt_history';
+      const LIKED_KEY = 'mt_liked';
+
+      function _safe(k) { try { return JSON.parse(localStorage.getItem(k)||'[]'); } catch { return []; } }
+      function _subs() {
+        const out = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('subscribed_') && localStorage.getItem(key) === 'true') {
+            out.push(key.replace('subscribed_',''));
+          }
+        }
+        return out;
+      }
+      async function _fetchJson(url) {
+        try {
+          const r = await fetch(url);
+          if (!r.ok) return [];
+          const d = await r.json();
+          if (Array.isArray(d)) return d;
+          return d.items || d.results || [];
+        } catch { return []; }
+      }
+      function _normVideo(it) {
+        if (!it) return null;
+        let id = null;
+        if (typeof it.id === 'string') id = it.id;
+        else if (it.id && typeof it.id === 'object') id = it.id.videoId || it.id.channelId || it.id.playlistId;
+        else if (it.videoId) id = it.videoId;
+        if (!id || String(id).startsWith('UC')) return null;
+        return {
+          id: String(id),
+          title: it.title || '',
+          channelTitle: it.channelTitle || (it.shortBylineText?.runs?.[0]?.text) || '',
+          thumbnail: (it.thumbnail?.thumbnails?.[1]?.url) || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+          length: it.lengthText || it.length?.simpleText || '',
+          viewCountText: it.viewCountText || ''
+        };
+      }
+
+      // ===== 履歴からトップキーワード抽出（チャンネル名は除く） =====
+      function _topHistoryKeywords(maxN = 4) {
+        const hist = _safe(HIST_KEY);
+        const STOP = new Set(['the','and','for','with','that','this','from','your','have','were','official','feat','featuring','music','video','live','full','hd','mv','english','japanese','version','remix','cover','mix','of','to','in','on','a','an','is','it','be','as','at','by','or','my','me','we','us','no','so','do','go','up','down','ft','part','episode','vol']);
+        const freq = {};
+        hist.slice(0, 40).forEach(h => {
+          if (!h.title) return;
+          const words = h.title
+            .replace(/[【】「」『』()（）!！?？\[\]#♪★☆◆◇・|｜:：;；.,、。\-—_/\\]/g, ' ')
+            .split(/\s+/)
+            .filter(w => w && w.length >= 2 && w.length <= 18 && !STOP.has(w.toLowerCase()) && !/^\d+$/.test(w));
+          // 上位2語のみ重み付け
+          words.slice(0, 2).forEach((w, idx) => {
+            const k = w.toLowerCase();
+            freq[k] = (freq[k]||0) + (idx === 0 ? 1.4 : 1.0);
+          });
+        });
+        return Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0, maxN).map(x => x[0]);
+      }
+
+      // ===== チャンネル ＋ ジャンルでプレイリスト群を構築 =====
+      async function buildAutoPlaylists() {
+        const subs = _subs();
+        const liked = _safe(LIKED_KEY);
+        const hist  = _safe(HIST_KEY);
+        if (subs.length + liked.length + hist.length === 0) return [];
+
+        const watchedIds = new Set(hist.map(h => h.id).filter(Boolean));
+
+        // 候補チャンネル: 登録 + いいね + 履歴頻出（上位）
+        const histChCnt = {};
+        hist.forEach(h => { if (h.channel) histChCnt[h.channel] = (histChCnt[h.channel]||0)+1; });
+        const topHistCh = Object.entries(histChCnt).sort((a,b)=>b[1]-a[1]).slice(0, 3).map(x => x[0]);
+        const likedCh = [...new Set(liked.map(l => l.channel).filter(Boolean))].slice(0, 2);
+        const channels = [...new Set([...subs.slice(0, 4), ...likedCh, ...topHistCh])].slice(0, 5);
+
+        // 候補ジャンル
+        const genres = _topHistoryKeywords(3);
+
+        const targets = [
+          ...channels.map(c => ({ kind: 'channel', label: c })),
+          ...genres.map(g => ({ kind: 'genre', label: g }))
+        ];
+
+        // 並列でフェッチ（API分散のため少し間隔をずらす）
+        const built = [];
+        await Promise.all(targets.map(async (t, idx) => {
+          await new Promise(r => setTimeout(r, idx * 60));
+          const ep = `/api/search?q=${encodeURIComponent(t.label)}&page=0`;
+          const raw = await _fetchJson(ep);
+          const items = raw.map(_normVideo).filter(Boolean).filter(v => !v.title.includes('#'));
+          if (items.length < 4) return;
+
+          // チャンネルプレイリストならそのチャンネルの動画のみフィルタ
+          let pool = items;
+          if (t.kind === 'channel') {
+            const lower = t.label.toLowerCase();
+            const matched = items.filter(v => (v.channelTitle||'').toLowerCase().includes(lower) || lower.includes((v.channelTitle||'').toLowerCase().split(' ')[0]));
+            if (matched.length >= 4) pool = matched;
+          }
+
+          // 既に視聴済みは末尾へ落とす（プレイリストには残すが優先度を下げる）
+          pool.sort((a,b) => {
+            const aw = watchedIds.has(a.id) ? 1 : 0;
+            const bw = watchedIds.has(b.id) ? 1 : 0;
+            return aw - bw;
+          });
+
+          // 重複除去
+          const seen = new Set(); const uniq = [];
+          for (const v of pool) { if (!seen.has(v.id)) { seen.add(v.id); uniq.push(v); } if (uniq.length >= 20) break; }
+          if (uniq.length < 4) return;
+
+          built.push({
+            id: 'mix_' + t.kind + '_' + Math.random().toString(36).slice(2, 8),
+            kind: t.kind,                       // 'channel' | 'genre'
+            label: t.label,                     // 表示用ベース
+            title: t.kind === 'channel' ? `${t.label} ・ MyMIX` : `${t.label} ・ MyMIX`,
+            sub:   t.kind === 'channel' ? `あなたが好きなチャンネル` : `履歴からの厳選セレクション`,
+            items: uniq,
+            createdAt: Date.now()
+          });
+        }));
+
+        // ジャンルと混ぜつつ、最大 4 件まで
+        const channelMixes = built.filter(b => b.kind === 'channel');
+        const genreMixes   = built.filter(b => b.kind === 'genre');
+        const finalMixes = [];
+        const maxOut = 4;
+        let ci = 0, gi = 0;
+        while (finalMixes.length < maxOut && (ci < channelMixes.length || gi < genreMixes.length)) {
+          if (ci < channelMixes.length) finalMixes.push(channelMixes[ci++]);
+          if (finalMixes.length >= maxOut) break;
+          if (gi < genreMixes.length)   finalMixes.push(genreMixes[gi++]);
+        }
+        return finalMixes;
+      }
+
+      // ===== Cache 取得 =====
+      function getCached() {
+        try {
+          const c = JSON.parse(localStorage.getItem(AP_KEY) || 'null');
+          if (!c) return [];
+          if (Date.now() - c.ts > AP_TTL) return c.data || []; // 期限切れでもとりあえず返す
+          return c.data || [];
+        } catch { return []; }
+      }
+      function isFresh() {
+        try {
+          const c = JSON.parse(localStorage.getItem(AP_KEY) || 'null');
+          return c && (Date.now() - c.ts) < AP_TTL;
+        } catch { return false; }
+      }
+      let _inflight = null;
+      async function getAutoPlaylists() {
+        if (isFresh()) return getCached();
+        if (_inflight) return _inflight;
+        _inflight = (async () => {
+          try {
+            const data = await buildAutoPlaylists();
+            localStorage.setItem(AP_KEY, JSON.stringify({ ts: Date.now(), data }));
+            return data;
+          } catch (e) {
+            console.warn('[MyMIX] build failed:', e);
+            return getCached();
+          } finally { _inflight = null; }
+        })();
+        return _inflight;
+      }
+      // バックグラウンド更新
+      function backgroundRefresh() {
+        try {
+          const c = JSON.parse(localStorage.getItem(AP_KEY) || 'null');
+          if (!c || (Date.now() - c.ts) > AP_TTL / 2) {
+            getAutoPlaylists().catch(()=>{});
+          }
+        } catch {}
+      }
+
+      // ===== MyMIX カード描画 =====
+      function renderMyMixCard(mix) {
+        if (!mix || !mix.items || mix.items.length < 2) return null;
+        const first = mix.items[0];
+        const card = document.createElement('a');
+        card.className = 'video-card mymix-card';
+        card.href = 'javascript:void(0)';
+        card.setAttribute('data-mix-id', mix.id);
+        const thumbUrl = first.thumbnail || `https://i.ytimg.com/vi/${first.id}/hqdefault.jpg`;
+        const count = mix.items.length;
+        const channel = mix.kind === 'channel' ? mix.label : 'MyMIX';
+        const initial = (channel ? channel[0] : 'M').toUpperCase();
+
+        card.innerHTML = `
+          <div class="thumb">
+            <div class="mymix-stack"></div>
+            <img class="mymix-bg" src="${thumbUrl}" loading="lazy" alt="${(mix.title||'').replace(/"/g,'&quot;')}" onerror="this.src='https://i.ytimg.com/vi/${first.id}/hqdefault.jpg'">
+            <div class="mymix-overlay"></div>
+            <div class="mymix-badge"><span class="mymix-dot"></span>MyMIX</div>
+            <div class="mymix-count">
+              <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+              ${count}
+            </div>
+            <div class="mymix-bottom">
+              <div class="mymix-play">
+                <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              </div>
+              <div class="mymix-title-overlay">${(mix.title||'').replace(/</g,'&lt;')}</div>
+            </div>
+          </div>
+          <div class="meta">
+            <span class="channel-avatar" data-initial="${initial}" style="text-decoration:none;">
+              <span class="avatar-initial">${initial}</span>
+            </span>
+            <div class="details">
+              <h3><span class="mymix-spark">✨</span>${(mix.title||'').replace(/</g,'&lt;')}</h3>
+              <span class="channel-name" style="color:var(--text-muted);">${(mix.sub||'').replace(/</g,'&lt;')}</span>
+              <div class="video-stats">${count}本の動画 ・ 自動生成</div>
+            </div>
+          </div>
+        `;
+        card.addEventListener('click', (e) => {
+          e.preventDefault();
+          openMixPlayer(mix);
+        });
+        return card;
+      }
+
+      // ===== プレイヤー（新規タブ） =====
+      function openMixPlayer(mix) {
+        const win = window.open('about:blank', '_blank');
+        if (!win) { alert('ポップアップがブロックされました。許可してもう一度試してください。'); return; }
+        const payload = JSON.stringify({
+          title: mix.title,
+          sub: mix.sub,
+          items: mix.items
+        }).replace(/<\/script/g, '<\\/script');
+        const html = `<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${(mix.title||'MyMIX')} ・ MIN-Tube-Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:#0f0f0f;color:#f1f1f1;font-family:'Roboto',Arial,sans-serif;height:100%;}
+  .app{display:flex;height:100vh;width:100vw;}
+  .player-wrap{flex:1;min-width:0;display:flex;flex-direction:column;background:#000;}
+  .player-box{position:relative;width:100%;flex:1;background:#000;}
+  .player-box iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+  .now-playing{padding:14px 18px;background:#0f0f0f;border-top:1px solid #2a2a2a;}
+  .np-title{font-size:16px;font-weight:600;margin:0 0 4px;line-height:1.35;}
+  .np-channel{font-size:13px;color:#aaa;}
+  .pl-side{width:380px;max-width:42vw;background:#181818;border-left:1px solid #2a2a2a;display:flex;flex-direction:column;}
+  .pl-head{padding:14px 16px;border-bottom:1px solid #2a2a2a;display:flex;align-items:center;gap:10px;}
+  .pl-head .spark{background:linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-size:18px;font-weight:800;}
+  .pl-title{font-size:15px;font-weight:700;flex:1;line-height:1.25;}
+  .pl-sub{font-size:11.5px;color:#888;margin-top:2px;}
+  .pl-count{font-size:12px;color:#aaa;padding:3px 8px;background:#272727;border-radius:99px;}
+  .pl-list{flex:1;overflow-y:auto;}
+  .pl-list::-webkit-scrollbar{width:6px;} .pl-list::-webkit-scrollbar-thumb{background:#3f3f3f;border-radius:3px;}
+  .pl-item{display:flex;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);transition:background .12s;align-items:center;}
+  .pl-item:hover{background:#272727;}
+  .pl-item.active{background:linear-gradient(90deg,rgba(79,139,255,0.18),rgba(162,107,255,0.18));}
+  .pl-item.active .pl-idx{color:#c8aaff;}
+  .pl-idx{width:18px;text-align:center;font-size:12px;color:#888;flex-shrink:0;}
+  .pl-thumb{width:96px;height:54px;border-radius:6px;object-fit:cover;background:#000;flex-shrink:0;}
+  .pl-info{flex:1;min-width:0;}
+  .pl-it-title{font-size:13px;font-weight:500;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .pl-it-ch{font-size:11.5px;color:#aaa;margin-top:3px;}
+  .pl-controls{display:flex;gap:6px;padding:10px 12px;border-top:1px solid #2a2a2a;background:#0f0f0f;}
+  .pl-controls button{flex:1;background:#272727;border:none;color:#f1f1f1;padding:9px 8px;border-radius:8px;cursor:pointer;font-size:12.5px;font-family:inherit;transition:background .12s;}
+  .pl-controls button:hover{background:#3f3f3f;}
+  .pl-controls .play-pri{background:linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6);font-weight:600;}
+  .pl-controls .shuffle.active{background:linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6);font-weight:600;}
+  @media (max-width:780px){
+    .app{flex-direction:column;}
+    .pl-side{width:100%;max-width:none;border-left:none;border-top:1px solid #2a2a2a;height:50vh;}
+    .player-wrap{height:50vh;}
+  }
+</style>
+</head><body>
+<div class="app">
+  <div class="player-wrap">
+    <div class="player-box"><iframe id="yt" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>
+    <div class="now-playing"><div class="np-title" id="npTitle">読み込み中...</div><div class="np-channel" id="npChannel"></div></div>
+  </div>
+  <aside class="pl-side">
+    <div class="pl-head">
+      <span class="spark">✨</span>
+      <div>
+        <div class="pl-title" id="plTitle"></div>
+        <div class="pl-sub" id="plSub"></div>
+      </div>
+      <div class="pl-count" id="plCount"></div>
+    </div>
+    <div class="pl-list" id="plList"></div>
+    <div class="pl-controls">
+      <button id="btnShuffle" class="shuffle">🔀 シャッフル</button>
+      <button id="btnPrev">⏮ 前</button>
+      <button id="btnNext" class="play-pri">次 ⏭</button>
+    </div>
+  </aside>
+</div>
+<script>
+  const payload = ${payload};
+  let order = payload.items.map((_,i)=>i);
+  let current = 0;
+  let shuffleOn = false;
+  const yt = document.getElementById('yt');
+  const list = document.getElementById('plList');
+  const npTitle = document.getElementById('npTitle');
+  const npChannel = document.getElementById('npChannel');
+  const plCount = document.getElementById('plCount');
+  const plTitle = document.getElementById('plTitle');
+  const plSub = document.getElementById('plSub');
+  plCount.textContent = payload.items.length + ' 本';
+  plTitle.textContent = payload.title || 'MyMIX';
+  plSub.textContent = payload.sub || '自動生成プレイリスト';
+
+  function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function shuffleArr(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+  function render(){
+    const html = order.map((idx,pos)=>{
+      const it = payload.items[idx];
+      const active = pos===current;
+      return '<div class="pl-item'+(active?' active':'')+'" data-pos="'+pos+'"><div class="pl-idx">'+(active?'▶':(pos+1))+'</div><img class="pl-thumb" src="'+esc(it.thumbnail)+'" onerror="this.src=\\'https://i.ytimg.com/vi/'+esc(it.id)+'/hqdefault.jpg\\'"><div class="pl-info"><div class="pl-it-title">'+esc(it.title)+'</div><div class="pl-it-ch">'+esc(it.channelTitle||'')+'</div></div></div>';
+    }).join('');
+    list.innerHTML = html;
+    list.querySelectorAll('.pl-item').forEach(el=>{
+      el.addEventListener('click',()=>{current=parseInt(el.dataset.pos,10); play();});
+    });
+  }
+  function play(){
+    const idx = order[current];
+    const it = payload.items[idx];
+    if(!it) return;
+    yt.src = 'https://www.youtube-nocookie.com/embed/'+encodeURIComponent(it.id)+'?autoplay=1&rel=0&modestbranding=1&enablejsapi=1';
+    npTitle.textContent = it.title || '';
+    npChannel.textContent = it.channelTitle || '';
+    render();
+    const a = list.querySelector('.pl-item.active');
+    if(a) a.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }
+  document.getElementById('btnPrev').addEventListener('click',()=>{current=(current-1+order.length)%order.length;play();});
+  document.getElementById('btnNext').addEventListener('click',()=>{current=(current+1)%order.length;play();});
+  document.getElementById('btnShuffle').addEventListener('click',(e)=>{
+    shuffleOn = !shuffleOn;
+    e.currentTarget.classList.toggle('active', shuffleOn);
+    if(shuffleOn){
+      const curIdx = order[current];
+      order = shuffleArr(order);
+      current = order.indexOf(curIdx);
+      if(current<0) current = 0;
+    } else {
+      order = payload.items.map((_,i)=>i);
+      current = order.indexOf(order[current] ?? 0);
+      if(current<0) current = 0;
+    }
+    render();
+  });
+  render();
+  play();
+<\/script>
+</body></html>`;
+        win.document.open();
+        win.document.write(html);
+        win.document.close();
+      }
+
+      // ===== 公開 API =====
+      window.getAutoPlaylists = getAutoPlaylists;
+      window.getAutoPlaylistsCached = getCached;
+      window.renderMyMixCard = renderMyMixCard;
+      window.openMyMixPlayer = openMixPlayer;
+
+      // ページロード後、軽くバックグラウンド更新を試行（過剰呼び出しを防止）
+      setTimeout(backgroundRefresh, 4000);
     })();
     /* ===================================================================== */
 

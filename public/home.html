@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -1885,20 +1883,8 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     }
     fetchAndShowVersion();
 
-    // ============================================================
-    // ===== 🔥 YouTube級 推薦エンジン v2.0 (MIN-Reco-Engine) =====
-    // ============================================================
-    // 設計方針:
-    //   1. ユーザー履歴を「トップchランキング」「トップキーワードランキング」
-    //      「ジャンル分布」の3層プロファイルに解析
-    //   2. 候補動画を多源並列取得 (登録ch / 履歴トップch / 履歴top kw /
-    //      ユーザートップジャンル / 他ジャンル探索 / トレンド)
-    //   3. 厳格スコアリング (一致+加点 / 視聴済み・既出・ショート -大減点)
-    //   4. スコア同点はランダムでブレを出し毎回違う1本を選出
-    //   5. メインフィード85% + 他ジャンル探索15% でYouTube風に多様性確保
-    // ============================================================
-
-    // チャンネル登録リスト取得
+    // ===== パーソナライズ =====
+    // チャンネル登録リストを取得
     function getSubscribedChannels() {
       const channels = [];
       for (let i = 0; i < localStorage.length; i++) {
@@ -1910,277 +1896,21 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       return channels;
     }
 
-    // ---------- ジャンル分類辞書 ----------
-    // タイトルからジャンルを推定するためのキーワード辞書
-    const GENRE_DICT = {
-      'ゲーム実況': ['実況', 'gameplay', 'プレイ', 'playthrough', 'ゲーム', 'gaming', '攻略', 'speedrun', 'walkthrough'],
-      'マイクラ実況': ['マイクラ', 'マインクラフト', 'minecraft', 'mc'],
-      'FPS': ['fps', 'apex', 'valorant', 'cod', 'fortnite', 'pubg', 'overwatch', 'スプラ', 'splatoon'],
-      'ホラーゲーム': ['ホラー', 'horror', 'バイオハザード', 'resident evil', 'outlast', 'phasmophobia', '青鬼', 'cry of fear'],
-      'RPG': ['rpg', 'ドラクエ', 'ff', 'ファイナルファンタジー', 'ゼルダ', 'zelda', 'ポケモン', 'pokemon', '原神', 'genshin'],
-      'VTuber': ['vtuber', 'ホロライブ', 'にじさんじ', 'hololive', 'nijisanji', 'バーチャル', 'virtual youtuber', '切り抜き'],
-      'アニメ': ['アニメ', 'anime', 'op', 'ed', 'opening', 'ending', 'tvアニメ', 'pv', '劇場版'],
-      'アニソン': ['アニソン', 'anison', 'tvアニメop', 'tvアニメed', 'covered by', 'cover'],
-      'J-POP': ['mv', 'music video', 'official', 'j-pop', 'jpop', '公式', 'pv', 'mステ', '紅白', 'sony music', 'avex'],
-      'K-POP': ['k-pop', 'kpop', 'bts', 'twice', 'blackpink', 'newjeans', 'ive', 'le sserafim', 'stray kids', '韓国'],
-      'Music': ['music', 'song', 'lyrics', '歌ってみた', 'cover', '弾いてみた', 'remix', 'official video', 'ft.', 'feat.'],
-      'ボーカロイド': ['ボカロ', 'vocaloid', '初音ミク', 'miku', 'hatsune', 'rin', 'len', 'gumi', 'utau'],
-      'EDM': ['edm', 'electro', 'house', 'dubstep', 'remix', 'drop', 'bass', 'electronic'],
-      'Lo-Fi': ['lo-fi', 'lofi', 'chill', 'study music', 'beats to'],
-      'ロック': ['rock', 'ロック', 'バンド', 'band', 'live', 'ライブ'],
-      'ジャズ': ['jazz', 'ジャズ', 'piano jazz', 'smooth jazz'],
-      'クラシック': ['classical', 'クラシック', 'symphony', '交響曲', 'concerto'],
-      'ダンス': ['dance', 'ダンス', 'choreography', '振付', 'tiktok', 'ティックトック'],
-      'テックレビュー': ['レビュー', 'review', 'unboxing', '開封', 'iphone', 'macbook', 'android', 'pc', '自作pc', 'ガジェット', 'gadget'],
-      'スポーツ': ['サッカー', 'soccer', 'football', '野球', 'baseball', 'バスケ', 'basketball', 'nba', 'mlb', 'wbc', 'highlight', 'ハイライト'],
-      '料理': ['料理', 'cooking', 'レシピ', 'recipe', '作ってみた', 'asmr料理', 'mukbang', '食レポ'],
-      'ASMR': ['asmr', '咀嚼音', 'whispering', 'ささやき', 'タッピング', 'mukbang'],
-      'Vlog': ['vlog', 'ブログ', '日常', 'daily', 'morning routine', 'モーニングルーティン', '一日'],
-      '映画予告編': ['予告', 'trailer', 'official trailer', '本予告', 'movie', '映画'],
-      'ドッキリ': ['ドッキリ', 'prank', 'いたずら'],
-      '動物': ['犬', '猫', 'cat', 'dog', 'cute animal', 'puppy', 'kitten', 'ねこ', 'いぬ', 'パンダ', 'panda'],
-      '検証動画': ['検証', '実験', 'やってみた', 'try', 'challenge', 'チャレンジ'],
-      '動画エッセイ': ['解説', 'explained', 'video essay', '考察', '雑学'],
-      'ニュース': ['ニュース', 'news', '速報', '報道', 'breaking'],
-      '教育': ['授業', '解説', '勉強', '学習', 'education', 'tutorial', '入門', '初心者', '使い方'],
-      'コメディ': ['コント', 'お笑い', 'comedy', 'コメディ', '漫才', 'バラエティ']
-    };
-
-    // タイトル+チャンネル名からジャンルを推定 (該当数が最も多いジャンルを返す)
-    function classifyGenre(title, channel) {
-      const text = ((title || '') + ' ' + (channel || '')).toLowerCase();
-      let best = null, bestScore = 0;
-      for (const [genre, kws] of Object.entries(GENRE_DICT)) {
-        let score = 0;
-        for (const kw of kws) {
-          if (text.includes(kw.toLowerCase())) score++;
-        }
-        if (score > bestScore) { bestScore = score; best = genre; }
-      }
-      return bestScore > 0 ? best : null;
-    }
-
-    // ---------- 日本語向け 簡易トークナイザ ----------
-    // 機能語・記号・短すぎる語を除去してキーワードを切り出す
-    const STOP_WORDS = new Set([
-      'the','and','for','you','your','with','from','this','that','have','are','was','were','will','what','how','why','when','where',
-      'feat','ft','mv','official','video','live','full','part','best','top','new',
-      'する','した','して','です','ます','こと','もの','とき','よう','れる','られる','ない','ある','いる','なる','という','ところ','ため','など','その','この','あの',
-      'youtube','channel','チャンネル','動画','公式','official','video'
-    ]);
-
-    function tokenizeTitle(title) {
-      if (!title) return [];
-      // 区切り記号で分解
-      const rough = title.replace(/[【】「」『』()（）\[\]<>《》〈〉!！?？…・、。,.\-_~~|｜/\\:：;；"'`#★☆◆◇♪♫▶▷☞☛➡⇒→↓↑]/g, ' ').toLowerCase();
-      const tokens = [];
-      // 半角空白で大まかに分割
-      for (const seg of rough.split(/\s+/)) {
-        if (!seg) continue;
-        // 英数字塊
-        const enMatches = seg.match(/[a-z0-9]{3,}/g) || [];
-        for (const m of enMatches) if (!STOP_WORDS.has(m)) tokens.push(m);
-        // 連続する全角文字 (漢字/かな/カナ) を抽出。3文字以上で採用
-        const jpMatches = seg.match(/[\u3040-\u30ff\u4e00-\u9fff々ー]{2,}/g) || [];
-        for (const m of jpMatches) {
-          if (m.length >= 2 && !STOP_WORDS.has(m) && !/^[ぁ-ん]+$/.test(m) || m.length >= 3) {
-            if (!STOP_WORDS.has(m)) tokens.push(m);
-          }
-        }
-      }
-      return tokens;
-    }
-
-    // ---------- ユーザープロファイル解析 ----------
-    // 履歴からトップチャンネル / トップキーワード / トップジャンルをランキング化
-    function analyzeUserProfile() {
+    // 閲覧履歴からキーワードを抽出（チャンネル名 + タイトルの主要語）
+    function getHistoryKeywords() {
       const hist = libGet(LIB_HISTORY);
-      const liked = libGet(LIB_LIKED);
-      const subscribed = getSubscribedChannels();
-
-      // チャンネル頻度カウント (高評価は重み2倍)
-      const chCount = new Map();
-      const addCh = (ch, w) => { if (!ch) return; chCount.set(ch, (chCount.get(ch) || 0) + w); };
-      hist.slice(0, 50).forEach((h, i) => addCh(h.channel, Math.max(1, 3 - Math.floor(i / 15))));
-      liked.slice(0, 20).forEach(l => addCh(l.channel, 2));
-      subscribed.forEach(s => addCh(s, 3));
-
-      const topChannels = [...chCount.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .map(e => e[0])
-        .slice(0, 8);
-
-      // キーワード頻度カウント (新しい履歴ほど重み大)
-      const kwCount = new Map();
-      const addKw = (w, weight) => {
-        if (!w || w.length < 2) return;
-        kwCount.set(w, (kwCount.get(w) || 0) + weight);
-      };
-      hist.slice(0, 30).forEach((h, i) => {
-        const w = Math.max(1, 4 - Math.floor(i / 8));
-        tokenizeTitle(h.title).forEach(t => addKw(t, w));
+      const channels = [...new Set(hist.slice(0, 30).map(h => h.channel).filter(Boolean))];
+      const titleWords = [];
+      hist.slice(0, 20).forEach(h => {
+        if (!h.title) return;
+        // 短い語・記号を除いてキーワード抽出
+        const words = h.title.replace(/[【】「」()!！?？\[\]#♪★☆◆◇]/g, ' ').split(/\s+/).filter(w => w.length >= 3);
+        words.slice(0, 2).forEach(w => titleWords.push(w));
       });
-      liked.slice(0, 15).forEach(l => tokenizeTitle(l.title).forEach(t => addKw(t, 2)));
-
-      const topKeywords = [...kwCount.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .map(e => e[0])
-        .filter(k => k.length >= 2 && !/^\d+$/.test(k))
-        .slice(0, 12);
-
-      // ジャンル分布
-      const genreCount = new Map();
-      hist.slice(0, 40).forEach(h => {
-        const g = classifyGenre(h.title, h.channel);
-        if (g) genreCount.set(g, (genreCount.get(g) || 0) + 1);
-      });
-      liked.slice(0, 20).forEach(l => {
-        const g = classifyGenre(l.title, l.channel);
-        if (g) genreCount.set(g, (genreCount.get(g) || 0) + 2);
-      });
-      const topGenres = [...genreCount.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .map(e => e[0])
-        .slice(0, 5);
-
-      // 視聴済み動画ID
-      const watchedIds = new Set(hist.map(h => h.id).filter(Boolean));
-      // 高評価ID (シグナル強化)
-      const likedIds = new Set(liked.map(l => l.id).filter(Boolean));
-
-      return { topChannels, topKeywords, topGenres, watchedIds, likedIds, hist, liked, subscribed };
+      return { channels: channels.slice(0, 5), titleWords: [...new Set(titleWords)].slice(0, 8) };
     }
 
-    // ---------- スコアリング関数 ----------
-    // 1動画ごとにスコアを算出。高いほどおすすめ。
-    function scoreVideo(item, profile, alreadyShown) {
-      let score = 0;
-      const title = item.title || '';
-      const channel = item.channelTitle || '';
-      const titleLower = title.toLowerCase();
-      const channelLower = channel.toLowerCase();
-
-      // -------- チャンネル一致 (順位連動) --------
-      // 履歴トップ1〜3ch: 完全一致+8 / 部分一致+5
-      // 履歴トップ4〜8ch: 完全一致+5 / 部分一致+3
-      for (let i = 0; i < profile.topChannels.length; i++) {
-        const ch = profile.topChannels[i];
-        if (!ch) continue;
-        const chLower = ch.toLowerCase();
-        if (channelLower === chLower) {
-          score += (i < 3) ? 8 : 5;
-          break;
-        } else if (chLower.length >= 2 && (channelLower.includes(chLower) || chLower.includes(channelLower))) {
-          score += (i < 3) ? 5 : 3;
-          break;
-        }
-      }
-
-      // -------- 履歴トップキーワード一致 (順位連動 +1〜+5) --------
-      // 上位5キーワード: タイトル内ヒットで +5,+4,+3,+2,+1
-      // 6位以降: タイトル内ヒットで +1 (最大3個までしかカウントしない)
-      let kwHitCount = 0;
-      for (let i = 0; i < profile.topKeywords.length; i++) {
-        const kw = profile.topKeywords[i];
-        if (!kw) continue;
-        if (titleLower.includes(kw.toLowerCase())) {
-          if (i < 5) score += (5 - i);
-          else if (kwHitCount < 3) score += 1;
-          kwHitCount++;
-        }
-      }
-
-      // -------- ジャンル一致ボーナス --------
-      const genre = classifyGenre(title, channel);
-      if (genre && profile.topGenres.length) {
-        const idx = profile.topGenres.indexOf(genre);
-        if (idx === 0) score += 4;
-        else if (idx === 1) score += 3;
-        else if (idx > 1) score += 2;
-      }
-
-      // -------- メタデータ完全性 --------
-      if (item.lengthText) score += 1;     // 再生時間あり
-      if (item.viewCountText) score += 1;  // 視聴数表記あり
-
-      // -------- 強い減点ルール --------
-      // 視聴済み: -50
-      if (profile.watchedIds.has(item.id)) score -= 50;
-      // 既出 (同セッション内で既に表示): -100
-      if (alreadyShown.has(item.id)) score -= 100;
-      // ショート (タイトルに#含む or 60秒以下): -30
-      const isShort = title.includes('#') || /^\d:[0-5]\d$/.test(item.lengthText || '') || /^0:[0-5]\d$/.test(item.lengthText || '');
-      if (isShort) score -= 30;
-
-      // -------- 微小ランダム化 (毎回違う1本) --------
-      score += Math.random() * 1.5;
-
-      return score;
-    }
-
-    // ---------- 候補プール収集 (多源並列フェッチ) ----------
-    async function collectCandidates(profile, page) {
-      const promises = [];
-      const sourceQueries = [];
-
-      // 登録チャンネル (最重要シグナル) → 上位2
-      profile.subscribed.slice(0, 2).forEach(ch => {
-        sourceQueries.push({ type: 'sub', q: ch });
-        promises.push(fetchEndpoint(`/api/search?q=${encodeURIComponent(ch)}&page=${page % 3}`));
-      });
-
-      // トップ履歴チャンネル → 上位3
-      profile.topChannels.slice(0, 3).forEach(ch => {
-        if (profile.subscribed.includes(ch)) return;
-        sourceQueries.push({ type: 'histCh', q: ch });
-        promises.push(fetchEndpoint(`/api/search?q=${encodeURIComponent(ch)}&page=${page % 3}`));
-      });
-
-      // トップキーワード → 上位3 (ページごとに別のキーワードを使い回し、多様性確保)
-      const kwStart = page % Math.max(1, profile.topKeywords.length);
-      const kwSlice = profile.topKeywords.slice(kwStart, kwStart + 3);
-      kwSlice.forEach(kw => {
-        sourceQueries.push({ type: 'kw', q: kw });
-        promises.push(fetchEndpoint(`/api/search?q=${encodeURIComponent(kw)}&page=${Math.floor(page / 3) % 3}`));
-      });
-
-      // トップジャンル → 上位2 (純粋なジャンル名で検索しジャンルトップを取得)
-      profile.topGenres.slice(0, 2).forEach(g => {
-        sourceQueries.push({ type: 'genreTop', q: g });
-        promises.push(fetchEndpoint(`/api/search?q=${encodeURIComponent(g)}&page=${page % 2}`));
-      });
-
-      // 他ジャンル探索枠 (YouTube式 "あなたへのおすすめ以外も"): ユーザーがあまり見ないジャンル1つ
-      const allGenres = Object.keys(GENRE_DICT);
-      const exploreGenres = allGenres.filter(g => !profile.topGenres.includes(g));
-      if (exploreGenres.length) {
-        const pick = exploreGenres[Math.floor(Math.random() * exploreGenres.length)];
-        sourceQueries.push({ type: 'explore', q: pick });
-        promises.push(fetchEndpoint(`/api/search?q=${encodeURIComponent(pick)}&page=0`));
-      }
-
-      // トレンド (page=0時のみ・多様性のため)
-      if (page === 0) {
-        sourceQueries.push({ type: 'trending', q: 'trending' });
-        promises.push(fetchEndpoint(`/api/trending?page=0`));
-      }
-
-      const results = await Promise.all(promises);
-      // ソース種別を各動画に付与 (探索枠は後で別扱い)
-      const tagged = [];
-      results.forEach((arr, i) => {
-        const src = sourceQueries[i];
-        normalizeAndFilterList(arr).forEach(it => {
-          if (!it._source) it._source = src.type;
-          tagged.push(it);
-        });
-      });
-      return tagged;
-    }
-
-    // ============================================================
-    // ===== メイン: パーソナライズフィード ロード =====
-    // ============================================================
+    // パーソナライズフィードを構築（登録チャンネル＋履歴キーワードで検索、シャッフル混合）
     async function loadPersonalizedFeed(page = 0) {
       if (isFetching) return;
       isFetching = true;
@@ -2194,11 +1924,15 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         shortsExpanded = true;
       }
 
-      // プロファイル解析
-      const profile = analyzeUserProfile();
+      const subscribedChannels = getSubscribedChannels();
+      const { channels: histChannels, titleWords } = getHistoryKeywords();
 
-      // データなし → 通常トレンドへフォールバック
-      if (profile.topChannels.length === 0 && profile.topKeywords.length === 0 && profile.subscribed.length === 0) {
+      // 登録チャンネルと履歴チャンネルを合算（重複除去）
+      const allChannels = [...new Set([...subscribedChannels, ...histChannels])];
+      const allKeywords = [...allChannels, ...titleWords];
+
+      // キーワードがなければトレンドにフォールバック
+      if (allKeywords.length === 0) {
         isFetching = false;
         loading.style.display = 'none';
         loadContent('trending', page);
@@ -2206,59 +1940,38 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       }
 
       try {
-        // ---- 候補収集 ----
-        const candidates = await collectCandidates(profile, page);
+        // ページに応じてキーワードをローテーション（無限スクロール対応）
+        const shuffled = shuffleArray([...allKeywords]);
+        const pick = shuffled.slice((page % Math.max(shuffled.length, 1)) * 2, (page % Math.max(shuffled.length, 1)) * 2 + 3);
+        const queries = pick.length > 0 ? pick : shuffled.slice(0, 3);
 
-        // ID重複の除去 (同一プール内)
-        const idSeen = new Set();
-        const unique = [];
-        for (const it of candidates) {
-          if (!it || !it.id || idSeen.has(it.id)) continue;
-          idSeen.add(it.id);
-          unique.push(it);
-        }
+        const promises = queries.map(q => fetchEndpoint(`/api/search?q=${encodeURIComponent(q)}&page=${Math.floor(page / Math.max(queries.length, 1))}`));
+        // トレンドも少し混ぜる（page=0のみ）
+        if (page === 0) promises.push(fetchEndpoint(`/api/trending?page=0`));
 
-        // ---- スコアリング ----
-        const scored = unique.map(it => ({ item: it, score: scoreVideo(it, profile, displayedIds) }));
+        const results = await Promise.all(promises);
+        let items = normalizeAndFilterList(results.flat());
 
-        // 強い減点(視聴済・既出・ショート)を含む動画はフィルタ
-        // ※ ショートは別枠として後で扱うため normal/short で分割
-        const eligible = scored.filter(s => s.score > -45);  // 視聴済は除外しつつ、複合減点は救済
+        // 重複除去
+        const seen = new Set([...displayedIds]);
+        items = items.filter(it => { if (seen.has(it.id)) return false; seen.add(it.id); return true; });
+        items = shuffleArray(items);
 
-        // ---- ソート: スコア降順、同点はランダムで揺らぎ ----
-        eligible.sort((a, b) => b.score - a.score);
-
-        // ---- メイン vs 探索 分離 ----
-        // 85% メイン (高スコア順) / 15% 探索枠 (低スコアだが他ジャンル)
-        const mainPool = eligible.filter(s => s.item._source !== 'explore').map(s => s.item);
-        const explorePool = eligible.filter(s => s.item._source === 'explore' && !displayedIds.has(s.item.id)).map(s => s.item);
-
-        // ショートとノーマルに分割
-        const shorts = [];
-        const normals = [];
-        const isShortItem = (it) => (it.title || '').includes('#');
-        mainPool.forEach(it => { if (isShortItem(it)) shorts.push(it); else normals.push(it); });
-
-        // ---- 探索枠を混合 (約6本ごとに1本) ----
-        const finalList = [];
-        let exploreIdx = 0;
-        for (let i = 0; i < normals.length; i++) {
-          finalList.push(normals[i]);
-          if ((i + 1) % 6 === 0 && exploreIdx < explorePool.length) {
-            finalList.push(explorePool[exploreIdx++]);
-          }
-        }
-        // 残りの探索枠も末尾に少しだけ追加
-        while (exploreIdx < Math.min(2, explorePool.length)) finalList.push(explorePool[exploreIdx++]);
-
-        if (finalList.length === 0 && shorts.length === 0 && page === 0) {
+        if (items.length === 0 && page === 0) {
           videoGrid.innerHTML = '<p class="empty">動画が見つかりませんでした。</p>';
         }
 
-        // ---- ショート表示 (page=0 で 5本以上ある時のみ) ----
+        const shorts = [], normals = [];
+        items.forEach(item => {
+          if (!item || !item.id) return;
+          if ((item.title || '').includes('#')) shorts.push(item);
+          else normals.push(item);
+        });
+
+        // ショート表示（page=0のみ）
         if (page === 0 && shorts.length > 4) {
           shortsSection.style.display = 'block';
-          shorts.slice(0, 12).forEach(item => {
+          shorts.forEach(item => {
             if (displayedIds.has(item.id)) return;
             displayedIds.add(item.id);
             const a = document.createElement('a');
@@ -2279,8 +1992,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           updateShortsToggleUI();
         }
 
-        // ---- ノーマル動画レンダリング ----
-        finalList.forEach(item => {
+        normals.forEach(item => {
           if (!item || !item.id || displayedIds.has(item.id)) return;
           displayedIds.add(item.id);
           const card = document.createElement('a');
@@ -2292,6 +2004,8 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           const published = item.publishedTimeText || '';
           const initial = channel ? channel[0].toUpperCase() : 'C';
           const avatarUrl = item.channelThumbnail || item.channelImage || '';
+          const subKey = 'subscribed_' + channel;
+          const isSub = localStorage.getItem(subKey) === 'true';
           card.innerHTML = `
             <div class="thumb">
               <img src="${thumbUrl}" loading="lazy" alt="${item.title || '動画'}">
@@ -3245,5 +2959,6 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     ライブラリ
   </button>
 </nav>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>

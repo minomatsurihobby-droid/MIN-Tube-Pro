@@ -8,6 +8,99 @@
   <title>MIN-Tube-Pro</title>
   <!-- PWA -->
 <link rel="manifest" href="/manifest.json" />
+
+  <!-- ★ GLOBAL CRASH GUARD + UNIFIED SPINNER (最優先で読み込み) -->
+  <script>
+  (function(){
+    'use strict';
+    // グローバルエラーハンドラ: 何があってもページを落とさない
+    window.addEventListener('error', function(e){
+      try { console.warn('[MT-Guard] error caught:', e.message, e.filename + ':' + e.lineno); } catch{}
+      // スピナーが出たままにならないように保護
+      try {
+        var l = document.getElementById('loading');
+        if (l && l.style.display === 'block' && window.__MT_SPINNER_FORCE !== true) {
+          // ユーザー操作を妨げない
+        }
+      } catch{}
+      return false; // デフォルト動作を防がない(コンソールに出す)
+    }, true);
+    window.addEventListener('unhandledrejection', function(e){
+      try { console.warn('[MT-Guard] promise rejection:', e.reason); } catch{}
+      try { e.preventDefault(); } catch{}
+    });
+
+    // ★ 統一スピナーAPI: どこからでも window.MTSpinner.show()/hide() で確実に表示/非表示
+    var spinnerRefCount = 0;
+    window.MTSpinner = {
+      show: function(){
+        try {
+          spinnerRefCount++;
+          var l = document.getElementById('loading');
+          if (!l) return;
+          l.style.display = 'block';
+          l.classList.add('mpx-active');
+          // textContentを必ずケア
+          if (!l.querySelector('.mt-spinner-label')) {
+            var lbl = document.createElement('span');
+            lbl.className = 'mt-spinner-label';
+            lbl.textContent = '読み込み中...';
+            l.appendChild(lbl);
+          }
+        } catch(err){ try{ console.warn('[MTSpinner.show]', err); }catch{} }
+      },
+      hide: function(force){
+        try {
+          if (force) { spinnerRefCount = 0; }
+          else { spinnerRefCount = Math.max(0, spinnerRefCount - 1); }
+          if (spinnerRefCount > 0) return;
+          var l = document.getElementById('loading');
+          if (!l) return;
+          l.style.display = 'none';
+          l.classList.remove('mpx-active');
+        } catch(err){ try{ console.warn('[MTSpinner.hide]', err); }catch{} }
+      },
+      reset: function(){ spinnerRefCount = 0; try { var l=document.getElementById('loading'); if(l){ l.style.display='none'; l.classList.remove('mpx-active'); } } catch{} }
+    };
+
+    // ★ fetch をラップして /api/* へのリクエスト時に自動でスピナーを出す (保険)
+    try {
+      var __origFetch = window.fetch;
+      window.fetch = function(input, init){
+        var url = (typeof input === 'string') ? input : (input && input.url) || '';
+        var isVideoApi = /\/api\/(search|trending|channel|playlist|recommend)/i.test(url);
+        if (isVideoApi) {
+          try { window.MTSpinner.show(); } catch{}
+        }
+        var p;
+        try { p = __origFetch.apply(this, arguments); }
+        catch(e){ if (isVideoApi) try{ window.MTSpinner.hide(); }catch{} ; return Promise.reject(e); }
+        if (isVideoApi) {
+          p = p.finally(function(){ try { window.MTSpinner.hide(); } catch{} });
+        }
+        return p;
+      };
+    } catch(e){ try{ console.warn('[MT-Guard] fetch wrap fail:', e); }catch{} }
+
+    // 設計上の保険: 20秒以上スピナーが出っぱなしなら強制リセット
+    setInterval(function(){
+      try {
+        var l = document.getElementById('loading');
+        if (!l) return;
+        if (l.style.display === 'block' || l.classList.contains('mpx-active')) {
+          var t = l.dataset.shownAt ? parseInt(l.dataset.shownAt,10) : 0;
+          if (!t) { l.dataset.shownAt = String(Date.now()); return; }
+          if (Date.now() - t > 20000) {
+            window.MTSpinner.reset();
+            l.dataset.shownAt = '';
+          }
+        } else {
+          l.dataset.shownAt = '';
+        }
+      } catch{}
+    }, 3000);
+  })();
+  </script>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -1248,9 +1341,114 @@
         font-weight: 700;
       }
     }
+  <style>
+    /* ★ 初期スプラッシュ (軽量版・JS不要で即表示) */
+    #mtInitSplash {
+      position: fixed; inset: 0; z-index: 100000;
+      background: radial-gradient(ellipse at 30% 20%, #1a1033 0%, #0a0613 45%, #050308 100%);
+      display: flex; align-items: center; justify-content: center; flex-direction: column;
+      transition: opacity .5s ease;
+      color: #fff; font-family: 'Roboto', sans-serif;
+    }
+    #mtInitSplash.mt-hide { opacity: 0; pointer-events: none; }
+    #mtInitSplash .mt-is-orb {
+      width: 96px; height: 96px; border-radius: 50%;
+      background: conic-gradient(from 0deg, #4f8bff, #a26bff, #ff6bd6, #ffb86b, #4f8bff);
+      animation: mt-is-spin 3s linear infinite;
+      box-shadow: 0 0 36px rgba(162,107,255,.5);
+      position: relative;
+    }
+    #mtInitSplash .mt-is-orb::after {
+      content: ''; position: absolute; inset: 10px; border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #1a1033, #0a0613);
+    }
+    #mtInitSplash .mt-is-orb::before {
+      content: '\25B6'; position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 28px; z-index: 2;
+      text-shadow: 0 0 12px rgba(255,255,255,.8);
+    }
+    #mtInitSplash .mt-is-title {
+      margin-top: 24px; font-size: 30px; font-weight: 700; letter-spacing: .5px;
+      background: linear-gradient(120deg, #ffffff 30%, #c8aaff 50%, #ffffff 70%);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-size: 200% 100%;
+      animation: mt-is-shimmer 3s linear infinite;
+    }
+    #mtInitSplash .mt-is-sub {
+      margin-top: 10px; font-size: 13px; color: rgba(255,255,255,.75);
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    #mtInitSplash .mt-is-pill {
+      padding: 3px 10px; border-radius: 999px;
+      background: linear-gradient(120deg, rgba(79,139,255,.3), rgba(255,107,214,.3));
+      border: 1px solid rgba(255,255,255,.18); font-weight: 600;
+    }
+    #mtInitSplash .mt-is-bar {
+      margin-top: 22px; width: 200px; height: 3px;
+      background: rgba(255,255,255,.1); border-radius: 2px; overflow: hidden;
+    }
+    #mtInitSplash .mt-is-bar::after {
+      content: ''; display: block; height: 100%; width: 40%;
+      background: linear-gradient(90deg, #4f8bff, #a26bff, #ff6bd6);
+      border-radius: 2px;
+      animation: mt-is-prog 1.6s ease-in-out infinite;
+    }
+    @keyframes mt-is-spin { to { transform: rotate(360deg); } }
+    @keyframes mt-is-shimmer { 0% { background-position: -100% 0; } 100% { background-position: 200% 0; } }
+    @keyframes mt-is-prog {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(350%); }
+    }
   </style>
 </head>
 <body>
+  <!-- ★ 初期スプラッシュ (JS読込以前に即表示/ 初回アクセスとセッション初回のみ) -->
+  <div id="mtInitSplash" aria-hidden="true">
+    <div class="mt-is-orb"></div>
+    <div class="mt-is-title">MIN-Tube-Pro</div>
+    <div class="mt-is-sub">with <span class="mt-is-pill">✨ MIN-Pro-AI</span></div>
+    <div class="mt-is-bar"></div>
+  </div>
+  <script>
+  (function(){
+    'use strict';
+    try {
+      // セッション初回のみ表示 (リロードで連連出さず、初回アクセスでは必ず出る)
+      var KEY = 'mt_init_splash_session';
+      var shown = false;
+      try { shown = sessionStorage.getItem(KEY) === '1'; } catch{}
+      var el = document.getElementById('mtInitSplash');
+      if (shown && el) {
+        // すでに表示済み → 隐す
+        el.style.display = 'none';
+      } else if (el) {
+        try { sessionStorage.setItem(KEY, '1'); } catch{}
+        // 閉じるタイミング: DOMContentLoaded + 1.6秒 または 最大3.5秒
+        var closed = false;
+        function closeIt(){
+          if (closed) return; closed = true;
+          try {
+            el.classList.add('mt-hide');
+            setTimeout(function(){ try{ el.parentNode && el.parentNode.removeChild(el); }catch{} }, 550);
+          } catch{}
+        }
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+          setTimeout(closeIt, 1400);
+        } else {
+          document.addEventListener('DOMContentLoaded', function(){ setTimeout(closeIt, 1400); }, { once:true });
+        }
+        // 保険 (何があっても最大3.5秒)
+        setTimeout(closeIt, 3500);
+        // クリックでも閉じる
+        el.addEventListener('click', closeIt, { once:true });
+      }
+    } catch(e) {
+      try { var x = document.getElementById('mtInitSplash'); if (x) x.style.display = 'none'; } catch{}
+    }
+  })();
+  </script>
   <header>
     <div class="header-left">
       <button class="menu-btn" id="menuBtn" aria-label="メニュー">
@@ -1508,11 +1706,8 @@
         </div>
 
         <div id="videoGrid" class="video-grid"></div>
-        <div id="loading" style="display:none;">
-          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--text-muted)" stroke-width="2" style="animation:spin 1s linear infinite;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto;">
-            <circle cx="12" cy="12" r="10" stroke-dasharray="30 60" stroke-linecap="round"/>
-          </svg>
-          読み込み中...
+        <div id="loading" style="display:none;" role="status" aria-live="polite">
+          <span class="mt-spinner-label">読み込み中...</span>
         </div>
       </div>
     </main>
@@ -1649,7 +1844,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     async function loadContent(query = 'trending', page = 0) {
       if (isFetching) return;
       isFetching = true;
-      loading.style.display = 'block';
+      loading.style.display = 'block'; try { window.MTSpinner && window.MTSpinner.show(); } catch{}
 
       if (page === 0) {
         displayedIds.clear();
@@ -1810,7 +2005,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         console.error("Fetch error", err);
       } finally {
         isFetching = false;
-        loading.style.display = 'none';
+        loading.style.display = 'none'; try { window.MTSpinner && window.MTSpinner.reset(); } catch{}
       }
     }
 
@@ -2106,7 +2301,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     async function loadPersonalizedFeed(page = 0) {
       if (isFetching) return;
       isFetching = true;
-      loading.style.display = 'block';
+      loading.style.display = 'block'; try { window.MTSpinner && window.MTSpinner.show(); } catch{}
 
       if (page === 0) {
         displayedIds.clear();
@@ -2126,7 +2321,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       // キーワードがなければトレンドにフォールバック
       if (allKeywords.length === 0) {
         isFetching = false;
-        loading.style.display = 'none';
+        loading.style.display = 'none'; try { window.MTSpinner && window.MTSpinner.reset(); } catch{}
         loadContent('trending', page);
         return;
       }
@@ -2232,7 +2427,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         console.error('Personalized feed error', err);
       } finally {
         isFetching = false;
-        loading.style.display = 'none';
+        loading.style.display = 'none'; try { window.MTSpinner && window.MTSpinner.reset(); } catch{}
       }
     }
 
@@ -3319,11 +3514,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           radial-gradient(circle at 20% 30%, rgba(79,139,255,.18), transparent 40%),
           radial-gradient(circle at 80% 70%, rgba(255,107,214,.16), transparent 40%),
           radial-gradient(circle at 50% 50%, rgba(162,107,255,.10), transparent 60%);
-        animation: mpx-bg-shift 8s ease-in-out infinite alternate;
-      }
-      @keyframes mpx-bg-shift {
-        0% { transform: scale(1) rotate(0deg); }
-        100% { transform: scale(1.15) rotate(15deg); }
+        /* 軽量化: 重い transform animation を削除 (バックグラウンドスケールを止める) */
       }
       .mpx-splash-stars {
         position: absolute; inset: 0; overflow: hidden; pointer-events: none;
@@ -3352,8 +3543,8 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         background: conic-gradient(from 0deg,
           #4f8bff 0%, #a26bff 25%, #ff6bd6 50%, #ffb86b 75%, #4f8bff 100%);
         animation: mpx-orb-rot 4s linear infinite;
-        box-shadow: 0 0 60px rgba(162,107,255,.5), 0 0 120px rgba(79,139,255,.3);
-        filter: blur(.5px);
+        box-shadow: 0 0 40px rgba(162,107,255,.45);
+        will-change: transform;
       }
       .mpx-logo-orb::after {
         content: ''; position: absolute; inset: 12px; border-radius: 50%;
@@ -3662,22 +3853,31 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       }
       .video-card:hover .mpx-ai-source-badge { opacity: 1; transform: translateY(0); }
 
-      /* Replace ugly default loader with Gemini-style spinner */
+      /* ★ 改良スピナー: display:block/flex どちらでも必ず表示される */
       #loading {
-        display: none;
+        /* デフォルトはインラインstyleに任せる */
+        align-items: center; justify-content: center;
+        gap: 14px; padding: 30px 0; color: var(--text-muted);
+        font-size: 14px; font-weight: 500;
+        text-align: center;
       }
+      #loading[style*="display: block"],
+      #loading[style*="display:block"],
       #loading.mpx-active {
         display: flex !important; align-items: center; justify-content: center;
         gap: 14px; padding: 30px 0; color: var(--text-muted);
         font-size: 14px; font-weight: 500;
         background: transparent !important;
       }
-      #loading.mpx-active::before {
+      /* 既存のSVGは隠してスピナーを必ず出す */
+      #loading > svg { display: none !important; }
+      #loading::before {
         content: ''; width: 28px; height: 28px; border-radius: 50%;
         background: conic-gradient(from 0deg, #4f8bff, #a26bff, #ff6bd6, #ffb86b, #4f8bff);
         mask: radial-gradient(circle, transparent 9px, #000 10px);
         -webkit-mask: radial-gradient(circle, transparent 9px, #000 10px);
         animation: mpx-spin .9s linear infinite;
+        display: inline-block; flex-shrink: 0;
       }
       `;
       const styleTag = document.createElement('style');
@@ -3809,7 +4009,19 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       //  4. SPLASH SCREEN
       // ============================================================
       function maybeShowSplash() {
-        // AI設定 / 履歴ゲート: スプラッシュも履歴とトグルで制御
+        // ★ 初期スプラッシュ (mtInitSplash) がすでに表示されるため、こちらは重複回避
+        // 代わりに 2 回目以降のクールダウン表示だけ担当する
+        let last = 0;
+        try { last = parseInt(localStorage.getItem(KEY_SPLASH_LAST) || '0', 10) || 0; } catch {}
+        const isFirstVisit = !last;
+
+        // 初回アクセスは初期スプラッシュに任せてスキップ (重いスプラッシュを避けて軽量化)
+        if (isFirstVisit) {
+          try { localStorage.setItem(KEY_SPLASH_LAST, String(Date.now())); } catch {}
+          return null;
+        }
+
+        // 2回目以降は AI設定/履歴ゲートを適用
         try {
           if (window.MTAiSettings) {
             if (!window.MTAiSettings.isEnabled('master')) return null;
@@ -3817,27 +4029,24 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
             if (!window.MTAiSettings.hasAnyHistory()) return null;
           }
         } catch {}
-        // 初回 もしくは 最終表示から SPLASH_INTERVAL 経過
-        const last = parseInt(localStorage.getItem(KEY_SPLASH_LAST) || '0', 10);
-        const now = Date.now();
-        if (last && (now - last) < SPLASH_INTERVAL) return null;
-        localStorage.setItem(KEY_SPLASH_LAST, String(now));
+        // 最終表示から SPLASH_INTERVAL 経過していなければ表示しない
+        if ((Date.now() - last) < SPLASH_INTERVAL) return null;
+        try { localStorage.setItem(KEY_SPLASH_LAST, String(Date.now())); } catch {}
 
         const el = document.createElement('div');
         el.className = 'mpx-splash';
         el.id = 'mpxSplash';
-        // build stars
-        const starsHtml = Array.from({ length: 32 }).map(() => {
-          const x = Math.random() * 100;
-          const y = Math.random() * 100;
+        // ★ 軽量化: 星 32→14, ノード 8→4 (端末負荷を大幅低減)
+        const starsHtml = Array.from({ length: 14 }).map(() => {
+          const x = (Math.random() * 100).toFixed(1);
+          const y = (Math.random() * 100).toFixed(1);
           const d = (Math.random() * 3).toFixed(2);
-          const s = (1 + Math.random() * 2).toFixed(2);
+          const s = (1.5 + Math.random() * 1.5).toFixed(2);
           return `<div class="mpx-star" style="left:${x}%;top:${y}%;animation-delay:${d}s;animation-duration:${s}s;"></div>`;
         }).join('');
-        // network nodes
-        const nodes = Array.from({ length: 8 }).map((_, i) => {
-          const x = 10 + Math.random() * 80;
-          const y = 10 + Math.random() * 80;
+        const nodes = Array.from({ length: 4 }).map(() => {
+          const x = (10 + Math.random() * 80).toFixed(1);
+          const y = (10 + Math.random() * 80).toFixed(1);
           const d = (Math.random() * 3).toFixed(2);
           return `<div class="mpx-node" style="left:${x}%;top:${y}%;animation-delay:${d}s;"></div>`;
         }).join('');
@@ -3875,7 +4084,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         `;
         document.body.appendChild(el);
 
-        // status text rotate
+        // status text rotate (ライト化: try/catchで保護)
         const phases = [
           'AIエンジンを起動中...',
           'あなたの視聴傾向を読み込み中...',
@@ -3885,19 +4094,23 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         let pi = 0;
         const txt = el.querySelector('#mpxSplashStatusText');
         const phaseTimer = setInterval(() => {
-          pi = (pi + 1) % phases.length;
-          if (txt) {
-            txt.style.opacity = '0';
-            setTimeout(() => { txt.textContent = phases[pi]; txt.style.opacity = '1'; }, 200);
-          }
+          try {
+            pi = (pi + 1) % phases.length;
+            if (txt) {
+              txt.style.opacity = '0';
+              setTimeout(() => { try { txt.textContent = phases[pi]; txt.style.opacity = '1'; } catch {} }, 200);
+            }
+          } catch {}
         }, 1400);
 
         return {
           el,
           finish() {
-            clearInterval(phaseTimer);
-            el.classList.add('fade-out');
-            setTimeout(() => { el.remove(); }, 700);
+            try {
+              clearInterval(phaseTimer);
+              el.classList.add('fade-out');
+              setTimeout(() => { try { el.remove(); } catch {} }, 700);
+            } catch { try { el.remove(); } catch {} }
           }
         };
       }
@@ -4078,7 +4291,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
             showSkeletons(12);
           } else if (loading) {
             loading.classList.add('mpx-active');
-            loading.style.display = 'flex';
+            loading.style.display = 'flex'; loading.classList.add('mpx-active'); try { window.MTSpinner && window.MTSpinner.show(); } catch{}
             loading.textContent = '次のおすすめを取得中...';
           }
 
@@ -4154,7 +4367,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
             // fallback: 既存の loadContent 'trending' へ
             try { window.isFetching = false; } catch {}
             clearSkeletons();
-            if (loading) { loading.classList.remove('mpx-active'); loading.style.display = 'none'; }
+            if (loading) { loading.classList.remove('mpx-active'); loading.style.display = 'none'; try { window.MTSpinner && window.MTSpinner.reset(); } catch{} }
             if (typeof window.__origLoadContent === 'function') {
               return window.__origLoadContent('trending', page);
             }
@@ -4319,7 +4532,7 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
           try { window.isFetching = false; } catch {}
           if (loading) {
             loading.classList.remove('mpx-active');
-            loading.style.display = 'none';
+            loading.style.display = 'none'; try { window.MTSpinner && window.MTSpinner.reset(); } catch{}
             loading.textContent = '';
           }
         }
@@ -4608,8 +4821,9 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       // 元 window.onload は維持しつつ、強化する
       const __origOnload = window.onload;
       window.onload = function () {
-        // splash
-        const splash = maybeShowSplash();
+        // splash (安全に起動)
+        let splash = null;
+        try { splash = maybeShowSplash(); } catch (e) { console.warn('[splash] err:', e); }
 
         // 既存 onload (パーソナライズ起動など) を呼ぶ
         try { if (typeof __origOnload === 'function') __origOnload(); } catch (e) { console.warn(e); }
@@ -4617,18 +4831,24 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
         // splash の終了タイミング: 最初の動画カードがgridに入ったら閉じる
         if (splash) {
           let closed = false;
-          const close = () => { if (closed) return; closed = true; splash.finish(); };
-          const mo = new MutationObserver(() => {
-            if (!videoGrid) return;
-            const realCard = videoGrid.querySelector('.video-card:not(.mpx-skeleton-card):not(.mpx-mymix-placeholder)');
-            if (realCard) {
-              mo.disconnect();
-              setTimeout(close, 350); // 少し見せる
-            }
-          });
-          mo.observe(videoGrid || document.body, { childList: true, subtree: false });
-          // 安全弁: 最大8秒で必ず閉じる
-          setTimeout(close, 8000);
+          const close = () => { if (closed) return; closed = true; try { splash.finish(); } catch{} };
+          try {
+            const mo = new MutationObserver(() => {
+              try {
+                if (!videoGrid) return;
+                const realCard = videoGrid.querySelector('.video-card:not(.mpx-skeleton-card):not(.mpx-mymix-placeholder)');
+                if (realCard) {
+                  mo.disconnect();
+                  setTimeout(close, 300);
+                }
+              } catch(e) { try { mo.disconnect(); } catch{} ; close(); }
+            });
+            mo.observe(videoGrid || document.body, { childList: true, subtree: false });
+          } catch(e) { setTimeout(close, 1800); }
+          // 安全弁: 最大5秒で必ず閉じる (8秒→ 5秒に短縮)
+          setTimeout(close, 5000);
+          // クリックでも即闉じられるように
+          try { splash.el.addEventListener('click', close, { once: true }); } catch{}
         }
       };
 
@@ -6078,10 +6298,5 @@ render();play();
     ライブラリ
   </button>
 </nav>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>

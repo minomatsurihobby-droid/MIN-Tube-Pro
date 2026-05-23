@@ -242,6 +242,152 @@
     }
     .playback-hint { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
 
+    /* ===== AI Settings Toggles ===== */
+    .ai-toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px; cursor: pointer; font-size: 13.5px; color: var(--text);
+      transition: background 0.1s; gap: 10px; user-select: none;
+    }
+    .ai-toggle-row:hover { background: rgba(255,255,255,0.06); }
+    body.light-mode .ai-toggle-row:hover { background: rgba(0,0,0,0.04); }
+    .ai-toggle-row .ai-toggle-label { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+    .ai-toggle-row .ai-toggle-name { font-size: 13.5px; font-weight: 500; }
+    .ai-toggle-row .ai-toggle-desc { font-size: 11px; color: var(--text-muted); line-height: 1.3; }
+    .ai-switch {
+      position: relative; width: 36px; height: 20px; border-radius: 999px;
+      background: #555; transition: background 0.18s; flex-shrink: 0;
+      cursor: pointer; display: inline-block;
+    }
+    .ai-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .ai-switch-knob {
+      position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+      border-radius: 50%; background: #fff; transition: left 0.18s, background 0.18s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+    .ai-switch input:checked + .ai-switch-knob { left: 18px; }
+    .ai-switch:has(input:checked) { background: linear-gradient(120deg, #4f8bff, #a26bff); }
+    body.light-mode .ai-switch { background: #ccc; }
+    .ai-master-row {
+      padding: 10px 16px; display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; background: linear-gradient(120deg, rgba(79,139,255,0.10), rgba(255,107,214,0.10));
+      border-radius: 8px; margin: 4px 12px; cursor: pointer; user-select: none;
+    }
+    .ai-master-row .ai-toggle-name {
+      font-weight: 700; font-size: 13.5px;
+      background: linear-gradient(120deg, #6ba4ff, #c8aaff, #ff9fda);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    body.light-mode .ai-master-row .ai-toggle-name {
+      background: linear-gradient(120deg, #2d5fb8, #6e3ec4, #c44a96);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .ai-master-row .ai-toggle-desc { font-size: 11px; color: var(--text-muted); }
+    .ai-master-row:hover { filter: brightness(1.1); }
+
+    /* ===== Auto Playlist Card ===== */
+    .video-card.mt-autopl-card {
+      position: relative; cursor: pointer; display: block;
+      text-decoration: none; color: inherit;
+      animation: mt-autopl-enter .6s cubic-bezier(.2,.8,.2,1) both;
+    }
+    @keyframes mt-autopl-enter {
+      from { opacity: 0; transform: translateY(12px) scale(.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .video-card.mt-autopl-card .thumb {
+      position: relative; overflow: hidden; border-radius: 12px;
+      background: linear-gradient(135deg, #1a0f3a 0%, #2a1568 50%, #1a0f3a 100%);
+    }
+    .video-card.mt-autopl-card .thumb::before {
+      content: ''; position: absolute; inset: -3px; border-radius: 14px; z-index: 0;
+      background: conic-gradient(from 0deg, #ffb86b, #ff6bd6, #a26bff, #4f8bff, #ffb86b);
+      filter: blur(12px); opacity: .55; transition: opacity .4s; pointer-events: none;
+      animation: mt-autopl-rot 8s linear infinite;
+    }
+    @keyframes mt-autopl-rot { to { transform: rotate(360deg); } }
+    .video-card.mt-autopl-card:hover .thumb::before { opacity: .85; }
+    .video-card.mt-autopl-card .thumb img {
+      position: relative; z-index: 1; transition: transform .5s;
+      width: 100%; aspect-ratio: 16/9; object-fit: cover;
+    }
+    .video-card.mt-autopl-card:hover .thumb img { transform: scale(1.05); }
+    .mt-autopl-stack {
+      position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%);
+      width: 88%; height: 8px; border-radius: 0 0 10px 10px; z-index: 0;
+      background: rgba(255,255,255,0.18); filter: blur(4px);
+    }
+    .mt-autopl-stack::before, .mt-autopl-stack::after {
+      content: ''; position: absolute; left: 4%; right: 4%; bottom: 100%;
+      height: 5px; background: rgba(255,255,255,0.12); border-radius: 0 0 8px 8px;
+    }
+    .mt-autopl-stack::after { left: 8%; right: 8%; bottom: calc(100% + 5px); height: 4px; opacity: .6; }
+    .mt-autopl-badge {
+      position: absolute; left: 10px; top: 10px; z-index: 3;
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; font-size: 11.5px; font-weight: 700; letter-spacing: .3px;
+      color: #fff; border-radius: 999px;
+      background: linear-gradient(120deg, #ffb86b, #ff6bd6, #a26bff);
+      box-shadow: 0 4px 16px rgba(255,107,214,.5);
+      backdrop-filter: blur(6px);
+    }
+    .mt-autopl-badge .mt-autopl-spark {
+      animation: mt-autopl-spark 2.5s ease-in-out infinite;
+      display: inline-block; line-height: 1;
+    }
+    @keyframes mt-autopl-spark {
+      0%, 100% { transform: scale(1) rotate(0deg); opacity: .9; }
+      50%      { transform: scale(1.2) rotate(15deg); opacity: 1; }
+    }
+    .mt-autopl-overlay {
+      position: absolute; right: 10px; bottom: 10px; z-index: 3;
+      padding: 5px 11px; font-size: 11.5px; font-weight: 600; color: #fff;
+      background: rgba(0,0,0,0.75); border-radius: 6px;
+      backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 5px;
+    }
+
+    /* ===== Auto Playlist Loading Placeholder ===== */
+    .video-card.mt-autopl-loading {
+      position: relative; display: block;
+      animation: mt-autopl-enter .5s cubic-bezier(.2,.8,.2,1) both;
+    }
+    .mt-autopl-load-thumb {
+      position: relative; width: 100%; aspect-ratio: 16/9; border-radius: 12px;
+      overflow: hidden;
+      background: linear-gradient(135deg, #2a1840 0%, #4a2068 50%, #2a1840 100%);
+      background-size: 200% 200%;
+      animation: mt-autopl-load-bg 3s ease-in-out infinite;
+    }
+    @keyframes mt-autopl-load-bg {
+      0%, 100% { background-position: 0% 0%; }
+      50%      { background-position: 100% 100%; }
+    }
+    .mt-autopl-load-thumb::before {
+      content: ''; position: absolute; inset: -50%;
+      background: conic-gradient(from 0deg, transparent, rgba(255,184,107,.55), rgba(255,107,214,.5), transparent 50%);
+      animation: mt-autopl-rot 2.4s linear infinite;
+    }
+    .mt-autopl-load-content {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 12px;
+      color: #fff; z-index: 2; text-align: center; padding: 14px;
+    }
+    .mt-autopl-load-orb {
+      width: 46px; height: 46px; border-radius: 50%;
+      background: conic-gradient(from 0deg, #ffb86b, #ff6bd6, #a26bff, #ffb86b);
+      animation: mt-autopl-rot 2.5s linear infinite;
+      box-shadow: 0 0 22px rgba(255,107,214,.55);
+      position: relative;
+    }
+    .mt-autopl-load-orb::after {
+      content: ''; position: absolute; inset: 6px; border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #0a0613, #050308);
+    }
+    .mt-autopl-load-text {
+      font-size: 12.5px; font-weight: 700; letter-spacing: .3px;
+      line-height: 1.4; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .mt-autopl-load-sub { font-size: 10.5px; opacity: .8; margin-top: -2px; }
+
     /* ===== SIDEBAR ===== */
     .layout { display: flex; padding-top: var(--header-height); }
 
@@ -1170,6 +1316,50 @@
               <option value="custom">カスタムサーバー (/img/)</option>
             </select>
           </div>
+          <hr class="settings-divider">
+          <div class="settings-panel-title">🤖 AI 機能</div>
+          <label class="ai-master-row" for="aiToggleMaster">
+            <div class="ai-toggle-label">
+              <span class="ai-toggle-name">✨ AI機能 全体</span>
+              <span class="ai-toggle-desc">オフにするとすべてのAI機能を無効化</span>
+            </div>
+            <span class="ai-switch"><input type="checkbox" id="aiToggleMaster" checked><span class="ai-switch-knob"></span></span>
+          </label>
+          <label class="ai-toggle-row" for="aiToggleSplash">
+            <div class="ai-toggle-label">
+              <span class="ai-toggle-name">起動スプラッシュ</span>
+              <span class="ai-toggle-desc">MIN-Pro-AIロゴアニメーション</span>
+            </div>
+            <span class="ai-switch"><input type="checkbox" id="aiToggleSplash" checked><span class="ai-switch-knob"></span></span>
+          </label>
+          <label class="ai-toggle-row" for="aiToggleMinAi">
+            <div class="ai-toggle-label">
+              <span class="ai-toggle-name">MIN-AI のおすすめ</span>
+              <span class="ai-toggle-desc">フィード内のスマートおすすめカード</span>
+            </div>
+            <span class="ai-switch"><input type="checkbox" id="aiToggleMinAi" checked><span class="ai-switch-knob"></span></span>
+          </label>
+          <label class="ai-toggle-row" for="aiToggleProAi">
+            <div class="ai-toggle-label">
+              <span class="ai-toggle-name">MIN-Pro-AI のおすすめ</span>
+              <span class="ai-toggle-desc">Groq AIによる「あなたへの一本」</span>
+            </div>
+            <span class="ai-switch"><input type="checkbox" id="aiToggleProAi" checked><span class="ai-switch-knob"></span></span>
+          </label>
+          <label class="ai-toggle-row" for="aiToggleAutoPlaylist">
+            <div class="ai-toggle-label">
+              <span class="ai-toggle-name">自動プレイリスト</span>
+              <span class="ai-toggle-desc">10本以上で自動生成 (ホーム上部)</span>
+            </div>
+            <span class="ai-switch"><input type="checkbox" id="aiToggleAutoPlaylist" checked><span class="ai-switch-knob"></span></span>
+          </label>
+          <label class="ai-toggle-row" for="aiTogglePlaylistChip">
+            <div class="ai-toggle-label">
+              <span class="ai-toggle-name">AIプレイリストチップ</span>
+              <span class="ai-toggle-desc">チップバーの ✨ AIプレイリスト ボタン</span>
+            </div>
+            <span class="ai-switch"><input type="checkbox" id="aiTogglePlaylistChip" checked><span class="ai-switch-knob"></span></span>
+          </label>
         </div>
       </div>
 
@@ -2970,6 +3160,107 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
     })();
     /* ===================================================================== */
 
+
+    /* ===================================================================== */
+    /* ====== 🎛 MT AI SETTINGS + HISTORY GATE (added 2026) =================== */
+    /* ===================================================================== */
+    (function MTAiSettingsInit() {
+      'use strict';
+      const KEYS = {
+        master: 'mt_ai_master_enabled',
+        splash: 'mt_ai_splash_enabled',
+        minai: 'mt_ai_minai_enabled',
+        proai: 'mt_ai_proai_enabled',
+        autoPlaylist: 'mt_ai_autoplaylist_enabled',
+        playlistChip: 'mt_ai_playlistchip_enabled'
+      };
+      function getBool(key, defVal) {
+        try {
+          const v = localStorage.getItem(key);
+          if (v === null || v === undefined) return defVal;
+          return v === 'true';
+        } catch { return defVal; }
+      }
+      function setBool(key, val) {
+        try { localStorage.setItem(key, val ? 'true' : 'false'); } catch {}
+      }
+      function isEnabled(name) {
+        const k = KEYS[name];
+        if (!k) return true;
+        if (name !== 'master' && !getBool(KEYS.master, true)) return false;
+        return getBool(k, true);
+      }
+      function setEnabled(name, val) {
+        const k = KEYS[name];
+        if (k) setBool(k, !!val);
+        try { window.dispatchEvent(new CustomEvent('mt-ai-settings-changed', { detail: { name, val: !!val } })); } catch {}
+      }
+      function hasAnyHistory() {
+        try {
+          const h = JSON.parse(localStorage.getItem('mt_history') || '[]');
+          if (Array.isArray(h) && h.length >= 1) return true;
+        } catch {}
+        // 検索履歴もカウント
+        try {
+          const sh = JSON.parse(localStorage.getItem('mt_search_history') || '[]');
+          if (Array.isArray(sh) && sh.length >= 1) return true;
+        } catch {}
+        return false;
+      }
+      function historyVideoCount() {
+        try {
+          const h = JSON.parse(localStorage.getItem('mt_history') || '[]');
+          return Array.isArray(h) ? h.length : 0;
+        } catch { return 0; }
+      }
+      function canRunAi(name) {
+        if (!isEnabled('master')) return false;
+        if (!isEnabled(name)) return false;
+        return hasAnyHistory();
+      }
+      window.MTAiSettings = {
+        isEnabled, setEnabled, hasAnyHistory, historyVideoCount, canRunAi,
+        KEYS
+      };
+
+      function applyChipVisibility() {
+        const chip = document.getElementById('chipAiPlaylist');
+        if (!chip) return;
+        const show = isEnabled('master') && isEnabled('playlistChip');
+        chip.style.display = show ? '' : 'none';
+      }
+
+      function bindUI() {
+        const map = [
+          ['aiToggleMaster', 'master'],
+          ['aiToggleSplash', 'splash'],
+          ['aiToggleMinAi', 'minai'],
+          ['aiToggleProAi', 'proai'],
+          ['aiToggleAutoPlaylist', 'autoPlaylist'],
+          ['aiTogglePlaylistChip', 'playlistChip']
+        ];
+        map.forEach(([id, key]) => {
+          const cb = document.getElementById(id);
+          if (!cb) return;
+          cb.checked = isEnabled(key);
+          cb.addEventListener('change', () => {
+            setEnabled(key, cb.checked);
+            // 全体トグルが切り替わったら子の効果を可視化
+            if (key === 'master') {
+              applyChipVisibility();
+            }
+            if (key === 'playlistChip' || key === 'master') applyChipVisibility();
+          });
+        });
+        applyChipVisibility();
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindUI);
+      } else {
+        bindUI();
+      }
+    })();
+    /* ===================================================================== */
     /* ============================================================================== */
     /* ================ 🚀 MIN-Pro-AI ENGINE v1.0 (added 2026)  ====================== */
     /* ============================================================================== */
@@ -3518,6 +3809,14 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       //  4. SPLASH SCREEN
       // ============================================================
       function maybeShowSplash() {
+        // AI設定 / 履歴ゲート: スプラッシュも履歴とトグルで制御
+        try {
+          if (window.MTAiSettings) {
+            if (!window.MTAiSettings.isEnabled('master')) return null;
+            if (!window.MTAiSettings.isEnabled('splash')) return null;
+            if (!window.MTAiSettings.hasAnyHistory()) return null;
+          }
+        } catch {}
         // 初回 もしくは 最終表示から SPLASH_INTERVAL 経過
         const last = parseInt(localStorage.getItem(KEY_SPLASH_LAST) || '0', 10);
         const now = Date.now();
@@ -4171,341 +4470,18 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       }
 
       // ============================================================
-      // 11. MyMIX v3.0 (完全書き直し - MIN-AIスタイルの9本収集)
-      //     - MIN-AI と同じ複数クエリ並列検索 + スコアリング
-      //     - 6秒で全スロット完了保証 (無限ローディングなし)
-      //     - 9本以上集まらなければtrendingで補充
-      //     - それでもだめなら静かにスロットを削除 (絶対に表示し続けない)
+      // 11. MyMIX REMOVED (replaced with no-op stub on user's request)
+      //     全機能の引数は維持し、戻り値は空配列のみ返す
       // ============================================================
       const MyMIX = (function () {
-        const SLOT_POSITIONS = [4, 12, 20]; // 5枚目, 13枚目, 21枚目に挿入 (AI表示後)
-        const TARGET_VIDEOS = 9;             // 各MIXの目標本数
-        const MIN_VIDEOS = 5;                // これ以下はスロット削除
-        const SLOT_TIMEOUT_MS = 6000;        // タイムアウト短縮 (8 -> 6)
-        const GLOBAL_TIMEOUT_MS = 9000;      // 全スロット一括キルスイッチ
-
-        // ユーザーシグナルから MIX タイプを選ぶ (ジャンル多性を重視)
-        function pickMixTypes(signals) {
-          const types = [];
-          const cluster = buildHistoryGenreClusterSafe(signals);
-
-          // (1) チャンネルMIX (上位2チャンネル)
-          (signals.topChannels || []).slice(0, 2).forEach(ch => {
-            types.push({ kind: 'channel', key: ch, title: `${ch} ミックス`, subtitle: 'お気に入りチャンネル' });
-          });
-          // (2) ジャンルMIX (クラスタ上位ワード)
-          if (cluster.sorted && cluster.sorted.length > 0) {
-            const g = cluster.sorted[0][0];
-            types.push({ kind: 'genre', key: g, title: `${g} ミックス`, subtitle: 'お気に入りジャンル' });
-          } else if ((signals.topWords || []).length > 0) {
-            const g = signals.topWords[0];
-            types.push({ kind: 'genre', key: g, title: `${g} ミックス`, subtitle: 'お気に入りジャンル' });
-          }
-          // (3) 高評価MIX
-          if ((signals.liked || []).length >= 3) {
-            types.push({ kind: 'liked', key: 'liked-mix', title: '高評価ミックス', subtitle: 'あなたが高評価した動画から' });
-          }
-          // (4) 発見MIX (2番目のクラスタワード)
-          if (cluster.sorted && cluster.sorted.length > 1) {
-            const g = cluster.sorted[1][0];
-            types.push({ kind: 'discover', key: g, title: `発見・${g}`, subtitle: 'もしかしたら好きかも' });
-          }
-          return shuffle(types).slice(0, SLOT_POSITIONS.length);
-        }
-
-        // ジャンルクラスタ (スコープ外の関数参照用 - 同じロジックをコピー)
-        function buildHistoryGenreClusterSafe(signals) {
-          try {
-            const hist = (signals && signals.hist) || [];
-            const liked = (signals && signals.liked) || [];
-            const tokenFreq = new Map();
-            const addTokens = (text, weight) => {
-              String(text || '').toLowerCase()
-                .replace(/[\u3010\u3011\u300c\u300d\u300e\u300f\(\)\uff08\uff09!\uff01?\uff1f\[\]#\u266a\u2605\u2606\u25c6\u25c7\.,\u3001\u3002:\uff1a;\uff1b\-_\/\\|]/g, ' ')
-                .split(/\s+/)
-                .filter(w => w.length >= 2 && w.length <= 25).slice(0, 8)
-                .forEach(w => tokenFreq.set(w, (tokenFreq.get(w) || 0) + weight));
-            };
-            hist.slice(0, 50).forEach((h, i) => addTokens(h.title, 1 / (1 + i * 0.06)));
-            liked.slice(0, 25).forEach(h => addTokens(h.title, 1.4));
-            const noise = new Set(['the','and','for','with','from','this','that','official','video','music','mv','ft','feat','vol','part','full','live','hd','4k','tv','ch','channel','ver','version']);
-            const sorted = Array.from(tokenFreq.entries()).filter(([w]) => !noise.has(w)).sort((a,b) => b[1] - a[1]);
-            const coreTokens = new Set(sorted.slice(0, 20).map(([w]) => w));
-            return { coreTokens, sorted };
-          } catch { return { coreTokens: new Set(), sorted: [] }; }
-        }
-
-        function scheduleSlotsForGrid(signals) {
-          const types = pickMixTypes(signals);
-          const slots = [];
-          types.forEach((t, i) => {
-            slots.push({ id: 'mxs_' + Date.now() + '_' + i, position: SLOT_POSITIONS[i], type: t });
-          });
-          return slots;
-        }
-
-        // クエリ生成 (MIN-AI スタイルの多面クエリ)
-        function buildQueriesForMix(type, signals) {
-          const qs = [];
-          if (type.kind === 'channel') {
-            qs.push(type.key);
-            qs.push(type.key + ' 人気');
-            qs.push(type.key + ' おすすめ');
-          } else if (type.kind === 'liked') {
-            const liked = (signals.liked || []).slice(0, 3);
-            liked.forEach(l => { if (l.title) qs.push(l.title); });
-            if (signals.topChannels && signals.topChannels[0]) qs.push(signals.topChannels[0]);
-          } else {
-            // genre / discover
-            qs.push(type.key);
-            // クラスタコアワードと組み合わせてジャンルを絞る
-            const cluster = buildHistoryGenreClusterSafe(signals);
-            if (cluster.sorted && cluster.sorted.length > 0 && cluster.sorted[0][0] !== type.key) {
-              qs.push(type.key + ' ' + cluster.sorted[0][0]);
-            }
-            qs.push(type.key + ' 人気');
-          }
-          return qs.slice(0, 3);
-        }
-
-        // 実際の動画を集める (MIN-AI スタイルの並列クエリ + スコアリング)
-        async function buildMixVideos(type, signals) {
-          const queries = buildQueriesForMix(type, signals);
-          const cluster = buildHistoryGenreClusterSafe(signals);
-
-          // 並列検索 (個別タイムアウト)
-          const tasks = queries.map(q => Promise.race([
-            apiSearch(q, 0).catch(() => []),
-            new Promise(resolve => setTimeout(() => resolve([]), 4500))
-          ]));
-          let allResults = [];
-          try {
-            allResults = await Promise.race([
-              Promise.all(tasks),
-              new Promise(resolve => setTimeout(() => resolve([]), 5000))
-            ]) || [];
-          } catch { allResults = []; }
-
-          const merged = [];
-          const seen = new Set();
-          (allResults || []).forEach(arr => (arr || []).forEach(it => {
-            if (!it || !it.id || seen.has(it.id)) return;
-            if (isShortItem(it)) return;
-            seen.add(it.id);
-            merged.push(it);
-          }));
-
-          // type 別スコアリング
-          const histChSet = new Set((signals.topChannels || []).map(c => String(c || '').toLowerCase()));
-          function scoreItem(it) {
-            if (!it || !it.id) return -Infinity;
-            if (signals.historyIds && signals.historyIds.has(it.id)) return -10; // 視聴済みも軽く加える (Mixは列を漂う)
-            const title = String(it.title || '').toLowerCase();
-            const ch = String(it.channelTitle || '').toLowerCase();
-            const tokens = tokensFromTitleLite(title);
-            let s = 0;
-            // チャンネル一致
-            if (type.kind === 'channel') {
-              const k = String(type.key).toLowerCase();
-              if (ch === k) s += 14;
-              else if (ch.includes(k) || k.includes(ch)) s += 7;
-              else s -= 4; // チャンネルMIXで别チャンネルは大きく減点
-            } else {
-              if (histChSet.has(ch)) s += 5;
-            }
-            // ジャンルクラスタ一致 (同ジャンル保証)
-            const overlap = genreOverlapScoreLite(tokens, cluster.coreTokens);
-            if (overlap >= 3) s += 7;
-            else if (overlap === 2) s += 3.5;
-            else if (overlap === 1) s += 1;
-            else if (type.kind !== 'channel') s -= 1.5;
-
-            // typeキーとタイトル一致 (genre/discover)
-            if (type.kind === 'genre' || type.kind === 'discover') {
-              if (title.includes(String(type.key).toLowerCase())) s += 4;
-            }
-            // 実在動画シグナル
-            if (it.lengthText) s += 1;
-            if (/(万|\u5104|M views|K views|回視聴|views)/i.test(it.viewCountText || '')) s += 0.8;
-            s += Math.random() * 0.5;
-            return s;
-          }
-
-          merged.sort((a, b) => scoreItem(b) - scoreItem(a));
-
-          // 連続同チャンネルを限る (channelタイプ以外)
-          let videos = [];
-          if (type.kind === 'channel') {
-            videos = merged.slice(0, 25);
-          } else {
-            const lastChCount = new Map();
-            for (const it of merged) {
-              const ch = String(it.channelTitle || '').toLowerCase();
-              if ((lastChCount.get(ch) || 0) >= 3) continue;
-              lastChCount.set(ch, (lastChCount.get(ch) || 0) + 1);
-              videos.push(it);
-              if (videos.length >= 25) break;
-            }
-          }
-
-          // マッピング
-          const out = videos.map(it => ({
-            id: String(it.id),
-            title: it.title || '',
-            channelTitle: it.channelTitle || '',
-            thumbnail: getThumbForId(it.id),
-            lengthText: it.lengthText || ''
-          })).slice(0, 25);
-
-          // 十分集まるまでtrendingで補充 (ただし channel タイプは補充しない)
-          if (out.length < TARGET_VIDEOS && type.kind !== 'channel') {
-            try {
-              const trend = await Promise.race([
-                apiTrending(0).catch(() => []),
-                new Promise(resolve => setTimeout(() => resolve([]), 3000))
-              ]) || [];
-              const trendItems = trend.filter(it => it && it.id && !isShortItem(it) && !seen.has(it.id));
-              for (const it of trendItems) {
-                if (out.length >= TARGET_VIDEOS) break;
-                out.push({
-                  id: String(it.id),
-                  title: it.title || '',
-                  channelTitle: it.channelTitle || '',
-                  thumbnail: getThumbForId(it.id),
-                  lengthText: it.lengthText || ''
-                });
-                seen.add(it.id);
-              }
-            } catch {}
-          }
-          return out;
-        }
-
-        // ヘルパー: lite 版 (スコープ外参照と重複しないよう名前をぶらしている)
-        function genreOverlapScoreLite(itemTokens, coreTokens) {
-          if (!itemTokens || !itemTokens.length || !coreTokens || !coreTokens.size) return 0;
-          let hits = 0;
-          for (const t of itemTokens) if (coreTokens.has(t)) hits++;
-          return hits;
-        }
-
-        async function fillSlotsAsync(slots, signals) {
-          if (!slots || !slots.length) return;
-          // 全スロット一括キルスイッチ
-          const globalKill = setTimeout(() => {
-            slots.forEach(slot => {
-              const ph = document.querySelector(`[data-mix-slot="${slot.id}"]`);
-              if (ph) ph.remove();
-            });
-          }, GLOBAL_TIMEOUT_MS);
-
-          await Promise.allSettled(slots.map(async (slot) => {
-            let timedOut = false;
-            const timeoutId = setTimeout(() => {
-              timedOut = true;
-              const ph = document.querySelector(`[data-mix-slot="${slot.id}"]`);
-              if (ph) ph.remove();
-            }, SLOT_TIMEOUT_MS);
-
-            try {
-              // キャッシュ
-              const cacheAll = safeGet(KEY_MYMIX_CACHE, {});
-              const cacheKey = `${slot.type.kind}::${slot.type.key}`;
-              const cached = cacheAll[cacheKey];
-              let videos = null;
-              if (cached && (Date.now() - cached.ts) < CACHE_TTL_MIX && Array.isArray(cached.videos) && cached.videos.length >= MIN_VIDEOS) {
-                videos = cached.videos;
-              } else {
-                try {
-                  videos = await buildMixVideos(slot.type, signals);
-                } catch (innerErr) {
-                  console.warn('[MyMIX v3] build err:', innerErr);
-                  videos = null;
-                }
-                if (videos && videos.length >= MIN_VIDEOS) {
-                  try {
-                    cacheAll[cacheKey] = { ts: Date.now(), videos };
-                    safeSet(KEY_MYMIX_CACHE, cacheAll);
-                  } catch {}
-                }
-              }
-
-              if (timedOut) return;
-
-              if (!videos || videos.length < MIN_VIDEOS) {
-                const ph = document.querySelector(`[data-mix-slot="${slot.id}"]`);
-                if (ph) ph.remove();
-                return;
-              }
-              const ph = document.querySelector(`[data-mix-slot="${slot.id}"]`);
-              if (!ph) return;
-              const card = buildMyMixCard(slot, videos);
-              // requestAnimationFrame でスムーズにスワップ
-              requestAnimationFrame(() => {
-                if (ph.parentNode) ph.replaceWith(card);
-              });
-            } catch (e) {
-              console.warn('[MyMIX v3] fill err:', e);
-              const ph = document.querySelector(`[data-mix-slot="${slot.id}"]`);
-              if (ph) ph.remove();
-            } finally {
-              clearTimeout(timeoutId);
-            }
-          }));
-          clearTimeout(globalKill);
-        }
-
-        function buildMyMixCard(slot, videos) {
-          const first = videos[0];
-          const card = document.createElement('a');
-          card.href = 'javascript:void(0)';
-          card.className = 'video-card mpx-mymix-card';
-          card.setAttribute('role', 'button');
-          card.setAttribute('aria-label', `${slot.type.title}: ${videos.length}本の動画`);
-
-          card.innerHTML = `
-            <div class="thumb">
-              <img src="${first.thumbnail}" loading="lazy" alt="${escapeAttr(slot.type.title)}">
-              <div class="mpx-mix-stack"></div>
-              <div class="mpx-mix-badge"><span class="mpx-mix-spark">✦</span> MyMIX</div>
-              <div class="mpx-mix-overlay">
-                <svg viewBox="0 0 24 24"><path d="M4 6h12v2H4V6m0 4h12v2H4v-2m0 4h8v2H4v-2m14-4v8l5-4-5-4z"/></svg>
-                MIX • 全${videos.length}本
-              </div>
-            </div>
-            <div class="meta">
-              <span class="channel-avatar" data-initial="✦" style="text-decoration:none;cursor:default;">
-                <span class="avatar-initial">✦</span>
-              </span>
-              <div class="details">
-                <h3>${escapeHtmlText(slot.type.title)}</h3>
-                <span class="channel-name" style="color:var(--text-muted);">MIN-Tube-Pro ・ ${escapeHtmlText(slot.type.subtitle)}</span>
-                <div class="video-stats">${escapeHtmlText((first.title||'').slice(0, 40))}${(first.title||'').length > 40 ? '...' : ''}</div>
-              </div>
-            </div>`;
-          card.addEventListener('click', (e) => {
-            e.preventDefault();
-            openMixPlayer(slot, videos);
-          });
-          return card;
-        }
-
-        // 低品質キャッシュをクリーンアップ (古い仕様の3本しかないMIXなどを除去)
-        function purgeOldCache() {
-          try {
-            const cacheAll = safeGet(KEY_MYMIX_CACHE, {});
-            let changed = false;
-            Object.keys(cacheAll).forEach(k => {
-              const v = cacheAll[k];
-              if (!v || !Array.isArray(v.videos) || v.videos.length < MIN_VIDEOS) {
-                delete cacheAll[k]; changed = true;
-              }
-            });
-            if (changed) safeSet(KEY_MYMIX_CACHE, cacheAll);
-          } catch {}
-        }
-        purgeOldCache();
-
+        function scheduleSlotsForGrid(_signals) { return []; }
+        async function fillSlotsAsync(_slots, _signals) { return; }
+        function buildMyMixCard(_slot, _videos) { return null; }
+        // 古いキャッシュもクリーンアップ
+        try {
+          localStorage.removeItem('mt_mymix_v2');
+          localStorage.removeItem('mt_mymix');
+        } catch {}
         return { scheduleSlotsForGrid, fillSlotsAsync, buildMyMixCard };
       })();
 
@@ -4518,88 +4494,9 @@ if (!currentUrl.includes("projects") && !currentUrl.includes("private") && !curr
       }
 
       // ============================================================
-      // 12. MyMIX PLAYER (既存 AI プレイリストプレイヤーと同じ構造)
+      // 12. MyMIX PLAYER REMOVED (kept stub for safety)
       // ============================================================
-      function openMixPlayer(slot, items) {
-        const win = window.open('about:blank', '_blank');
-        if (!win) { alert('ポップアップがブロックされました。許可してもう一度お試しください。'); return; }
-        const payload = JSON.stringify(items).replace(/<\/script/g, '<\\/script');
-        const titleEsc = escapeHtmlText(slot.type.title);
-        const subtitleEsc = escapeHtmlText(slot.type.subtitle || '');
-        const html = `<!DOCTYPE html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${titleEsc} ・ MyMIX ・ MIN-Tube-Pro</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-<style>
-*{box-sizing:border-box;}html,body{margin:0;padding:0;background:#0f0f0f;color:#f1f1f1;font-family:'Roboto',Arial,sans-serif;height:100%;}
-.app{display:flex;height:100vh;width:100vw;}
-.player-wrap{flex:1;min-width:0;display:flex;flex-direction:column;background:#000;}
-.player-box{position:relative;width:100%;flex:1;background:#000;}
-.player-box iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
-.now-playing{padding:14px 18px;background:#0f0f0f;border-top:1px solid #2a2a2a;}
-.np-title{font-size:16px;font-weight:600;margin:0 0 4px;line-height:1.35;}
-.np-channel{font-size:13px;color:#aaa;}
-.pl-side{width:380px;max-width:42vw;background:#181818;border-left:1px solid #2a2a2a;display:flex;flex-direction:column;}
-.pl-head{padding:14px 16px;border-bottom:1px solid #2a2a2a;display:flex;align-items:center;gap:8px;}
-.pl-head .spark{background:linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-size:18px;}
-.pl-title{font-size:15px;font-weight:700;flex:1;display:flex;flex-direction:column;}
-.pl-title .pl-sub{font-size:11px;color:#aaa;font-weight:400;margin-top:2px;}
-.pl-count{font-size:12px;color:#aaa;}
-.pl-list{flex:1;overflow-y:auto;}
-.pl-list::-webkit-scrollbar{width:6px;}.pl-list::-webkit-scrollbar-thumb{background:#3f3f3f;border-radius:3px;}
-.pl-item{display:flex;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.04);transition:background .12s;align-items:center;}
-.pl-item:hover{background:#272727;}
-.pl-item.active{background:linear-gradient(90deg,rgba(79,139,255,.18),rgba(162,107,255,.18));}
-.pl-item.active .pl-idx{color:#c8aaff;}
-.pl-idx{width:18px;text-align:center;font-size:12px;color:#888;flex-shrink:0;}
-.pl-thumb{width:96px;height:54px;border-radius:6px;object-fit:cover;background:#000;flex-shrink:0;}
-.pl-info{flex:1;min-width:0;}
-.pl-it-title{font-size:13px;font-weight:500;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.pl-it-ch{font-size:11.5px;color:#aaa;margin-top:3px;}
-.pl-controls{display:flex;gap:6px;padding:10px 12px;border-top:1px solid #2a2a2a;background:#0f0f0f;}
-.pl-controls button{flex:1;background:#272727;border:none;color:#f1f1f1;padding:9px 8px;border-radius:8px;cursor:pointer;font-size:12.5px;font-family:inherit;transition:background .12s;}
-.pl-controls button:hover{background:#3f3f3f;}
-.pl-controls .play-pri{background:linear-gradient(120deg,#4f8bff,#a26bff,#ff6bd6);font-weight:600;}
-@media (max-width:780px){.app{flex-direction:column;}.pl-side{width:100%;max-width:none;border-left:none;border-top:1px solid #2a2a2a;height:50vh;}.player-wrap{height:50vh;}}
-</style></head><body>
-<div class="app">
-  <div class="player-wrap">
-    <div class="player-box"><iframe id="yt" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>
-    <div class="now-playing"><div class="np-title" id="npTitle">読み込み中...</div><div class="np-channel" id="npChannel"></div></div>
-  </div>
-  <aside class="pl-side">
-    <div class="pl-head"><span class="spark">✦</span><div class="pl-title">${titleEsc}<span class="pl-sub">${subtitleEsc}</span></div><div class="pl-count" id="plCount"></div></div>
-    <div class="pl-list" id="plList"></div>
-    <div class="pl-controls">
-      <button id="btnPrev">⏮ 前</button>
-      <button id="btnShuffle">🔀 シャッフル</button>
-      <button id="btnNext" class="play-pri">次 ⏭</button>
-    </div>
-  </aside>
-</div>
-<script>
-const items = ${payload};
-let current = 0;
-const yt = document.getElementById('yt');
-const list = document.getElementById('plList');
-const npTitle = document.getElementById('npTitle');
-const npChannel = document.getElementById('npChannel');
-const plCount = document.getElementById('plCount');
-plCount.textContent = items.length + ' 本';
-function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function render(){
-  list.innerHTML = items.map((it,i)=>'<div class="pl-item'+(i===current?' active':'')+'" data-i="'+i+'"><div class="pl-idx">'+(i===current?'▶':(i+1))+'</div><img class="pl-thumb" src="'+esc(it.thumbnail)+'" onerror="this.src=\\'https://i.ytimg.com/vi/'+esc(it.id)+'/hqdefault.jpg\\'"><div class="pl-info"><div class="pl-it-title">'+esc(it.title)+'</div><div class="pl-it-ch">'+esc(it.channelTitle||'')+'</div></div></div>').join('');
-  list.querySelectorAll('.pl-item').forEach(el=>{el.addEventListener('click',()=>{current=parseInt(el.dataset.i,10);play();});});
-}
-function play(){const it=items[current];if(!it)return;yt.src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(it.id)+'?autoplay=1&rel=0&modestbranding=1&enablejsapi=1';npTitle.textContent=it.title||'';npChannel.textContent=it.channelTitle||'';render();const a=list.querySelector('.pl-item.active');if(a)a.scrollIntoView({block:'nearest',behavior:'smooth'});}
-document.getElementById('btnPrev').addEventListener('click',()=>{current=(current-1+items.length)%items.length;play();});
-document.getElementById('btnNext').addEventListener('click',()=>{current=(current+1)%items.length;play();});
-document.getElementById('btnShuffle').addEventListener('click',()=>{for(let i=items.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[items[i],items[j]]=[items[j],items[i]];}current=0;play();});
-render();play();
-<\/script></body></html>`;
-        win.document.open(); win.document.write(html); win.document.close();
-      }
+      function openMixPlayer(_slot, _items) { /* removed */ }
 
       // ============================================================
       // 13. WRAP EXISTING window.onload / loadPersonalizedFeed / loadContent
@@ -4803,7 +4700,7 @@ render();play();
       const KEY_PROAI_CACHE      = 'mt_proai_pick_cache_v2';  // Pro-AI 推薦キャッシュ
       const KEY_MINAI_SHOWN      = 'mt_minai_shown_v2';       // 既出 ID (循環防止)
       const PROAI_INTERVAL       = 3;                          // 3回に1回 Pro-AI を表示
-      const MINAI_INSERT_EVERY   = 9;                          // ほぼ 9 カードに 1 回 MIN-AI
+      const MINAI_INSERT_EVERY   = 4;                          // 4 カードに 1 回 MIN-AI (上部寄せ)
       const PROAI_CACHE_TTL_MS   = 30 * 60 * 1000;             // 30分有効
       const MINAI_TIMEOUT_MS     = 15000;
       const PROAI_TIMEOUT_MS     = 18000;
@@ -5538,11 +5435,16 @@ render();play();
         // 既に未解決の MIN-AI ローディングがあるなら追加しない
         if (videoGrid.querySelector('[data-ai-loading="minai"]')) return;
 
+        // AI設定 + 履歴ゲート (最低1本動画を見た後に発動)
+        try {
+          if (window.MTAiSettings && !window.MTAiSettings.canRunAi('minai')) return;
+        } catch {}
+
         // 履歴等もデータがあるときだけ
         let signals;
         try { signals = getHistorySignals(); }
         catch { signals = null; }
-        const hasData = signals && ((signals.hist && signals.hist.length > 0) || (signals.liked && signals.liked.length > 0) || (signals.subs && signals.subs.length > 0));
+        const hasData = signals && signals.hist && signals.hist.length >= 1;
         if (!hasData) return;
 
         const loadingNode = buildLoadingCard(
@@ -5559,11 +5461,16 @@ render();play();
         if (!videoGrid) return;
         if (videoGrid.querySelector('[data-ai-loading="proai"]')) return;
 
+        // AI設定 + 履歴ゲート
+        try {
+          if (window.MTAiSettings && !window.MTAiSettings.canRunAi('proai')) return;
+        } catch {}
+
         // データ確認(なくても trending 推薦は出すが、ない場合は省略でもよい)
         let signals;
         try { signals = getHistorySignals(); }
         catch { signals = null; }
-        const hasData = signals && ((signals.hist && signals.hist.length > 0) || (signals.liked && signals.liked.length > 0) || (signals.subs && signals.subs.length > 0));
+        const hasData = signals && signals.hist && signals.hist.length >= 1;
         if (!hasData) return;
 
         const loadingNode = buildLoadingCard(
@@ -5596,8 +5503,10 @@ render();play();
                 cardsSinceLastMinAi++;
                 if (cardsSinceLastMinAi >= MINAI_INSERT_EVERY) {
                   cardsSinceLastMinAi = 0;
-                  // 次のターンで挿入 (現在の append 連鎖を邪魔しない)
-                  setTimeout(placeMinAiSlotIfNeeded, 40);
+                  // 設定 + 履歴ゲート
+                  let allow = true;
+                  try { if (window.MTAiSettings && !window.MTAiSettings.canRunAi('minai')) allow = false; } catch {}
+                  if (allow) setTimeout(placeMinAiSlotIfNeeded, 40);
                 }
               }
             }
@@ -5614,10 +5523,22 @@ render();play();
       function startup() {
         try { setupGridObserver(); } catch (e) { console.warn(e); }
 
+        // AI設定 + 履歴ゲート — 履歴がない場合は MIN-AI / Pro-AI を一切起動しない
+        let aiAllowed = true;
+        try {
+          if (window.MTAiSettings) {
+            if (!window.MTAiSettings.isEnabled('master')) aiAllowed = false;
+            else if (!window.MTAiSettings.hasAnyHistory()) aiAllowed = false;
+          }
+        } catch {}
+        if (!aiAllowed) return;
+
         let count = 0;
         try { count = bumpLoadCount(); } catch {}
-        // 2回に1回 Pro-AI を表示 (より頻繁に / 初回も対象)
-        const shouldShowProAi = ((count - 1) % PROAI_INTERVAL === 0);
+        // Pro-AI の表示判定 (設定で OFF なら表示しない)
+        let proaiAllowed = true;
+        try { if (window.MTAiSettings && !window.MTAiSettings.isEnabled('proai')) proaiAllowed = false; } catch {}
+        const shouldShowProAi = proaiAllowed && ((count - 1) % PROAI_INTERVAL === 0);
 
         if (shouldShowProAi) {
           let placed = false;
@@ -5668,6 +5589,465 @@ render();play();
       };
       console.log('%c🌟 MIN-AI Engine v2.0 ready', 'background:linear-gradient(120deg,#00d4ff,#4f8bff,#00ffa1);color:#0a0613;padding:4px 10px;border-radius:4px;font-weight:bold;');
     })();
+
+    /* ============================================================================== */
+    /* ================ 🎵 AUTO PLAYLIST ENGINE (added 2026) ========================= */
+    /* ============================================================================== */
+    /*  - 視聴履歴が 10 本以上に達した時点で自動的に MIN-Pro-AI を実行                */
+    /*  - 結果のプレイリストをホーム動画グリッド最上部に「プレイリストカード」として表示 */
+    /*  - 1 時間キャッシュ (履歴がさらに 5 本増えたら再生成)                            */
+    /* ============================================================================== */
+    (function AutoPlaylistEngine() {
+      'use strict';
+      if (!window.__MPX) {
+        console.warn('[AutoPlaylist] MIN-Pro-AI core not ready; skipping');
+        return;
+      }
+      const MPX = window.__MPX;
+      const { callGroq, getHistorySignals, getThumbForId, isShortItem, escapeHtmlText, escapeAttr } = MPX;
+
+      const KEY_CACHE          = 'mt_auto_playlist_v1';
+      const KEY_BASIS          = 'mt_auto_playlist_basis';    // 何本時点で生成したか
+      const TTL_MS             = 60 * 60 * 1000;              // 1h
+      const MIN_HIST_TO_RUN    = 10;
+      const HIST_BUMP_FOR_REFRESH = 5;                        // +5本でリフレッシュ
+      const MAX_TITLES         = 12;
+      const MIN_RESULTS        = 4;
+      const HARD_TIMEOUT_MS    = 30000;
+
+      function safeCanRun() {
+        try {
+          if (!window.MTAiSettings) return true;
+          return window.MTAiSettings.canRunAi('autoPlaylist');
+        } catch { return true; }
+      }
+
+      function getCached() {
+        try {
+          const v = JSON.parse(localStorage.getItem(KEY_CACHE) || 'null');
+          if (!v || !v.ts) return null;
+          if ((Date.now() - v.ts) >= TTL_MS) return null;
+          if (!Array.isArray(v.items) || v.items.length < MIN_RESULTS) return null;
+          // 履歴が大幅に増えたらキャッシュ無効
+          const curBasis = (window.MTAiSettings && window.MTAiSettings.historyVideoCount()) || 0;
+          const basis = parseInt(localStorage.getItem(KEY_BASIS) || '0', 10) || 0;
+          if (basis && (curBasis - basis) >= HIST_BUMP_FOR_REFRESH) return null;
+          return v.items;
+        } catch { return null; }
+      }
+      function saveCache(items) {
+        try {
+          localStorage.setItem(KEY_CACHE, JSON.stringify({ ts: Date.now(), items }));
+          const cur = (window.MTAiSettings && window.MTAiSettings.historyVideoCount()) || 0;
+          localStorage.setItem(KEY_BASIS, String(cur));
+        } catch {}
+      }
+
+      const SYSTEM_PROMPT =
+        "あなたはユーザーのYouTube視聴データから、その人が必ず喜ぶプレイリストを作るプロのキュレーターです。\n" +
+        "【厳守】\n" +
+        "1. 必ず6本以上の異なる動画を推薦してください。\n" +
+        "2. YouTubeに実在する有名で人気のある動画のタイトルのみを使用してください。\n" +
+        "3. タイトルにはアーティスト名/チャンネル名を含め、検索ヒット率の高い表記にしてください。\n" +
+        "4. タイトルとタイトルの間は半角「.」のみで区切り、改行・番号・記号は不要です。\n" +
+        "5. タイトルの末尾には必ず「.」をつけてください。\n" +
+        "6. 例: アーティスト名 - 曲名.アーティスト名 - 曲名.\n" +
+        "7. ジャンル多様性を考慮して、ユーザーの趣味領域を中心に構成してください。";
+
+      function buildUserPrompt(signals) {
+        const histLines = (signals.hist || []).slice(0, 20)
+          .map(h => `・「${(h.title||'').slice(0,80)}」 / ${h.channel||''}`)
+          .filter(s => s.length > 5);
+        const likedLines = (signals.liked || []).slice(0, 10)
+          .map(h => `・「${(h.title||'').slice(0,80)}」 / ${h.channel||''}`)
+          .filter(s => s.length > 5);
+        const subs = (signals.subs || []).slice(0, 10);
+        let profile = '';
+        if (subs.length) profile += `【登録チャンネル】\n${subs.map(s => '・' + s).join('\n')}\n\n`;
+        if (likedLines.length) profile += `【高評価した動画】\n${likedLines.join('\n')}\n\n`;
+        if (histLines.length) profile += `【最近の視聴履歴】\n${histLines.join('\n')}`;
+        if (!profile) profile = '【データなし】人気の高い多様なジャンルの動画を推薦してください。';
+        return `以下はユーザーのYouTube視聴データです。この人の好みを深く分析し、必ず6本以上の実在する人気YouTube動画でプレイリストを作ってください。\n\n${profile}`;
+      }
+
+      function parseTitles(raw) {
+        if (!raw) return [];
+        let t = String(raw).replace(/```[\s\S]*?```/g, ' ').replace(/^\s*[-*\d+.)\s]+/gm, '');
+        const parts = t.split('.').map(s => s.trim()).filter(s => s.length >= 3);
+        const titles = [];
+        const seen = new Set();
+        for (const p of parts) {
+          let title = p.replace(/^[\s\-*\u30fb\u2022\u25cf\u25cb\u25b6\u25b7\u261e\u261b]+/, '').trim();
+          if (title.length < 3 || title.length > 120) continue;
+          if (/^(こちら|以下|それでは|了解|わかりました|note|note:|playlist)/i.test(title)) continue;
+          const key = title.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          titles.push(title);
+        }
+        return titles.slice(0, MAX_TITLES);
+      }
+
+      async function searchOneTitle(title) {
+        if (!title) return null;
+        try {
+          const r = await fetch(`/api/1-search?q=${encodeURIComponent(title)}`);
+          if (r.ok) {
+            const data = await r.json();
+            let item = null;
+            if (Array.isArray(data)) item = data.find(x => x && x.type === 'video' && x.id) || data.find(x => x && x.id);
+            else if (data && data.id) item = data;
+            else if (data && Array.isArray(data.items)) item = data.items.find(x => x && x.id);
+            else if (data && Array.isArray(data.results)) item = data.results.find(x => x && x.id);
+            if (item && item.id) return item;
+          }
+        } catch {}
+        // フォールバック: /api/search
+        try {
+          const r = await fetch(`/api/search?q=${encodeURIComponent(title)}&page=0`);
+          if (r.ok) {
+            const d = await r.json();
+            const arr = (d && d.items) || [];
+            const found = arr.find(x => x && x.id && !isShortItem(x));
+            if (found) return found;
+          }
+        } catch {}
+        return null;
+      }
+
+      async function generate() {
+        let signals;
+        try { signals = getHistorySignals(); }
+        catch { signals = null; }
+        if (!signals || !Array.isArray(signals.hist) || signals.hist.length < MIN_HIST_TO_RUN) return null;
+
+        let raw;
+        try {
+          raw = await Promise.race([
+            callGroq(
+              [
+                { role: 'system', content: SYSTEM_PROMPT },
+                { role: 'user', content: buildUserPrompt(signals) }
+              ],
+              { temperature: 0.7, max_tokens: 900, timeout: 18000 }
+            ),
+            new Promise((_, rj) => setTimeout(() => rj(new Error('autopl-timeout')), HARD_TIMEOUT_MS))
+          ]);
+        } catch (e) {
+          console.warn('[AutoPlaylist] groq failed:', e);
+          return null;
+        }
+
+        const titles = parseTitles(raw);
+        if (titles.length < 4) return null;
+
+        const results = [];
+        const CONCURRENCY = 4;
+        let cursor = 0;
+        async function worker() {
+          while (cursor < titles.length) {
+            const myIdx = cursor++;
+            const ti = titles[myIdx];
+            const found = await Promise.race([
+              searchOneTitle(ti),
+              new Promise(resolve => setTimeout(() => resolve(null), 5000))
+            ]);
+            if (found && found.id) {
+              if (isShortItem(found)) continue;
+              results.push({
+                _idx: myIdx,
+                id: String(found.id),
+                title: found.title || ti,
+                channelTitle: found.channelTitle || (found.shortBylineText && found.shortBylineText.runs && found.shortBylineText.runs[0] && found.shortBylineText.runs[0].text) || '',
+                thumbnail: getThumbForId(found.id),
+                lengthText: (found.length && found.length.simpleText) || found.lengthText || ''
+              });
+            }
+          }
+        }
+        await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
+        results.sort((a, b) => a._idx - b._idx);
+        const uniq = [];
+        const seenIds = new Set();
+        for (const r of results) {
+          if (seenIds.has(r.id)) continue;
+          seenIds.add(r.id);
+          uniq.push({
+            id: r.id, title: r.title, channelTitle: r.channelTitle,
+            thumbnail: r.thumbnail, lengthText: r.lengthText
+          });
+        }
+        if (uniq.length < MIN_RESULTS) return null;
+        return uniq.slice(0, MAX_TITLES);
+      }
+
+      function buildLoadingCard() {
+        const wrap = document.createElement('div');
+        wrap.className = 'video-card mt-autopl-loading';
+        wrap.setAttribute('data-autopl-loading', '1');
+        wrap.innerHTML = `
+          <div class="mt-autopl-load-thumb">
+            <div class="mt-autopl-load-content">
+              <div class="mt-autopl-load-orb"></div>
+              <div class="mt-autopl-load-text">✨ MIN-Pro-AI があなた専用プレイリストを作成中</div>
+              <div class="mt-autopl-load-sub">視聴履歴を分析しています...</div>
+            </div>
+          </div>
+          <div class="meta">
+            <div class="mpx-skel-avatar" style="width:36px;height:36px;border-radius:50%;"></div>
+            <div class="mpx-skel-lines" style="flex:1;display:flex;flex-direction:column;gap:6px;">
+              <div class="mpx-skel-line long"></div>
+              <div class="mpx-skel-line short"></div>
+            </div>
+          </div>`;
+        return wrap;
+      }
+
+      function buildCard(items) {
+        const first = items[0];
+        const a = document.createElement('a');
+        a.href = 'javascript:void(0)';
+        a.className = 'video-card mt-autopl-card';
+        a.setAttribute('role', 'button');
+        a.setAttribute('aria-label', `MIN-Pro-AI プレイリスト: ${items.length}本の動画`);
+        const safeFirstTitle = escapeHtmlText((first.title || '').slice(0, 50));
+        const tail = (first.title || '').length > 50 ? '...' : '';
+        a.innerHTML = `
+          <div class="thumb">
+            <img src="${first.thumbnail}" loading="lazy" alt="MIN-Pro-AI プレイリスト">
+            <div class="mt-autopl-stack"></div>
+            <div class="mt-autopl-badge"><span class="mt-autopl-spark">✨</span> MIN-Pro-AI プレイリスト</div>
+            <div class="mt-autopl-overlay">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              全 ${items.length} 本
+            </div>
+          </div>
+          <div class="meta">
+            <span class="channel-avatar" data-initial="✨" style="text-decoration:none;cursor:default;background:linear-gradient(120deg,#ffb86b,#ff6bd6,#a26bff);">
+              <span class="avatar-initial">✨</span>
+            </span>
+            <div class="details">
+              <h3>あなた専用 MIN-Pro-AI プレイリスト</h3>
+              <span class="channel-name" style="color:var(--text-muted);">MIN-Pro-AI ・ 視聴履歴から自動生成</span>
+              <div class="video-stats">${safeFirstTitle}${tail}</div>
+            </div>
+          </div>`;
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          openPlayer(items);
+        });
+        return a;
+      }
+
+      function openPlayer(items) {
+        const win = window.open('about:blank', '_blank');
+        if (!win) { alert('ポップアップがブロックされました。許可してもう一度お試しください。'); return; }
+        const payload = JSON.stringify(items).replace(/<\/script/g, '<\\/script');
+        const html = `<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>✨ MIN-Pro-AI プレイリスト ・ MIN-Tube-Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;}html,body{margin:0;padding:0;background:#0f0f0f;color:#f1f1f1;font-family:'Roboto',Arial,sans-serif;height:100%;}
+.app{display:flex;height:100vh;width:100vw;}
+.player-wrap{flex:1;min-width:0;display:flex;flex-direction:column;background:#000;}
+.player-box{position:relative;width:100%;flex:1;background:#000;}
+.player-box iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+.now-playing{padding:14px 18px;background:#0f0f0f;border-top:1px solid #2a2a2a;}
+.np-title{font-size:16px;font-weight:600;margin:0 0 4px;line-height:1.35;}
+.np-channel{font-size:13px;color:#aaa;}
+.pl-side{width:380px;max-width:42vw;background:#181818;border-left:1px solid #2a2a2a;display:flex;flex-direction:column;}
+.pl-head{padding:14px 16px;border-bottom:1px solid #2a2a2a;display:flex;align-items:center;gap:8px;}
+.pl-head .spark{background:linear-gradient(120deg,#ffb86b,#ff6bd6,#a26bff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-size:18px;}
+.pl-title{font-size:15px;font-weight:700;flex:1;display:flex;flex-direction:column;}
+.pl-title .pl-sub{font-size:11px;color:#aaa;font-weight:400;margin-top:2px;}
+.pl-count{font-size:12px;color:#aaa;}
+.pl-list{flex:1;overflow-y:auto;}
+.pl-list::-webkit-scrollbar{width:6px;}.pl-list::-webkit-scrollbar-thumb{background:#3f3f3f;border-radius:3px;}
+.pl-item{display:flex;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.04);transition:background .12s;align-items:center;}
+.pl-item:hover{background:#272727;}
+.pl-item.active{background:linear-gradient(90deg,rgba(255,184,107,.18),rgba(255,107,214,.18));}
+.pl-item.active .pl-idx{color:#ffc89a;}
+.pl-idx{width:18px;text-align:center;font-size:12px;color:#888;flex-shrink:0;}
+.pl-thumb{width:96px;height:54px;border-radius:6px;object-fit:cover;background:#000;flex-shrink:0;}
+.pl-info{flex:1;min-width:0;}
+.pl-it-title{font-size:13px;font-weight:500;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.pl-it-ch{font-size:11.5px;color:#aaa;margin-top:3px;}
+.pl-controls{display:flex;gap:6px;padding:10px 12px;border-top:1px solid #2a2a2a;background:#0f0f0f;}
+.pl-controls button{flex:1;background:#272727;border:none;color:#f1f1f1;padding:9px 8px;border-radius:8px;cursor:pointer;font-size:12.5px;font-family:inherit;transition:background .12s;}
+.pl-controls button:hover{background:#3f3f3f;}
+.pl-controls .play-pri{background:linear-gradient(120deg,#ffb86b,#ff6bd6,#a26bff);font-weight:600;}
+@media (max-width:780px){.app{flex-direction:column;}.pl-side{width:100%;max-width:none;border-left:none;border-top:1px solid #2a2a2a;height:50vh;}.player-wrap{height:50vh;}}
+</style></head><body>
+<div class="app">
+  <div class="player-wrap">
+    <div class="player-box"><iframe id="yt" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>
+    <div class="now-playing"><div class="np-title" id="npTitle">読み込み中...</div><div class="np-channel" id="npChannel"></div></div>
+  </div>
+  <aside class="pl-side">
+    <div class="pl-head"><span class="spark">✨</span><div class="pl-title">MIN-Pro-AI プレイリスト<span class="pl-sub">視聴履歴から自動生成</span></div><div class="pl-count" id="plCount"></div></div>
+    <div class="pl-list" id="plList"></div>
+    <div class="pl-controls">
+      <button id="btnPrev">⏮ 前</button>
+      <button id="btnShuffle">🔀 シャッフル</button>
+      <button id="btnNext" class="play-pri">次 ⏭</button>
+    </div>
+  </aside>
+</div>
+<script>
+const items = ${payload};
+let current = 0;
+const yt = document.getElementById('yt');
+const list = document.getElementById('plList');
+const npTitle = document.getElementById('npTitle');
+const npChannel = document.getElementById('npChannel');
+const plCount = document.getElementById('plCount');
+plCount.textContent = items.length + ' 本';
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function render(){
+  list.innerHTML = items.map((it,i)=>'<div class="pl-item'+(i===current?' active':'')+'" data-i="'+i+'"><div class="pl-idx">'+(i===current?'▶':(i+1))+'</div><img class="pl-thumb" src="'+esc(it.thumbnail)+'" onerror="this.src=\\'https://i.ytimg.com/vi/'+esc(it.id)+'/hqdefault.jpg\\'"><div class="pl-info"><div class="pl-it-title">'+esc(it.title)+'</div><div class="pl-it-ch">'+esc(it.channelTitle||'')+'</div></div></div>').join('');
+  list.querySelectorAll('.pl-item').forEach(el=>{el.addEventListener('click',()=>{current=parseInt(el.dataset.i,10);play();});});
+}
+function play(){const it=items[current];if(!it)return;yt.src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(it.id)+'?autoplay=1&rel=0&modestbranding=1&enablejsapi=1';npTitle.textContent=it.title||'';npChannel.textContent=it.channelTitle||'';render();const a=list.querySelector('.pl-item.active');if(a)a.scrollIntoView({block:'nearest',behavior:'smooth'});}
+document.getElementById('btnPrev').addEventListener('click',()=>{current=(current-1+items.length)%items.length;play();});
+document.getElementById('btnNext').addEventListener('click',()=>{current=(current+1)%items.length;play();});
+document.getElementById('btnShuffle').addEventListener('click',()=>{for(let i=items.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[items[i],items[j]]=[items[j],items[i]];}current=0;play();});
+render();play();
+<\/script></body></html>`;
+        win.document.open(); win.document.write(html); win.document.close();
+      }
+
+      // 上部挿入: グリッドの最初のリアルカードの「直前」に挿入
+      // 既にカードが入っているか挿入予定があるかをチェック
+      let placedThisSession = false;
+      async function placeAtTop() {
+        if (placedThisSession) return;
+        if (!safeCanRun()) return;
+        const curHist = (window.MTAiSettings && window.MTAiSettings.historyVideoCount()) || 0;
+        if (curHist < MIN_HIST_TO_RUN) return;
+
+        const grid = document.getElementById('videoGrid');
+        if (!grid) return;
+
+        // 既に表示済みなら何もしない
+        if (grid.querySelector('.mt-autopl-card') || grid.querySelector('[data-autopl-loading]')) return;
+
+        placedThisSession = true;
+
+        // 最初のリアルカードが現れるのを待ち、その「直前」にローディングカードを挿入
+        const insertLoading = () => {
+          const realCard = grid.querySelector(
+            '.video-card:not(.mpx-skeleton-card):not(.mpx-mymix-placeholder):not(.minai-loading-wrap):not(.proai-loading-wrap):not([data-ai-loading]):not(.mt-autopl-loading):not(.mt-autopl-card)'
+          );
+          if (!realCard) return null;
+          const loadingNode = buildLoadingCard();
+          grid.insertBefore(loadingNode, realCard);
+          return loadingNode;
+        };
+        let loadingNode = insertLoading();
+        if (!loadingNode) {
+          await new Promise((resolve) => {
+            const mo = new MutationObserver(() => {
+              loadingNode = insertLoading();
+              if (loadingNode) { mo.disconnect(); resolve(); }
+            });
+            mo.observe(grid, { childList: true });
+            setTimeout(() => { try { mo.disconnect(); } catch {} resolve(); }, 12000);
+          });
+          if (!loadingNode) {
+            // それでもダメなら appendChild
+            loadingNode = buildLoadingCard();
+            grid.appendChild(loadingNode);
+          }
+        }
+
+        // キャッシュ確認
+        let items = getCached();
+        if (!items) {
+          try {
+            items = await generate();
+          } catch (e) {
+            console.warn('[AutoPlaylist] generate err:', e);
+            items = null;
+          }
+          if (items && items.length >= MIN_RESULTS) saveCache(items);
+        }
+
+        if (!items || items.length < MIN_RESULTS) {
+          // 静かに削除
+          if (loadingNode && loadingNode.parentNode) loadingNode.remove();
+          return;
+        }
+        const card = buildCard(items);
+        if (loadingNode && loadingNode.parentNode) {
+          requestAnimationFrame(() => {
+            if (loadingNode.parentNode) loadingNode.replaceWith(card);
+          });
+        } else {
+          // フォールバック
+          const ref = grid.querySelector('.video-card:not(.mpx-skeleton-card)');
+          if (ref) grid.insertBefore(card, ref);
+          else grid.appendChild(card);
+        }
+      }
+
+      // 起動: ホーム画面のときだけ
+      function shouldRunOnThisPage() {
+        // 検索やショート画面では出さない (チップ active 判定)
+        const activeChip = document.querySelector('.chip.active');
+        if (!activeChip) return true;
+        const q = activeChip.dataset.q;
+        return (!q || q === 'recommended' || q === 'trending');
+      }
+      function bootstrap() {
+        try {
+          if (shouldRunOnThisPage()) placeAtTop();
+        } catch (e) { console.warn('[AutoPlaylist] bootstrap err:', e); }
+      }
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        setTimeout(bootstrap, 50);
+      } else {
+        window.addEventListener('DOMContentLoaded', () => setTimeout(bootstrap, 50));
+      }
+
+      // 設定変更で再評価
+      window.addEventListener('mt-ai-settings-changed', (e) => {
+        try {
+          const grid = document.getElementById('videoGrid');
+          if (!grid) return;
+          const existing = grid.querySelector('.mt-autopl-card, [data-autopl-loading]');
+          if (e.detail && (e.detail.name === 'master' || e.detail.name === 'autoPlaylist')) {
+            if (!safeCanRun()) {
+              // 表示を消す
+              if (existing) existing.remove();
+              placedThisSession = false; // 後で再評価できるよう
+            } else if (!existing) {
+              placedThisSession = false;
+              setTimeout(bootstrap, 0);
+            }
+          }
+        } catch {}
+      });
+
+      window.MTAutoPlaylist = {
+        version: '1.0',
+        placeAtTop,
+        regenerate: async () => {
+          try { localStorage.removeItem(KEY_CACHE); localStorage.removeItem(KEY_BASIS); } catch {}
+          placedThisSession = false;
+          bootstrap();
+        },
+        clearCache: () => {
+          try { localStorage.removeItem(KEY_CACHE); localStorage.removeItem(KEY_BASIS); } catch {}
+        }
+      };
+      console.log('%c🎵 Auto-Playlist Engine v1.0 ready', 'background:linear-gradient(120deg,#ffb86b,#ff6bd6,#a26bff);color:#fff;padding:4px 10px;border-radius:4px;font-weight:bold;');
+    })();
+    /* ============================================================================== */
+    /* ================ END OF AUTO PLAYLIST ENGINE  ================================= */
+    /* ============================================================================== */
+
     /* ============================================================================== */
     /* ================ END OF MIN-AI ENGINE v2.0  =================================== */
     /* ============================================================================== */
@@ -5698,6 +6078,7 @@ render();play();
     ライブラリ
   </button>
 </nav>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>

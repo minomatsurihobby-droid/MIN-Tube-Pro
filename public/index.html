@@ -3,7 +3,12 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no"/>
+<meta name="theme-color" content="#070709"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="color-scheme" content="dark"/>
 <title>NyxOS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -315,40 +320,135 @@ body.no-anim .wp-stars .twinkle{animation:none !important}
   50%{transform:translate(40px,-30px) scale(1.08)}
 }
 
-/* ====== Boot Splash ====== */
+/* ====== Boot Splash — Cinematic Crescent+Star draw-in ====== */
 #boot{
   position:fixed;inset:0;z-index:9999;
   background:#000;
   display:flex;align-items:center;justify-content:center;
-  flex-direction:column;gap:32px;
-  transition:opacity .8s var(--ease),visibility .8s;
+  flex-direction:column;gap:38px;
+  transition:opacity .85s cubic-bezier(.65,0,.35,1),visibility .85s;
+  /* Subtle radial vignette to add depth */
+  background:radial-gradient(ellipse at center, #0a0a10 0%, #000 70%);
 }
-#boot.hidden{opacity:0;visibility:hidden;pointer-events:none}
+#boot.hidden{opacity:0;visibility:hidden;pointer-events:none;transform:scale(1.04)}
 .boot-logo{
-  width:160px;height:160px;
-  opacity:0;transform:scale(.7);
-  animation:bootIn 1.4s var(--ease) .2s forwards, bootPulse 2.4s ease-in-out 1.6s infinite;
-  filter:drop-shadow(0 0 40px rgba(124,92,255,.5));
+  width:clamp(160px, 28vmin, 240px);
+  height:clamp(160px, 28vmin, 240px);
+  position:relative;
+  filter:drop-shadow(0 0 0 rgba(255,255,255,0));
+  animation:bootGlow 2.6s cubic-bezier(.4,0,.2,1) .15s forwards;
 }
-.boot-logo img{width:100%;height:100%;object-fit:contain;border-radius:32px}
+.boot-logo svg{width:100%;height:100%;display:block;overflow:visible}
+
+/* Crescent moon — stroke draw-in then fill swap */
+.boot-crescent-stroke{
+  fill:none;
+  stroke:#fff;
+  stroke-width:2.4;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  /* circumference of r=78 circle ≈ 490 */
+  stroke-dasharray:495;
+  stroke-dashoffset:495;
+  animation:crescentDraw 1.05s cubic-bezier(.65,.02,.3,1) .25s forwards,
+            crescentStrokeFade .35s ease-out 1.35s forwards;
+}
+.boot-crescent-fill{
+  fill:#fff;
+  opacity:0;
+  transform-origin:center;
+  transform-box:fill-box;
+  animation:crescentFill .55s cubic-bezier(.4,0,.2,1) 1.20s forwards;
+}
+
+/* The 4-point sparkle star inside crescent */
+.boot-star{
+  fill:#fff;
+  opacity:0;
+  transform-origin:center;
+  transform-box:fill-box;
+  transform:scale(0) rotate(-45deg);
+  animation:starPop .7s cubic-bezier(.34,1.56,.64,1) 1.35s forwards, starTwinkle 2.4s ease-in-out 2.1s infinite;
+}
+
+/* Subtle outer glow ring */
+.boot-glow-ring{
+  fill:none;
+  stroke:rgba(255,255,255,.12);
+  stroke-width:1;
+  opacity:0;
+  animation:ringFade .9s ease-out 1.4s forwards;
+}
+
+/* Particles that burst out when star pops */
+.boot-particle{
+  fill:#fff;
+  opacity:0;
+  transform-origin:center;
+  transform-box:fill-box;
+}
+.boot-particle.p1{animation:partBurst .9s ease-out 1.5s forwards}
+.boot-particle.p2{animation:partBurst .9s ease-out 1.55s forwards}
+.boot-particle.p3{animation:partBurst .9s ease-out 1.6s forwards}
+.boot-particle.p4{animation:partBurst .9s ease-out 1.5s forwards}
+.boot-particle.p5{animation:partBurst .9s ease-out 1.58s forwards}
+.boot-particle.p6{animation:partBurst .9s ease-out 1.52s forwards}
+
 .boot-text{
-  font-size:26px;font-weight:700;letter-spacing:.4em;
+  font-size:clamp(20px, 3.2vmin, 28px);font-weight:700;letter-spacing:.42em;
   background:linear-gradient(90deg,#fff,#c9b8ff,#fff);
   background-size:200% 100%;
   -webkit-background-clip:text;background-clip:text;color:transparent;
-  opacity:0;animation:bootIn 1s var(--ease) .9s forwards, shimmer 3s linear 2s infinite;
+  opacity:0;transform:translateY(8px);
+  animation:bootTextIn .85s cubic-bezier(.22,1,.36,1) 1.65s forwards, shimmer 3.2s linear 2.5s infinite;
+  padding-left:.42em;/* compensate letter-spacing centering */
 }
 .boot-bar{
-  width:200px;height:2px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden;
-  opacity:0;animation:bootIn 1s var(--ease) 1.2s forwards;
+  width:clamp(140px, 22vmin, 200px);height:2px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;
+  opacity:0;animation:bootTextIn .7s var(--ease) 1.95s forwards;
 }
 .boot-bar::before{
   content:'';display:block;height:100%;width:30%;
-  background:linear-gradient(90deg,transparent,#7c5cff,transparent);
-  animation:loadBar 1.4s ease-in-out infinite;
+  background:linear-gradient(90deg,transparent,#fff,transparent);
+  animation:loadBar 1.3s ease-in-out infinite;
 }
-@keyframes bootIn{to{opacity:1;transform:scale(1)}}
-@keyframes bootPulse{0%,100%{filter:drop-shadow(0 0 40px rgba(124,92,255,.5))}50%{filter:drop-shadow(0 0 60px rgba(124,92,255,.85))}}
+
+@keyframes crescentDraw{
+  0%  {stroke-dashoffset:495; opacity:.7}
+  60% {opacity:1}
+  100%{stroke-dashoffset:0;   opacity:1}
+}
+@keyframes crescentStrokeFade{
+  0%{opacity:1}
+  100%{opacity:0} /* fade outline once the fill takes over to avoid double-edge */
+}
+@keyframes crescentFill{
+  0%  {opacity:0; transform:scale(.985)}
+  100%{opacity:1; transform:scale(1)}
+}
+@keyframes starPop{
+  0%  {opacity:0; transform:scale(0)   rotate(-45deg)}
+  55% {opacity:1; transform:scale(1.25) rotate(8deg)}
+  100%{opacity:1; transform:scale(1)    rotate(0deg)}
+}
+@keyframes starTwinkle{
+  0%,100%{filter:drop-shadow(0 0 4px rgba(255,255,255,.4))}
+  50%   {filter:drop-shadow(0 0 14px rgba(255,255,255,.95))}
+}
+@keyframes ringFade{
+  0%{opacity:0; transform:scale(.85)}
+  100%{opacity:.55; transform:scale(1)}
+}
+@keyframes partBurst{
+  0%  {opacity:1; transform:translate(0,0) scale(1)}
+  100%{opacity:0; transform:translate(var(--px,0), var(--py,0)) scale(.2)}
+}
+@keyframes bootGlow{
+  0%  {filter:drop-shadow(0 0 0 rgba(255,255,255,0))}
+  60% {filter:drop-shadow(0 0 30px rgba(255,255,255,.55))}
+  100%{filter:drop-shadow(0 0 22px rgba(255,255,255,.35))}
+}
+@keyframes bootTextIn{to{opacity:1; transform:translateY(0)}}
 @keyframes shimmer{to{background-position:-200% 0}}
 @keyframes loadBar{0%{transform:translateX(-100%)}100%{transform:translateX(440%)}}
 
@@ -372,8 +472,27 @@ body.no-anim .wp-stars .twinkle{animation:none !important}
 .menubar-item{cursor:pointer;transition:all .2s var(--ease);padding:3px 8px;border-radius:6px;font-weight:500}
 .menubar-item:hover{color:#fff;background:rgba(255,255,255,.08)}
 .menubar-item.brand{color:#fff;font-weight:700;letter-spacing:.04em}
-.menubar-right{margin-left:auto;display:flex;align-items:center;gap:16px;font-size:12px;font-weight:500}
+.menubar-right{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:12px;font-weight:500}
 .status-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok), 0 0 4px var(--ok);animation:pulseDot 2s ease-in-out infinite}
+/* ====== Fullscreen Toggle Button ====== */
+.mb-icon-btn{
+  width:24px;height:22px;border-radius:6px;
+  background:transparent;border:none;
+  display:inline-flex;align-items:center;justify-content:center;
+  color:var(--text-dim);
+  cursor:pointer;
+  transition:background .2s var(--ease), color .2s var(--ease), transform .2s var(--ease);
+  -webkit-tap-highlight-color:transparent;
+  padding:0;
+  position:relative;
+}
+.mb-icon-btn:hover{background:rgba(255,255,255,.10);color:#fff;transform:scale(1.05)}
+.mb-icon-btn:active{transform:scale(.92)}
+.mb-icon-btn svg{width:14px;height:14px;display:block;transition:opacity .25s var(--ease), transform .25s var(--ease)}
+.mb-icon-btn .icon-exit{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.6);opacity:0;pointer-events:none}
+body.is-fullscreen .mb-icon-btn .icon-enter{opacity:0;transform:scale(.6)}
+body.is-fullscreen .mb-icon-btn .icon-exit{opacity:1;transform:translate(-50%,-50%) scale(1);position:absolute;top:50%;left:50%}
+.mb-icon-btn .icon-enter{transition:opacity .25s var(--ease), transform .25s var(--ease)}
 @keyframes pulseDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.7;transform:scale(.9)}}
 
 /* ====== Desktop ====== */
@@ -1199,24 +1318,228 @@ body.compact .desktop-icon .ico{width:40px;height:40px}
 body.compact .desktop-icon .lbl{font-size:10.5px}
 body.compact .dock-item{width:46px;height:46px}
 
+/* =====================================================
+   Faux fullscreen fallback (for iOS Safari etc.)
+   ===================================================== */
+body.faux-fullscreen .menubar{transform:translateY(-100%);transition:transform .35s var(--ease)}
+body.faux-fullscreen .dock-wrap{transform:translateY(120%);transition:transform .35s var(--ease)}
+body.faux-fullscreen .desktop{inset:0 0 0 0}
+body.faux-fullscreen .window.focused.maximized{top:0 !important;height:100vh !important;height:100dvh !important}
+
+/* =====================================================
+   RESPONSIVE — Tablet / Phone / Touch optimizations
+   =====================================================
+   Strategy:
+     - Use dvh/svh for true viewport on iOS Safari
+     - Touch-friendly hit targets (≥44px)
+     - Reflow desktop grid to fit any width
+     - Dock pinned at bottom on small screens
+     - Windows auto-maximize on phones (no awkward floating)
+     - Larger font-scale on hi-dpi tablets
+     - Safe-area insets for notched devices
+   ===================================================== */
+
+/* iOS dynamic viewport */
+@supports (height: 100dvh){
+  html, body{height:100dvh}
+}
+
+/* Safe-area insets for iPhone notch / home indicator */
+.menubar{padding-top:env(safe-area-inset-top); height:calc(32px + env(safe-area-inset-top))}
+.dock-wrap{padding-bottom:env(safe-area-inset-bottom)}
+.desktop{padding-left:max(28px, env(safe-area-inset-left)); padding-right:max(28px, env(safe-area-inset-right))}
+
+/* Tablet (≤ 1024px) */
+@media (max-width: 1024px){
+  .desktop{grid-template-columns:repeat(auto-fill, 84px); grid-auto-rows:96px; padding:22px; gap:8px}
+  .desktop-icon .ico{width:48px;height:48px}
+  .desktop-icon .lbl{font-size:11px}
+  .dock{padding:8px 10px; gap:8px}
+  .dock-item{width:50px;height:50px}
+  .window{min-width:320px; min-height:240px}
+  .welcome h1{font-size:clamp(40px, 8vw, 64px)}
+}
+
+/* Phone (≤ 720px) — the big one */
+@media (max-width: 720px){
+  :root{
+    --radius-xl:18px;
+    --radius-lg:14px;
+  }
+  .menubar{font-size:12px; padding:0 12px; padding-top:env(safe-area-inset-top)}
+  .menubar-left{gap:10px}
+  .menubar-right{gap:10px}
+  .menubar-item.brand{font-size:13px}
+  #bat, #clk{font-size:11.5px}
+
+  .desktop{
+    grid-template-columns:repeat(auto-fill, minmax(74px, 1fr));
+    grid-auto-rows:92px;
+    padding:18px 14px;
+    gap:6px;
+    inset:calc(32px + env(safe-area-inset-top)) 0 110px 0;
+  }
+  .desktop-icon{padding:8px 2px}
+  .desktop-icon .ico{width:44px;height:44px;border-radius:11px}
+  .desktop-icon .lbl{font-size:10.5px;max-width:72px}
+
+  /* Dock pinned + horizontally scrollable on phone */
+  .dock-hover-zone{display:none}
+  .dock-wrap{
+    bottom:max(12px, env(safe-area-inset-bottom));
+    left:8px; right:8px;
+    transform:none !important;
+    opacity:1 !important;
+    pointer-events:auto !important;
+  }
+  .dock{
+    width:auto; max-width:100%;
+    padding:6px 8px; gap:6px;
+    overflow-x:auto; overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    border-radius:18px;
+    justify-content:flex-start;
+  }
+  .dock::-webkit-scrollbar{display:none}
+  .dock-item{width:44px;height:44px;flex-shrink:0}
+  /* Disable magnification scaling on touch (no hover) */
+  .dock-item:hover{transform:none}
+
+  /* Windows: auto-maximize feel on phones, but keep titlebar */
+  .window{
+    min-width:0 !important;
+    min-height:0 !important;
+    width:calc(100vw - 12px) !important;
+    max-width:calc(100vw - 12px);
+    left:6px !important;
+    right:6px;
+    top:calc(36px + env(safe-area-inset-top)) !important;
+    height:calc(100vh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    height:calc(100dvh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    border-radius:var(--radius-lg);
+  }
+  .window.maximized{
+    top:calc(32px + env(safe-area-inset-top)) !important;
+    left:0 !important;
+    width:100vw !important;
+    height:calc(100dvh - 32px - env(safe-area-inset-top)) !important;
+  }
+  .window-titlebar{height:42px; padding:0 10px}
+  .win-btn{width:24px;height:24px}
+  .resize-handle{display:none} /* no manual resize on phone */
+
+  .welcome{padding:0 16px}
+  .welcome h1{font-size:clamp(36px, 12vw, 56px)}
+  .welcome p{font-size:13px}
+
+  .notify{left:8px;right:8px;bottom:auto;top:calc(40px + env(safe-area-inset-top));max-width:none}
+}
+
+/* Very small phones (≤ 380px) */
+@media (max-width: 380px){
+  .desktop{grid-template-columns:repeat(auto-fill, minmax(68px, 1fr));grid-auto-rows:86px}
+  .desktop-icon .ico{width:40px;height:40px}
+  .desktop-icon .lbl{font-size:10px;max-width:66px}
+  .dock-item{width:40px;height:40px}
+  #bat{display:none}
+}
+
+/* Touch devices — disable hover-driven magnification & enlarge hit areas */
+@media (hover: none) and (pointer: coarse){
+  .desktop-icon:hover{transform:none}
+  .desktop-icon:hover .ico{transform:none; filter:none}
+  .dock-item:hover{transform:none}
+  .win-btn{width:28px;height:28px}
+  .mb-icon-btn{width:32px;height:28px}
+  .mb-icon-btn svg{width:16px;height:16px}
+  /* Prevent text selection on long-press for UI chrome */
+  .menubar, .dock, .window-titlebar, .desktop-icon, .dock-item{
+    -webkit-user-select:none; user-select:none;
+    -webkit-touch-callout:none;
+  }
+}
+
+/* Landscape phone — keep dock compact */
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 500px){
+  .desktop{inset:32px 0 80px 0; grid-auto-rows:80px}
+  .desktop-icon .ico{width:42px;height:42px}
+  .dock-wrap{bottom:6px}
+  .dock{padding:5px 7px}
+  .dock-item{width:40px;height:40px}
+  .welcome h1{font-size:36px}
+  .welcome p{font-size:12px}
+}
+
+/* Hi-DPI screens — crisper shadows */
+@media (min-resolution: 2dppx){
+  .window{box-shadow:0 50px 120px -32px rgba(0,0,0,.9), 0 0 0 .5px rgba(255,255,255,.06)}
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce){
+  .boot-crescent-stroke, .boot-crescent-fill, .boot-star, .boot-glow-ring, .boot-particle, .boot-logo, .boot-text, .boot-bar{
+    animation-duration:.001s !important; animation-delay:0s !important;
+    opacity:1 !important; transform:none !important; stroke-dashoffset:0 !important;
+  }
+  *, *::before, *::after{
+    animation-duration:.001s !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.001s !important;
+  }
+}
+
+/* Window dragging visual hint */
+.window.dragging{
+  transition:none !important;
+  cursor:grabbing;
+  box-shadow:0 60px 140px -28px rgba(0,0,0,.95), 0 0 0 1px rgba(139,111,255,.18), 0 0 80px -10px rgba(139,111,255,.28);
+}
+.window.dragging .window-titlebar{cursor:grabbing}
+.window-titlebar{cursor:grab; touch-action:none}
+.window.maximized .window-titlebar{cursor:default}
+
 </style>
 </head>
 <body>
 
-<!-- ============ BOOT SPLASH ============ -->
+<!-- ============ BOOT SPLASH — NyxOS Crescent + Star ============ -->
 <div id="boot">
   <div class="boot-logo">
-    <svg viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
-      <defs>
-        <linearGradient id="bootBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1d1530"/><stop offset="1" stop-color="#0a0a14"/></linearGradient>
-        <linearGradient id="bootAc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9b8ff"/><stop offset=".55" stop-color="#a78bff"/><stop offset="1" stop-color="#5a8dff"/></linearGradient>
-        <radialGradient id="bootGlow" cx=".5" cy=".5" r=".55"><stop offset="0" stop-color="rgba(167,139,250,.5)"/><stop offset="1" stop-color="rgba(167,139,250,0)"/></radialGradient>
-      </defs>
-      <rect width="160" height="160" rx="36" fill="url(#bootBg)"/>
-      <circle cx="80" cy="80" r="60" fill="url(#bootGlow)"/>
-      <path d="M80 24 L120 38 V80 C120 104 105 122 80 134 C55 122 40 104 40 80 V38 Z" fill="none" stroke="url(#bootAc)" stroke-width="3.2" stroke-linejoin="round"/>
-      <path d="M60 56 L60 104 L100 56 L100 104" stroke="url(#bootAc)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      <circle cx="80" cy="80" r="3.2" fill="#c9b8ff"/>
+    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="NyxOS">
+      <!-- subtle outer ring for depth -->
+      <circle class="boot-glow-ring" cx="100" cy="100" r="86"/>
+
+      <!-- CRESCENT MOON: composite path (outer circle + inner offset circle subtracted via fill-rule:evenodd).
+           Phase 1: outer ring strokes itself outline-style.
+           Phase 2: the full crescent fills in white (with the inner cut-out) producing the reference logo. -->
+      <path class="boot-crescent-stroke"
+            d="M 100 22
+               A 78 78 0 1 0 100 178
+               A 78 78 0 1 0 100 22 Z"/>
+      <path class="boot-crescent-fill" fill-rule="evenodd"
+            d="M 100 22
+               A 78 78 0 1 0 100 178
+               A 78 78 0 1 0 100 22 Z
+               M 115 28
+               A 64 64 0 1 1 115 156
+               A 64 64 0 1 1 115 28 Z"/>
+
+      <!-- 4-point sparkle star inside the crescent (positioned upper-right like the photo) -->
+      <path class="boot-star"
+            d="M 124 70
+               C 124 78, 128 84, 138 86
+               C 128 88, 124 94, 124 102
+               C 124 94, 120 88, 110 86
+               C 120 84, 124 78, 124 70 Z"/>
+
+      <!-- Burst particles that fly out from the star on pop -->
+      <circle class="boot-particle p1" cx="124" cy="86" r="1.6" style="--px:18px;--py:-22px"/>
+      <circle class="boot-particle p2" cx="124" cy="86" r="1.4" style="--px:24px;--py:6px"/>
+      <circle class="boot-particle p3" cx="124" cy="86" r="1.8" style="--px:-4px;--py:-26px"/>
+      <circle class="boot-particle p4" cx="124" cy="86" r="1.4" style="--px:-22px;--py:-8px"/>
+      <circle class="boot-particle p5" cx="124" cy="86" r="1.6" style="--px:12px;--py:22px"/>
+      <circle class="boot-particle p6" cx="124" cy="86" r="1.2" style="--px:-16px;--py:16px"/>
     </svg>
   </div>
   <div class="boot-text">N Y X O S</div>
@@ -1247,6 +1570,16 @@ body.compact .dock-item{width:46px;height:46px}
     <div class="menubar-item brand">NyxOS</div>
   </div>
   <div class="menubar-right">
+    <button id="fsToggle" class="mb-icon-btn" type="button" title="大画面モード" aria-label="Toggle fullscreen">
+      <!-- Enter fullscreen icon (4 corner arrows pointing out) -->
+      <svg class="icon-enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/>
+      </svg>
+      <!-- Exit fullscreen icon (4 corner arrows pointing in) -->
+      <svg class="icon-exit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/>
+      </svg>
+    </button>
     <div class="status-dot" title="Online"></div>
     <div id="bat">100%</div>
     <div id="clk">--:--</div>
@@ -1856,7 +2189,7 @@ const APP_CATALOG = [
     id:"own", name:"Own", url:"/own",
     icon:"own", color:"#f97316", category:"プロキシ",
     desc:"自分だけのプライベートなプロキシ環境。",
-    longDesc:"Own は個人専用のプライベートプロキシ空間を提供します。共有しない自分専用の通信路で、よりセキュアでパーソナライズされたウェブ体験ができます。",
+    longDesc:"現在機能しておりません。個人専用のプライベートプロキシ空間を提供します。共有しない自分専用の通信路で、よりセキュアでパーソナライズされたウェブ体験ができます。",
     width:1100, height:700, version:"2.3.0", author:"NyxOS Team",
     tags:["proxy","private","personal"]
   },
@@ -2012,17 +2345,17 @@ const APP_CATALOG = [
   /* ===== Learning ===== */
   {
     id:"science", name:"Science", url:"/science",
-    icon:"science", color:"#06b6d4", category:"学習",
-    desc:"楽しみながら学べるインタラクティブな科学コンテンツ。",
-    longDesc:"Science は物理・化学・生物・天文学のトピックをインタラクティブに学べる教育アプリです。シミュレーションや 3D 視覚化で、難しい概念も直感的に理解できます。学生にも社会人にもおすすめ。",
+    icon:"science", color:"#06b6d4", category:"プロキシ",
+    desc:"至高のwebプロキシ,
+    longDesc:"Science は独自の技術で最高峰の通信速度を実現した高性能なプロキシです",
     width:1080, height:680, version:"1.4.0", author:"NyxOS Edu",
     tags:["learning","science","edu"]
   },
   {
     id:"earth", name:"Earth", url:"/earth",
-    icon:"earth", color:"#22c55e", category:"学習",
-    desc:"地球を 3D で自由に探索できるバーチャル地球儀。",
-    longDesc:"Earth は地球を 3D で自由に回転・拡大して探索できるバーチャル地球儀アプリです。世界中の名所や地形、衛星画像を眺めながら、地理の学習や旅行計画にも使えます。",
+    icon:"earth", color:"#22c55e", category:"プロキシ",
+    desc:"UVプロキシ",
+    longDesc:"Earth はUVを利用した高性能なプロキシです",
     width:1080, height:680, version:"2.0.0", author:"NyxOS Edu",
     tags:["learning","earth","map"]
   },
@@ -2046,9 +2379,9 @@ const APP_CATALOG = [
   },
   {
     id:"sia", name:"Sia", url:"/sia",
-    icon:"sia", color:"#9333ea", category:"システム",
-    desc:"NyxOS 内部の特別なシステムインターフェース。",
-    longDesc:"Sia は NyxOS の隠された機能にアクセスできる特別なシステムインターフェースです。上級者向けの設定や、開発者用の特殊コマンドを提供します。使用には注意が必要です。",
+    icon:"sia", color:"#9333ea", category:"エンタメ",
+    desc:"最も普及したYoutubeプロキシ。",
+    longDesc:"Sia は ブロックされたYoutube動画にアクセスできる特別なシステムインターフェースです。",
     width:1000, height:680, version:"0.7.0", author:"NyxOS Labs",
     tags:["system","advanced","tool"]
   },
@@ -2200,43 +2533,120 @@ const WM = {
     const closeBtn = w.querySelector('.win-btn.close');
     const resize = w.querySelector('.resize-handle');
 
-    // Drag
-    let dragX=0, dragY=0, startL=0, startT=0, dragging=false;
-    tbar.addEventListener('mousedown', e=>{
-      if(e.target.closest('.win-btn')) return;
+    /* =========================================================
+       DRAG — robust pointer-events implementation
+       =========================================================
+       Fixes:
+         1) Window no longer "follows the cursor" when user isn't
+            actually grabbing the titlebar (drag only starts when
+            pointerdown lands directly on the titlebar background
+            or its text — NEVER on buttons, iframes, child controls).
+         2) Uses setPointerCapture so the pointerup event is
+            guaranteed to fire even if the cursor leaves the
+            titlebar or enters an iframe — prior code could get
+            stuck in "dragging" mode.
+         3) Move/up listeners are added on pointerdown and removed
+            on pointerup — no permanently-attached global listeners.
+         4) A small movement threshold (3px) prevents accidental
+            "drag jitter" from a normal click.
+         5) Full touch support (pointer events unify mouse + touch).
+    */
+    let dragState = null;
+    const onTbarPointerDown = (e)=>{
+      // Only primary button / single touch
+      if(e.button !== undefined && e.button !== 0) return;
+      // Never drag from interactive children
+      if(e.target.closest('.win-btn, button, input, select, a, [data-no-drag]')) return;
+      // The pointerdown target must be the titlebar itself or its label,
+      // i.e. the user is actually grabbing the titlebar "frame".
+      if(!(e.target === tbar || tbar.contains(e.target))) return;
       if(w.classList.contains('maximized')) return;
-      dragging=true; dragX=e.clientX; dragY=e.clientY;
-      startL=w.offsetLeft; startT=w.offsetTop;
+      // Capture so we never lose the pointerup
+      try{ tbar.setPointerCapture(e.pointerId); }catch(_){}
+      dragState = {
+        id:e.pointerId,
+        startX:e.clientX, startY:e.clientY,
+        startL:w.offsetLeft, startT:w.offsetTop,
+        moved:false
+      };
       this.focus(w);
-      document.body.style.userSelect='none';
-    });
-    document.addEventListener('mousemove', e=>{
-      if(!dragging) return;
-      w.style.left = (startL + e.clientX - dragX) + 'px';
-      w.style.top  = Math.max(30, startT + e.clientY - dragY) + 'px';
-    });
-    document.addEventListener('mouseup', ()=>{ dragging=false; document.body.style.userSelect=''; });
+    };
+    const onTbarPointerMove = (e)=>{
+      if(!dragState || e.pointerId !== dragState.id) return;
+      const dx = e.clientX - dragState.startX;
+      const dy = e.clientY - dragState.startY;
+      // Threshold prevents micro-jitter on a plain click
+      if(!dragState.moved){
+        if(Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
+        dragState.moved = true;
+        document.body.style.userSelect='none';
+        w.classList.add('dragging');
+        // Disable pointer events on iframes while dragging so move events
+        // don't get "swallowed" when cursor passes over them.
+        w.querySelectorAll('iframe').forEach(f=> f.style.pointerEvents='none');
+      }
+      const newL = dragState.startL + dx;
+      const newT = Math.max(30, dragState.startT + dy);
+      // Keep at least 40px of titlebar visible on the right/bottom edges
+      const maxL = window.innerWidth  - 80;
+      const maxT = window.innerHeight - 60;
+      w.style.left = Math.min(Math.max(-w.offsetWidth + 80, newL), maxL) + 'px';
+      w.style.top  = Math.min(newT, maxT) + 'px';
+    };
+    const onTbarPointerUp = (e)=>{
+      if(!dragState || e.pointerId !== dragState.id) return;
+      try{ tbar.releasePointerCapture(e.pointerId); }catch(_){}
+      if(dragState.moved){
+        document.body.style.userSelect='';
+        w.classList.remove('dragging');
+        w.querySelectorAll('iframe').forEach(f=> f.style.pointerEvents='');
+      }
+      dragState = null;
+    };
+    tbar.addEventListener('pointerdown', onTbarPointerDown);
+    tbar.addEventListener('pointermove', onTbarPointerMove);
+    tbar.addEventListener('pointerup', onTbarPointerUp);
+    tbar.addEventListener('pointercancel', onTbarPointerUp);
+    // Safety net if browser steals the pointer (e.g. context menu)
+    tbar.addEventListener('lostpointercapture', onTbarPointerUp);
 
     // Focus
     w.addEventListener('mousedown', ()=> this.focus(w));
+    w.addEventListener('touchstart', ()=> this.focus(w), {passive:true});
 
-    // Resize
-    let rsX=0,rsY=0,rsW=0,rsH=0,resizing=false;
-    resize.addEventListener('mousedown', e=>{
+    /* =========================================================
+       RESIZE — same robust pointer-events pattern
+       ========================================================= */
+    let resizeState = null;
+    resize.addEventListener('pointerdown', e=>{
+      if(e.button !== undefined && e.button !== 0) return;
       e.stopPropagation();
-      resizing=true; rsX=e.clientX; rsY=e.clientY;
-      rsW=w.offsetWidth; rsH=w.offsetHeight;
+      try{ resize.setPointerCapture(e.pointerId); }catch(_){}
+      resizeState = {
+        id:e.pointerId,
+        startX:e.clientX, startY:e.clientY,
+        startW:w.offsetWidth, startH:w.offsetHeight
+      };
       w.classList.add('resizing');
       document.body.style.userSelect='none';
+      w.querySelectorAll('iframe').forEach(f=> f.style.pointerEvents='none');
     });
-    document.addEventListener('mousemove', e=>{
-      if(!resizing) return;
-      w.style.width = Math.max(380, rsW + e.clientX - rsX) + 'px';
-      w.style.height= Math.max(260, rsH + e.clientY - rsY) + 'px';
+    resize.addEventListener('pointermove', e=>{
+      if(!resizeState || e.pointerId !== resizeState.id) return;
+      w.style.width = Math.max(320, resizeState.startW + e.clientX - resizeState.startX) + 'px';
+      w.style.height= Math.max(240, resizeState.startH + e.clientY - resizeState.startY) + 'px';
     });
-    document.addEventListener('mouseup', ()=>{
-      if(resizing){ resizing=false; w.classList.remove('resizing'); document.body.style.userSelect=''; }
-    });
+    const endResize = (e)=>{
+      if(!resizeState || (e && e.pointerId !== resizeState.id)) return;
+      try{ resize.releasePointerCapture(e.pointerId); }catch(_){}
+      resizeState = null;
+      w.classList.remove('resizing');
+      document.body.style.userSelect='';
+      w.querySelectorAll('iframe').forEach(f=> f.style.pointerEvents='');
+    };
+    resize.addEventListener('pointerup', endResize);
+    resize.addEventListener('pointercancel', endResize);
+    resize.addEventListener('lostpointercapture', endResize);
 
     // Buttons
     minBtn.addEventListener('click', ()=> this.minimize(w));
@@ -3239,8 +3649,15 @@ window.addEventListener('load', ()=>{
     document.getElementById('boot').classList.add('hidden');
     setTimeout(()=> notify('Welcome to NyxOS ✦'), 500);
   }else{
-    setTimeout(()=> document.getElementById('boot').classList.add('hidden'), 2400);
-    setTimeout(()=> notify('Welcome to NyxOS ✦'), 3200);
+    /* Boot animation timeline (total ~3.1s for an impactful but quick intro):
+       - 0.25s–1.3s : crescent stroke draws in
+       - 1.15s–1.7s : crescent fills white + outer ring fades in
+       - 1.35s–2.05s: star pops with particle burst
+       - 1.65s–2.5s : "N Y X O S" wordmark fades up
+       - 2.5s–3.1s  : intentional cinematic pause so it lingers in memory
+       - 3.1s        : splash fades out */
+    setTimeout(()=> document.getElementById('boot').classList.add('hidden'), 3100);
+    setTimeout(()=> notify('Welcome to NyxOS ✦'), 3900);
   }
 });
 
@@ -3295,12 +3712,45 @@ document.addEventListener('keydown', e=>{
   // F11 → toggle fullscreen API
   if(e.key === 'F11'){
     e.preventDefault();
-    if(!document.fullscreenElement) document.documentElement.requestFullscreen?.();
-    else document.exitFullscreen?.();
+    toggleFullscreen();
   }
   // Esc closes context menu
   if(e.key==='Escape') closeCtxMenu();
 });
+
+/* =========================================================
+   Fullscreen Toggle — menubar button + Fullscreen API
+   ========================================================= */
+function toggleFullscreen(){
+  const d = document;
+  const el = d.documentElement;
+  const isFs = d.fullscreenElement || d.webkitFullscreenElement || d.mozFullScreenElement || d.msFullscreenElement;
+  try{
+    if(!isFs){
+      (el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen).call(el);
+    }else{
+      (d.exitFullscreen || d.webkitExitFullscreen || d.mozCancelFullScreen || d.msExitFullscreen).call(d);
+    }
+  }catch(err){
+    // iOS Safari often blocks fullscreen on documentElement — fall back
+    // to a "chromeless" CSS mode for a similar visual experience.
+    document.body.classList.toggle('is-fullscreen');
+    document.body.classList.toggle('faux-fullscreen');
+    notify(document.body.classList.contains('faux-fullscreen') ? '大画面モード (シミュレート)' : '小画面モード');
+  }
+}
+function syncFullscreenState(){
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+  document.body.classList.toggle('is-fullscreen', isFs);
+  const btn = document.getElementById('fsToggle');
+  if(btn) btn.title = isFs ? '小画面モード' : '大画面モード';
+}
+document.addEventListener('fullscreenchange', syncFullscreenState);
+document.addEventListener('webkitfullscreenchange', syncFullscreenState);
+document.addEventListener('mozfullscreenchange', syncFullscreenState);
+document.addEventListener('MSFullscreenChange', syncFullscreenState);
+document.getElementById('fsToggle')?.addEventListener('click', toggleFullscreen);
 </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>

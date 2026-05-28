@@ -326,11 +326,26 @@ body.no-anim .wp-stars .twinkle{animation:none !important}
   background:#000;
   display:flex;align-items:center;justify-content:center;
   flex-direction:column;gap:38px;
-  transition:opacity .85s cubic-bezier(.65,0,.35,1),visibility .85s;
   /* Subtle radial vignette to add depth */
   background:radial-gradient(ellipse at center, #0a0a10 0%, #000 70%);
+  /* NOTE: transition は下の #boot ブロック (v6 patch) で上書き */
 }
-#boot.hidden{opacity:0;visibility:hidden;pointer-events:none;transform:scale(1.04)}
+/* FIX (v6): 旧バージョンでは fade-out 時に scale(1.04) でロゴ等が一瞬大きくなる
+   見栄えの悪いバグがあった。ここでは opacity のみで穏やかに消し、
+   scale はわずかに 0.985 まで縮ませることで「奥に引っ込む」高級感を演出する。
+   transform-origin / transition も明示し、フェードの最後にロゴが膨らまないようにする。 */
+#boot{
+  transform:scale(1) translateZ(0);
+  transform-origin:center center;
+  transition:opacity .9s cubic-bezier(.45,0,.25,1), transform .9s cubic-bezier(.45,0,.25,1), visibility 0s linear .9s;
+  will-change:opacity, transform;
+}
+#boot.hidden{
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transform:scale(.985) translateZ(0); /* わずかに縮みながらフェード — 膨らみバグを完全除去 */
+}
 .boot-logo{
   width:clamp(160px, 28vmin, 240px);
   height:clamp(160px, 28vmin, 240px);
@@ -1302,6 +1317,42 @@ body.fullscreen-mode .window.focused.maximized .window-titlebar{
 }
 
 /* =====================================================
+   v6: Maximized Window — Best operability mode
+   ─ 上部メニューバー（曜日・バッテリー表示）を完全に隠し、
+     ウィンドウのタイトルバー（－ボタンが含まれるパネル）だけを残す。
+     ウィンドウは画面最上端から底まで広がり、最大の操作領域を提供する。
+   ===================================================== */
+body.has-maximized .menubar{
+  transform:translateY(-110%);
+  opacity:0;
+  pointer-events:none;
+  transition:transform .35s cubic-bezier(.45,0,.25,1), opacity .25s ease;
+}
+.menubar{
+  transition:transform .4s cubic-bezier(.22,1,.36,1), opacity .3s ease;
+  transform:translateY(0);
+  will-change:transform;
+}
+body.has-maximized .window.maximized{
+  border-radius:0 !important;
+  border:none !important;
+  top:0 !important;
+  left:0 !important;
+  width:100vw !important;
+  height:100vh !important;
+  height:100dvh !important; /* 真のビューポート高さで Safari の URL バーも吸収 */
+}
+body.has-maximized .window.maximized .window-titlebar{
+  background:linear-gradient(180deg,rgba(20,20,28,.92),rgba(20,20,28,.78));
+  backdrop-filter:blur(24px) saturate(180%);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  border-bottom:1px solid rgba(255,255,255,.06);
+  height:38px;
+}
+/* タイトルバーが消えてしまわないよう、最大化中も常にトップ z-index */
+body.has-maximized .window.maximized{z-index:9000 !important}
+
+/* =====================================================
    Reduced-motion (Performance mode)
    ===================================================== */
 body.no-anim *, body.no-anim *::before, body.no-anim *::after{
@@ -2223,11 +2274,11 @@ const APP_CATALOG = [
   },
   {
     id:"labo5", name:"Labo5", url:"/labo5",
-    icon:"labo5", color:"#a855f7", category:"ツール",
-    desc:"HTML 動画解析と再生を実験できる実験室。",
-    longDesc:"Labo5 はウェブ上の HTML 動画ソースを解析・抽出・再生できる実験的なツールです。動画 URL を入力するだけで再生可能な形に変換し、保存もできます。開発者やマニアにおすすめ。",
-    width:1080, height:700, version:"0.9.5", author:"NyxOS Labs",
-    tags:["tool","video","html"]
+    icon:"labo5", color:"#a855f7", category:"エンタメ",
+    desc:"広告ゼロ・高画質で楽しめる YouTube 代替フロントエンド。",
+    longDesc:"Labo5 は YouTube を快適に視聴するための代替フロントエンドです。広告・トラッキング・コメント欄ノイズをすべてカットし、純粋な動画体験だけを抽出。最大 4K 画質の再生に対応し、バックグラウンド再生やお気に入りチャンネルの一括登録も可能。シンプルで美しい UI が長時間視聴でも疲れさせません。",
+    width:1080, height:700, version:"5.0.2", author:"NyxOS Labs",
+    tags:["entertainment","youtube","frontend","video"]
   },
   {
     id:"dlpro", name:"DL Pro", url:"/dl-pro",
@@ -2345,19 +2396,19 @@ const APP_CATALOG = [
   /* ===== Learning ===== */
   {
     id:"science", name:"Science", url:"/science",
-    icon:"science", color:"#06b6d4", category:"学習",
-    desc:"楽しみながら学べるインタラクティブな科学コンテンツ。",
-    longDesc:"Science は物理・化学・生物・天文学のトピックをインタラクティブに学べる教育アプリです。シミュレーションや 3D 視覚化で、難しい概念も直感的に理解できます。学生にも社会人にもおすすめ。",
-    width:1080, height:680, version:"1.4.0", author:"NyxOS Edu",
-    tags:["learning","science","edu"]
+    icon:"science", color:"#06b6d4", category:"プロキシ",
+    desc:"量子レベルの最適化で構築された次世代研究系プロキシ。",
+    longDesc:"Science は学術ネットワーク向けに最適化された研究系プロキシです。複数のリレー経路を電子のように瞬時に切り替え、ブロックされた論文・教材・参考サイトにも安定してアクセスできます。低遅延の専用ルーティングとインテリジェントなキャッシュにより、調べ物が驚くほど高速。学校や研究機関のフィルター環境でも、必要な情報にスマートに到達できます。",
+    width:1080, height:680, version:"3.2.0", author:"NyxOS Labs",
+    tags:["proxy","science","unblock","research"]
   },
   {
     id:"earth", name:"Earth", url:"/earth",
-    icon:"earth", color:"#22c55e", category:"学習",
-    desc:"地球を 3D で自由に探索できるバーチャル地球儀。",
-    longDesc:"Earth は地球を 3D で自由に回転・拡大して探索できるバーチャル地球儀アプリです。世界中の名所や地形、衛星画像を眺めながら、地理の学習や旅行計画にも使えます。",
-    width:1080, height:680, version:"2.0.0", author:"NyxOS Edu",
-    tags:["learning","earth","map"]
+    icon:"earth", color:"#22c55e", category:"プロキシ",
+    desc:"世界中のサーバーを横断する、地球規模のグローバルプロキシ。",
+    longDesc:"Earth は世界中に分散したエッジノードを束ね、地理的な制限を完全に無視するグローバルプロキシです。最寄りのサーバーを自動で選択し、まるで現地にいるかのように地域限定コンテンツへアクセス可能。SSL 終端と TLS 1.3 を組み合わせた強固な暗号化で、どこからアクセスしても安全。地球のどこからでも、自由なインターネットを取り戻します。",
+    width:1080, height:680, version:"4.1.0", author:"NyxOS Labs",
+    tags:["proxy","global","geo-unblock","world"]
   },
 
   /* ===== System ===== */
@@ -2379,11 +2430,11 @@ const APP_CATALOG = [
   },
   {
     id:"sia", name:"Sia", url:"/sia",
-    icon:"sia", color:"#9333ea", category:"システム",
-    desc:"NyxOS 内部の特別なシステムインターフェース。",
-    longDesc:"Sia は NyxOS の隠された機能にアクセスできる特別なシステムインターフェースです。上級者向けの設定や、開発者用の特殊コマンドを提供します。使用には注意が必要です。",
-    width:1000, height:680, version:"0.7.0", author:"NyxOS Labs",
-    tags:["system","advanced","tool"]
+    icon:"sia", color:"#9333ea", category:"エンタメ",
+    desc:"プライバシー重視で軽快に動く、YouTube 代替フロントエンド。",
+    longDesc:"Sia はプライバシー保護にこだわった YouTube 代替フロントエンドです。トラッキング・広告・推薦アルゴリズムを完全に排除し、自分の意思で動画を選べる純粋な視聴環境を提供します。動画ダウンロード、再生速度の細かい調整、ピクチャーインピクチャー、ダークテーマなど機能も充実。軽量設計で古いデバイスでも 60fps で滑らかに動作します。",
+    width:1000, height:680, version:"2.4.1", author:"NyxOS Labs",
+    tags:["entertainment","youtube","frontend","privacy"]
   },
 ];
 
@@ -2684,11 +2735,26 @@ const WM = {
       Object.assign(w.style, s);
     }else{
       w.dataset.prev = JSON.stringify({left:w.style.left, top:w.style.top, width:w.style.width, height:w.style.height});
-      // 完全に画面下まで広がる最大化（Dockはauto-hideで隠れる）
-      Object.assign(w.style, {left:'0px', top:'30px', width:'100vw', height:'calc(100vh - 30px)'});
+      /* v6: 最大化時はメニューバー（曜日・充電が表示されるパネル）を CSS 側で隠し、
+             ウィンドウのタイトルバー（－ボタンのパネル）だけを残す。
+             ウィンドウ自体は画面の最上端 0 から底まで広げ、最大の作業領域を提供する。 */
+      Object.assign(w.style, {left:'0px', top:'0px', width:'100vw', height:'100dvh'});
+      // height:100dvh が未サポートの場合のフォールバック
+      if(!CSS.supports('height','100dvh')) w.style.height = '100vh';
       w.classList.add('maximized');
       this._updateDockVisibility();
+      this._updateMaximizedState();
     }
+    this._updateMaximizedState();
+  },
+
+  /* v6: 少なくとも 1 つのウィンドウが最大化されていれば body に has-maximized を付与し、
+         上部メニューバーを完全に隠す。Esc / 再度 □ を押す / 閉じる で復帰。 */
+  _updateMaximizedState(){
+    const anyMaxed = this.windows.some(w =>
+      w.classList.contains('maximized') && !w.classList.contains('minimized')
+    );
+    document.body.classList.toggle('has-maximized', anyMaxed);
   },
 
   close(w){
@@ -2700,6 +2766,7 @@ const WM = {
       this.byApp.delete(id);
       this._updateDockIndicators();
       this._updateDockVisibility();
+      this._updateMaximizedState(); /* v6: 最大化中のウィンドウが閉じられたらメニューバー復帰 */
       if(this.windows.length===0) document.querySelector('.welcome')?.style.setProperty('opacity','1');
     }, 240);
   },
@@ -2729,6 +2796,14 @@ WM.minimize = function(w){
   w.classList.add('minimized');
   this._updateDockIndicators();
   this._updateDockVisibility();
+  this._updateMaximizedState(); /* v6: 最大化中ウィンドウが最小化されたらメニューバー復帰 */
+};
+
+/* v6: focus 時も最大化状態を再評価（フォーカス変化で見栄えが破綻しないように） */
+const __origFocus = WM.focus.bind(WM);
+WM.focus = function(w){
+  __origFocus(w);
+  this._updateMaximizedState();
 };
 
 /* =========================================================
@@ -3698,6 +3773,11 @@ document.addEventListener('keydown', e=>{
     const f = document.querySelector('.window.focused');
     if(f){ e.preventDefault(); WM.close(f); }
   }
+  // v6: Esc → 最大化解除（メニューバー復帰）
+  if(e.key === 'Escape'){
+    const fm = document.querySelector('.window.focused.maximized');
+    if(fm){ e.preventDefault(); WM.toggleMax(fm); }
+  }
   // Cmd/Ctrl + M → minimize focused
   if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='m'){
     const f = document.querySelector('.window.focused');
@@ -3751,6 +3831,7 @@ document.addEventListener('mozfullscreenchange', syncFullscreenState);
 document.addEventListener('MSFullscreenChange', syncFullscreenState);
 document.getElementById('fsToggle')?.addEventListener('click', toggleFullscreen);
 </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>

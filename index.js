@@ -102,11 +102,11 @@ app.use(async (req, res, next) => {
 // --- API ENDPOINTS ---
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(path.join(__dirname, "public", "home.html"));
 });
 
 app.get("/home", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "home.html"));
+  res.sendFile(path.join(__dirname, "public", "yt.html"));
 });
 
 

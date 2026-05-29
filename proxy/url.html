@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connecting to server</title>
+    <title>Loading</title>
     <link rel="icon" type="image/x-icon" href="/favicon.png">
     <style>
         * {
@@ -15,9 +15,9 @@
         html, body {
             height: 100%;
             overflow: hidden;
-            background: #0a0a0c;
+            background: #ffffff;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            color: #ffffff;
+            color: #1f2937;
         }
         
         #embed-frame {
@@ -29,13 +29,13 @@
             z-index: 2;
         }
         
-        /* --- Minimalist Loading UI --- */
+        /* --- Simple White Loading Theme --- */
         .loading-container {
             display: flex;
             align-items: center;
             justify-content: center;
             height: 100vh;
-            background: #0a0a0c;
+            background: #fafafa;
             position: relative;
             z-index: 10;
         }
@@ -44,56 +44,64 @@
             text-align: center;
         }
 
-        .loading-content h1 {
-            font-size: 1.5rem;
-            font-weight: 400;
-            letter-spacing: 0.05rem;
-            color: rgba(255, 255, 255, 0.9);
-            /* 静かに点滅する上品なアニメーション */
-            animation: pulse 2s infinite ease-in-out;
+        .loading-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.025em;
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 0.5; }
-            50% { opacity: 1; }
+        .status-text {
+            color: #6b7280;
+            font-size: 0.95rem;
+            font-weight: 500;
         }
-        
-        /* --- Error UI --- */
+
+        /* Error UI (White Theme) */
         .error-container {
             display: flex;
             align-items: center;
             justify-content: center;
             height: 100vh;
-            background: #0a0a0c;
+            background: #ffffff;
             position: relative;
             z-index: 20;
         }
         
         .error-content {
             text-align: center;
-            padding: 2rem;
-            max-width: 400px;
+            padding: 2.5rem;
+            background: #ffffff;
+            border: 1px solid #fee2e2;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            max-width: 450px;
+            width: 90%;
         }
         
         .error-content h1 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-            color: #ff6b6b;
+            font-size: 1.35rem;
+            margin-bottom: 0.75rem;
+            color: #ef4444;
+            font-weight: 700;
         }
         
-        .error-content p {
-            color: rgba(255, 255, 255, 0.7);
+        .error-message {
+            color: #4b5563;
             font-size: 0.9rem;
-            margin-bottom: 1.5rem;
+            line-height: 1.5;
         }
         
         .url-example {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 0.8rem;
+            margin-top: 1.5rem;
+            background: #f3f4f6;
+            padding: 0.75rem;
             border-radius: 6px;
             font-family: monospace;
             font-size: 0.8rem;
-            color: #888;
+            color: #6b7280;
+            border: 1px solid #e5e7eb;
         }
     </style>
 </head>
@@ -101,14 +109,15 @@
     
     <div id="loading-container" class="loading-container">
         <div class="loading-content">
-            <h1 id="loading-status">Connecting to server...</h1>
+            <h1 class="loading-title">Connecting to server...</h1>
+            <p id="loading-status" class="status-text">Locating optimal node...</p>
         </div>
     </div>
     
     <div id="error-container" class="error-container" style="display: none;">
         <div class="error-content">
             <h1>Connection Failed</h1>
-            <p id="error-message"></p>
+            <p id="error-message" class="error-message"></p>
             <div class="url-example">/embed#https://example.com</div>
         </div>
     </div>
@@ -175,7 +184,6 @@
                 }
             });
         }
-
         async function getAvailableWisp() {
             if (activeWispUrl) return activeWispUrl;
             
@@ -204,6 +212,7 @@
         async function getUV(input) {
             await registerSW();
             let url = search(input);
+            
             let wispUrl = await getAvailableWisp();
             
             if ((await connection.getTransport()) !== "/prxy/epoxy/index.mjs") {
@@ -245,7 +254,7 @@
                 statusText.textContent = "Locating optimal node...";
                 const proxiedUrl = await getUV(url);
                 
-                statusText.textContent = "Flowing to destination...";
+                statusText.textContent = "Flowing to destination... / Connecting to node";
                 iframe.onload = () => {
                     loadingContainer.style.display = 'none';
                     iframe.style.display = 'block';
